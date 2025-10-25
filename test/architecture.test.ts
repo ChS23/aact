@@ -154,6 +154,10 @@ describe("Architecture", () => {
     expect(pass).toBeTruthy();
   });
 
+  function escapePlantUmlUrl(url: string): string {
+    return url.replace(/:\//g, ':~/');
+  }
+
   function checkSections(
     config: DeployConfig,
     containerFromPuml: Container,
@@ -295,7 +299,7 @@ Boundary(project, "Our system"){
           data += `System_Ext(${toName}, "${toName}", " ")
 `;
           extSystems.push(toName);
-          transportAttribute = `, "${transport}"`;
+          transportAttribute = `, "${escapePlantUmlUrl(transport)}"`;
         }
 
         data += `Rel(${fromName}, ${toName}, ""${transportAttribute}`;
