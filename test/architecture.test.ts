@@ -102,7 +102,7 @@ describe("Architecture", () => {
         if (
           items &&
           !items.every((i: string) =>
-            config.sections.some((s) => s.prod_value === i),
+            config.sections.some((s) => s.prod_value === unescapePlantUmlUrl(i)),
           )
         ) {
           log = `${log}❌ ${relation.to.name} ${items}`;
@@ -142,7 +142,7 @@ describe("Architecture", () => {
             ?.split(", ")
             .every(
               (i: string) =>
-                i.startsWith("https://gateway.int.com:443/") || /-v\d$/.exec(i),
+                unescapePlantUmlUrl(i).startsWith("https://gateway.int.com:443/") || /-v\d$/.exec(i),
             )
         ) {
           log = `${log}❌ ${r.to.name}`;
@@ -158,6 +158,10 @@ describe("Architecture", () => {
     return url.replace(/:\//g, ':~/');
   }
 
+  function unescapePlantUmlUrl(url: string): string {
+    return url.replace(/:~\/~?\//g, '://');
+  }
+
   function checkSections(
     config: DeployConfig,
     containerFromPuml: Container,
@@ -169,12 +173,13 @@ describe("Architecture", () => {
         const result =
           containerFromPuml.relations.some((r) => {
             let result = false;
+            const technology = r.technology ? unescapePlantUmlUrl(r.technology) : undefined;
             if (r.tags?.includes(AsyncTag))
-              result = r.technology?.includes(section.prod_value) === true;
+              result = technology?.includes(section.prod_value) === true;
             if (!result && (!r.tags || r.tags.includes(RestTag)))
               result =
                 r.to.name === section.name &&
-                (r.technology?.includes(section.prod_value) ||
+                (technology?.includes(section.prod_value) ||
                   r.to.type !== SystemExternalType);
             return result;
           }) ||
@@ -183,7 +188,7 @@ describe("Architecture", () => {
               (r) =>
                 r.to.name === config.name &&
                 section.prod_value &&
-                r.technology?.includes(section.prod_value),
+                (r.technology ? unescapePlantUmlUrl(r.technology) : "").includes(section.prod_value),
             ),
           );
         if (!result && verbose)
@@ -200,13 +205,14 @@ describe("Architecture", () => {
           ),
         ),
       ].every((relation) => {
+        const technology = relation.technology ? unescapePlantUmlUrl(relation.technology) : undefined;
         const result =
           relation.to.name.endsWith("_db") ||
           config.sections.some(
             (configSection) =>
               configSection.name === relation.to.name ||
               (configSection.prod_value &&
-                relation.technology?.includes(configSection.prod_value)),
+                technology?.includes(configSection.prod_value)),
           );
 
         if (!result && verbose)
