@@ -1,0 +1,40 @@
+@startuml Common Reuse Principle
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+System_Boundary(orders, "Orders") {
+    Container(orders_api, "Orders API", "NestJS")
+    Container(orders_events, "Orders Events", "Kafka Consumer")
+    ContainerDb(orders_db, "Orders DB", "PostgreSQL")
+    Container(orders_repo, "Orders Repository", "NestJS", "", $tags="repo")
+}
+
+System_Boundary(inventory, "Inventory") {
+    Container(inventory_api, "Inventory API", "NestJS")
+    ContainerDb(inventory_db, "Inventory DB", "PostgreSQL")
+    Container(inventory_repo, "Inventory Repository", "NestJS", "", $tags="repo")
+}
+
+System_Boundary(fulfillment, "Fulfillment") {
+    Container(fulfillment_api, "Fulfillment API", "NestJS")
+    ContainerDb(fulfillment_db, "Fulfillment DB", "PostgreSQL")
+    Container(fulfillment_repo, "Fulfillment Repository", "NestJS", "", $tags="repo")
+}
+
+' Internal
+Rel(orders_api, orders_repo, "HTTP")
+Rel(orders_repo, orders_db, "SQL")
+Rel(orders_events, orders_repo, "HTTP")
+Rel(inventory_api, inventory_repo, "HTTP")
+Rel(inventory_repo, inventory_db, "SQL")
+Rel(fulfillment_api, fulfillment_repo, "HTTP")
+Rel(fulfillment_repo, fulfillment_db, "SQL")
+
+' Cross-boundary
+' Fulfillment uses both public services of Orders — ok
+Rel(fulfillment_api, orders_api, "HTTP")
+Rel(fulfillment_api, orders_events, "Kafka")
+
+' Inventory uses only orders_api but not orders_events — CRP violation
+Rel(inventory_api, orders_api, "HTTP")
+
+@enduml

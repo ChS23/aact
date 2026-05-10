@@ -4,6 +4,7 @@ on:
   push:
     branches-ignore:
       - master
+      - main
 
 jobs:
   plantuml:
@@ -11,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: install java
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           java-version: "17"
           distribution: temurin
@@ -31,7 +32,7 @@ jobs:
         run: java -jar /opt/plantuml.jar -tsvg "./resources/architecture/*.puml"
 
       - name: push svg diagrams
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "docs: render PlantUML files"
           file_pattern: ./resources/architecture/*.svg

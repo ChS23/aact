@@ -1,0 +1,456 @@
+{
+  "configuration": {},
+  "description": "Microservice architecture with intentional violations for aact demo.",
+  "documentation": {},
+  "id": 1,
+  "lastModifiedAgent": "structurizr-javascript",
+  "lastModifiedDate": "2026-03-11T15:12:12Z",
+  "model": {
+    "softwareSystems": [
+      {
+        "documentation": {},
+        "id": "1",
+        "location": "Unspecified",
+        "name": "Payment Gateway",
+        "properties": {
+          "structurizr.dsl.identifier": "payment"
+        },
+        "tags": "Element,Software System,External"
+      },
+      {
+        "documentation": {},
+        "id": "2",
+        "location": "Unspecified",
+        "name": "Notification Provider",
+        "properties": {
+          "structurizr.dsl.identifier": "notifications"
+        },
+        "tags": "Element,Software System,External"
+      },
+      {
+        "containers": [
+          {
+            "description": "Order management",
+            "documentation": {},
+            "id": "4",
+            "name": "Orders API",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_api"
+            },
+            "relationships": [
+              {
+                "description": "HTTP",
+                "destinationId": "5",
+                "id": "15",
+                "properties": {
+                  "structurizr.dsl.identifier": "8f121034-ed83-481a-97e0-793e44512160"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "REST",
+                "destinationId": "1",
+                "id": "16",
+                "properties": {
+                  "structurizr.dsl.identifier": "a0146768-08f0-4dc1-811b-f1cfaf683c95"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "8",
+                "id": "19",
+                "properties": {
+                  "structurizr.dsl.identifier": "5dcc85eb-ddbb-4478-8b23-e9e2005c35ac"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "7",
+                "id": "20",
+                "linkedRelationshipId": "19",
+                "sourceId": "4"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "12",
+                "id": "23",
+                "properties": {
+                  "structurizr.dsl.identifier": "0fb5cef0-ca09-4122-99bb-34fa2494d62a"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "11",
+                "id": "24",
+                "linkedRelationshipId": "23",
+                "sourceId": "4"
+              }
+            ],
+            "tags": "Element,Container"
+          },
+          {
+            "description": "Order data access",
+            "documentation": {},
+            "id": "5",
+            "name": "Orders CRUD",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_crud"
+            },
+            "relationships": [
+              {
+                "description": "PostgreSQL",
+                "destinationId": "6",
+                "id": "18",
+                "properties": {
+                  "structurizr.dsl.identifier": "9c3f79a4-48bd-4365-a793-5498517f4eba"
+                },
+                "sourceId": "5",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,repo"
+          },
+          {
+            "description": "Order storage",
+            "documentation": {},
+            "id": "6",
+            "name": "Orders DB",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_db"
+            },
+            "tags": "Element,Container",
+            "technology": "PostgreSQL"
+          }
+        ],
+        "documentation": {},
+        "id": "3",
+        "location": "Unspecified",
+        "name": "Orders",
+        "properties": {
+          "structurizr.dsl.identifier": "orders"
+        },
+        "relationships": [
+          {
+            "description": "REST",
+            "destinationId": "1",
+            "id": "17",
+            "linkedRelationshipId": "16",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "8",
+            "id": "21",
+            "linkedRelationshipId": "19",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "7",
+            "id": "22",
+            "linkedRelationshipId": "19",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "12",
+            "id": "25",
+            "linkedRelationshipId": "23",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "11",
+            "id": "26",
+            "linkedRelationshipId": "23",
+            "sourceId": "3"
+          }
+        ],
+        "tags": "Element,Software System"
+      },
+      {
+        "containers": [
+          {
+            "description": "Stock management",
+            "documentation": {},
+            "id": "8",
+            "name": "Inventory API",
+            "properties": {
+              "structurizr.dsl.identifier": "inventory_api"
+            },
+            "relationships": [
+              {
+                "description": "HTTP",
+                "destinationId": "9",
+                "id": "27",
+                "properties": {
+                  "structurizr.dsl.identifier": "74b386fc-1808-4e78-8ded-822edc106f76"
+                },
+                "sourceId": "8",
+                "tags": "Relationship"
+              },
+              {
+                "description": "SQL",
+                "destinationId": "6",
+                "id": "28",
+                "properties": {
+                  "structurizr.dsl.identifier": "1595bc01-8d3f-4f8e-b8ac-0e6fac99c3e8"
+                },
+                "sourceId": "8",
+                "tags": "Relationship"
+              },
+              {
+                "description": "SQL",
+                "destinationId": "3",
+                "id": "29",
+                "linkedRelationshipId": "28",
+                "sourceId": "8"
+              }
+            ],
+            "tags": "Element,Container"
+          },
+          {
+            "description": "Stock data access",
+            "documentation": {},
+            "id": "9",
+            "name": "Inventory CRUD",
+            "properties": {
+              "structurizr.dsl.identifier": "inventory_crud"
+            },
+            "relationships": [
+              {
+                "description": "PostgreSQL",
+                "destinationId": "10",
+                "id": "32",
+                "properties": {
+                  "structurizr.dsl.identifier": "59837c5b-9826-432e-bce8-5ec923cae8d6"
+                },
+                "sourceId": "9",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,repo"
+          },
+          {
+            "description": "Stock storage",
+            "documentation": {},
+            "id": "10",
+            "name": "Inventory DB",
+            "properties": {
+              "structurizr.dsl.identifier": "inventory_db"
+            },
+            "tags": "Element,Container",
+            "technology": "PostgreSQL"
+          }
+        ],
+        "documentation": {},
+        "id": "7",
+        "location": "Unspecified",
+        "name": "Inventory",
+        "properties": {
+          "structurizr.dsl.identifier": "inventory"
+        },
+        "relationships": [
+          {
+            "description": "SQL",
+            "destinationId": "6",
+            "id": "30",
+            "linkedRelationshipId": "28",
+            "sourceId": "7"
+          },
+          {
+            "description": "SQL",
+            "destinationId": "3",
+            "id": "31",
+            "linkedRelationshipId": "28",
+            "sourceId": "7"
+          }
+        ],
+        "tags": "Element,Software System"
+      },
+      {
+        "containers": [
+          {
+            "description": "Shipping management",
+            "documentation": {},
+            "id": "12",
+            "name": "Fulfillment API",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_api"
+            },
+            "relationships": [
+              {
+                "description": "HTTP",
+                "destinationId": "13",
+                "id": "33",
+                "properties": {
+                  "structurizr.dsl.identifier": "54ffadf3-9472-45e8-a664-66a2bc9adfb0"
+                },
+                "sourceId": "12",
+                "tags": "Relationship"
+              },
+              {
+                "description": "SMTP",
+                "destinationId": "2",
+                "id": "34",
+                "properties": {
+                  "structurizr.dsl.identifier": "e57bc5d8-e13f-4829-a78f-880d49a16a36"
+                },
+                "sourceId": "12",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container"
+          },
+          {
+            "description": "Shipping data access",
+            "documentation": {},
+            "id": "13",
+            "name": "Fulfillment CRUD",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_crud"
+            },
+            "relationships": [
+              {
+                "description": "PostgreSQL",
+                "destinationId": "14",
+                "id": "36",
+                "properties": {
+                  "structurizr.dsl.identifier": "e8c3a79d-f67b-4250-a2aa-18279ba4badf"
+                },
+                "sourceId": "13",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,repo"
+          },
+          {
+            "description": "Shipping storage",
+            "documentation": {},
+            "id": "14",
+            "name": "Fulfillment DB",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_db"
+            },
+            "tags": "Element,Container",
+            "technology": "PostgreSQL"
+          }
+        ],
+        "documentation": {},
+        "id": "11",
+        "location": "Unspecified",
+        "name": "Fulfillment",
+        "properties": {
+          "structurizr.dsl.identifier": "fulfillment"
+        },
+        "relationships": [
+          {
+            "description": "SMTP",
+            "destinationId": "2",
+            "id": "35",
+            "linkedRelationshipId": "34",
+            "sourceId": "11"
+          }
+        ],
+        "tags": "Element,Software System"
+      }
+    ]
+  },
+  "name": "Violations Demo",
+  "properties": {
+    "structurizr.dsl": "d29ya3NwYWNlICJWaW9sYXRpb25zIERlbW8iICJNaWNyb3NlcnZpY2UgYXJjaGl0ZWN0dXJlIHdpdGggaW50ZW50aW9uYWwgdmlvbGF0aW9ucyBmb3IgYWFjdCBkZW1vLiIgewoKICAgIG1vZGVsIHsKICAgICAgICBwYXltZW50ID0gc29mdHdhcmVTeXN0ZW0gIlBheW1lbnQgR2F0ZXdheSIgewogICAgICAgICAgICB0YWdzICJFeHRlcm5hbCIKICAgICAgICB9CiAgICAgICAgbm90aWZpY2F0aW9ucyA9IHNvZnR3YXJlU3lzdGVtICJOb3RpZmljYXRpb24gUHJvdmlkZXIiIHsKICAgICAgICAgICAgdGFncyAiRXh0ZXJuYWwiCiAgICAgICAgfQoKICAgICAgICBvcmRlcnMgPSBzb2Z0d2FyZVN5c3RlbSAiT3JkZXJzIiB7CiAgICAgICAgICAgIG9yZGVyc19hcGkgPSBjb250YWluZXIgIk9yZGVycyBBUEkiICJPcmRlciBtYW5hZ2VtZW50IgogICAgICAgICAgICBvcmRlcnNfY3J1ZCA9IGNvbnRhaW5lciAiT3JkZXJzIENSVUQiICJPcmRlciBkYXRhIGFjY2VzcyIgewogICAgICAgICAgICAgICAgdGFncyAicmVwbyIKICAgICAgICAgICAgfQogICAgICAgICAgICBvcmRlcnNfZGIgPSBjb250YWluZXIgIk9yZGVycyBEQiIgIk9yZGVyIHN0b3JhZ2UiICJQb3N0Z3JlU1FMIgogICAgICAgIH0KCiAgICAgICAgaW52ZW50b3J5ID0gc29mdHdhcmVTeXN0ZW0gIkludmVudG9yeSIgewogICAgICAgICAgICBpbnZlbnRvcnlfYXBpID0gY29udGFpbmVyICJJbnZlbnRvcnkgQVBJIiAiU3RvY2sgbWFuYWdlbWVudCIKICAgICAgICAgICAgaW52ZW50b3J5X2NydWQgPSBjb250YWluZXIgIkludmVudG9yeSBDUlVEIiAiU3RvY2sgZGF0YSBhY2Nlc3MiIHsKICAgICAgICAgICAgICAgIHRhZ3MgInJlcG8iCiAgICAgICAgICAgIH0KICAgICAgICAgICAgaW52ZW50b3J5X2RiID0gY29udGFpbmVyICJJbnZlbnRvcnkgREIiICJTdG9jayBzdG9yYWdlIiAiUG9zdGdyZVNRTCIKICAgICAgICB9CgogICAgICAgIGZ1bGZpbGxtZW50ID0gc29mdHdhcmVTeXN0ZW0gIkZ1bGZpbGxtZW50IiB7CiAgICAgICAgICAgIGZ1bGZpbGxtZW50X2FwaSA9IGNvbnRhaW5lciAiRnVsZmlsbG1lbnQgQVBJIiAiU2hpcHBpbmcgbWFuYWdlbWVudCIKICAgICAgICAgICAgZnVsZmlsbG1lbnRfY3J1ZCA9IGNvbnRhaW5lciAiRnVsZmlsbG1lbnQgQ1JVRCIgIlNoaXBwaW5nIGRhdGEgYWNjZXNzIiB7CiAgICAgICAgICAgICAgICB0YWdzICJyZXBvIgogICAgICAgICAgICB9CiAgICAgICAgICAgIGZ1bGZpbGxtZW50X2RiID0gY29udGFpbmVyICJGdWxmaWxsbWVudCBEQiIgIlNoaXBwaW5nIHN0b3JhZ2UiICJQb3N0Z3JlU1FMIgogICAgICAgIH0KCiAgICAgICAgIyBPcmRlcnMgZmxvdwogICAgICAgIG9yZGVyc19hcGkgLT4gb3JkZXJzX2NydWQgIkhUVFAiCiAgICAgICAgb3JkZXJzX2FwaSAtPiBwYXltZW50ICJSRVNUIgogICAgICAgIG9yZGVyc19jcnVkIC0+IG9yZGVyc19kYiAiUG9zdGdyZVNRTCIKCiAgICAgICAgIyBDcm9zcy1jb250ZXh0CiAgICAgICAgb3JkZXJzX2FwaSAtPiBpbnZlbnRvcnlfYXBpICJIVFRQIgogICAgICAgIG9yZGVyc19hcGkgLT4gZnVsZmlsbG1lbnRfYXBpICJIVFRQIgoKICAgICAgICAjIEludmVudG9yeSBmbG93CiAgICAgICAgaW52ZW50b3J5X2FwaSAtPiBpbnZlbnRvcnlfY3J1ZCAiSFRUUCIKICAgICAgICBpbnZlbnRvcnlfYXBpIC0+IG9yZGVyc19kYiAiU1FMIgogICAgICAgIGludmVudG9yeV9jcnVkIC0+IGludmVudG9yeV9kYiAiUG9zdGdyZVNRTCIKCiAgICAgICAgIyBGdWxmaWxsbWVudCBmbG93CiAgICAgICAgZnVsZmlsbG1lbnRfYXBpIC0+IGZ1bGZpbGxtZW50X2NydWQgIkhUVFAiCiAgICAgICAgZnVsZmlsbG1lbnRfYXBpIC0+IG5vdGlmaWNhdGlvbnMgIlNNVFAiCiAgICAgICAgZnVsZmlsbG1lbnRfY3J1ZCAtPiBmdWxmaWxsbWVudF9kYiAiUG9zdGdyZVNRTCIKICAgIH0KCiAgICB2aWV3cyB7CiAgICAgICAgc3lzdGVtTGFuZHNjYXBlIHsKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9sYXlvdXQgbHIKICAgICAgICB9CiAgICB9Cn0K"
+  },
+  "views": {
+    "configuration": {
+      "branding": {},
+      "lastSavedView": "SystemLandscape-001",
+      "metadataSymbols": "SquareBrackets",
+      "styles": {},
+      "terminology": {}
+    },
+    "systemLandscapeViews": [
+      {
+        "automaticLayout": {
+          "applied": true,
+          "edgeSeparation": 0,
+          "implementation": "Graphviz",
+          "nodeSeparation": 300,
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "vertices": false
+        },
+        "dimensions": {
+          "height": 1900,
+          "width": 2350
+        },
+        "elements": [
+          {
+            "id": "1",
+            "x": 950,
+            "y": 199
+          },
+          {
+            "id": "2",
+            "x": 1700,
+            "y": 799
+          },
+          {
+            "id": "3",
+            "x": 200,
+            "y": 1099
+          },
+          {
+            "id": "7",
+            "x": 950,
+            "y": 1399
+          },
+          {
+            "id": "11",
+            "x": 950,
+            "y": 799
+          }
+        ],
+        "enterpriseBoundaryVisible": true,
+        "generatedKey": true,
+        "key": "SystemLandscape-001",
+        "order": 1,
+        "relationships": [
+          {
+            "id": "17"
+          },
+          {
+            "id": "22",
+            "vertices": [
+              {
+                "x": 744,
+                "y": 1538
+              }
+            ]
+          },
+          {
+            "id": "26"
+          },
+          {
+            "id": "31",
+            "vertices": [
+              {
+                "x": 855,
+                "y": 1259
+              }
+            ]
+          },
+          {
+            "id": "35"
+          }
+        ]
+      }
+    ]
+  }
+}

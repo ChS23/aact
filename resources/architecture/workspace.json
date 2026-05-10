@@ -1,0 +1,211 @@
+{
+  "id": 1,
+  "name": "Demo Workspace",
+  "description": "Sample architecture for testing Structurizr support",
+  "model": {
+    "softwareSystems": [
+      {
+        "id": "stock",
+        "name": "Stock",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "ext_system",
+        "name": "Ext System",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "invoice_source",
+        "name": "Invoice Source",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "invoice_dest",
+        "name": "Invoice Consumer",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "goods_repository",
+        "name": "Goods Repository",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "goods2_repository",
+        "name": "Goods2 Repository",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "front",
+        "name": "Front",
+        "location": "External",
+        "tags": "Element,Software System,External"
+      },
+      {
+        "id": "our_system",
+        "name": "Our System",
+        "location": "Internal",
+        "tags": "Element,Software System",
+        "containers": [
+          {
+            "id": "bff",
+            "name": "BFF",
+            "description": "Backend for Frontend",
+            "tags": "Element,Container",
+            "relationships": [
+              { "id": "r1", "destinationId": "camunda", "technology": "HTTP" },
+              {
+                "id": "r2",
+                "destinationId": "goods_acl",
+                "technology": "HTTP"
+              },
+              {
+                "id": "r3",
+                "destinationId": "task_repository",
+                "technology": "HTTP"
+              },
+              {
+                "id": "r4",
+                "destinationId": "invoice_repository",
+                "technology": "HTTP"
+              }
+            ]
+          },
+          {
+            "id": "goods_acl",
+            "name": "Goods ACL",
+            "description": "Anti-Corruption Layer for Goods",
+            "tags": "Element,Container,acl",
+            "relationships": [
+              {
+                "id": "r5",
+                "destinationId": "goods_repository",
+                "technology": "https://gateway.int.com:443/goods/v1"
+              },
+              {
+                "id": "r6",
+                "destinationId": "goods2_repository",
+                "technology": "https://gateway.int.com:443/goods2/v1"
+              }
+            ]
+          },
+          {
+            "id": "camunda",
+            "name": "Camunda",
+            "description": "Workflow Engine",
+            "tags": "Element,Container",
+            "relationships": [
+              {
+                "id": "r7",
+                "destinationId": "stock_acl",
+                "technology": "HTTP"
+              },
+              {
+                "id": "r8",
+                "destinationId": "task_repository",
+                "technology": "HTTP"
+              },
+              {
+                "id": "r9",
+                "destinationId": "invoice_repository",
+                "technology": "HTTP"
+              },
+              {
+                "id": "r10",
+                "destinationId": "invoice_acl",
+                "technology": "HTTP"
+              }
+            ]
+          },
+          {
+            "id": "task_repository",
+            "name": "Task Repository",
+            "description": "Task storage",
+            "tags": "Element,Container,repo",
+            "relationships": [
+              {
+                "id": "r11",
+                "destinationId": "task_repository_db",
+                "technology": "PostgreSQL"
+              }
+            ]
+          },
+          {
+            "id": "task_repository_db",
+            "name": "Task DB",
+            "description": "Database for tasks",
+            "technology": "PostgreSQL Database",
+            "tags": "Element,Container,Database"
+          },
+          {
+            "id": "invoice_repository",
+            "name": "Invoice Repository",
+            "description": "Invoice storage",
+            "tags": "Element,Container,repo",
+            "relationships": [
+              {
+                "id": "r12",
+                "destinationId": "invoice_repository_db",
+                "technology": "PostgreSQL"
+              }
+            ]
+          },
+          {
+            "id": "invoice_repository_db",
+            "name": "Invoice DB",
+            "description": "Database for invoices",
+            "technology": "PostgreSQL Database",
+            "tags": "Element,Container,Database"
+          },
+          {
+            "id": "invoice_acl",
+            "name": "Invoice ACL",
+            "description": "Anti-Corruption Layer for Invoices",
+            "tags": "Element,Container,acl",
+            "relationships": [
+              {
+                "id": "r13",
+                "destinationId": "ext_system",
+                "technology": "https://gateway.int.com:443/ext/v1"
+              },
+              {
+                "id": "r14",
+                "destinationId": "invoice_dest",
+                "technology": "result-invoice-q8s-v1",
+                "interactionStyle": "Asynchronous"
+              }
+            ]
+          },
+          {
+            "id": "stock_acl",
+            "name": "Stock ACL",
+            "description": "Anti-Corruption Layer for Stock",
+            "tags": "Element,Container,acl",
+            "relationships": [
+              {
+                "id": "r15",
+                "destinationId": "stock",
+                "technology": "https://gateway.int.com:443/stock/v1"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "people": [
+      {
+        "id": "user",
+        "name": "User",
+        "tags": "Element,Person",
+        "relationships": [
+          { "id": "r0", "destinationId": "front", "description": "Uses" }
+        ]
+      }
+    ]
+  }
+}

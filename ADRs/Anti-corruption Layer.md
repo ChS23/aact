@@ -5,7 +5,9 @@
 Микросервисная архитектура с выделенным периметром продукта, имеющим ряд интеграций с внешними системами (другими системами предприятия и/или внешними решениями)
 
 ## Краткое описание решения и его обоснование
+
 ### Схема
+
 ![image](https://github.com/Byndyusoft/aact/assets/1096954/970dcf43-d347-4294-9be0-03f042b85f8b)
 
 ### Решение
@@ -19,11 +21,14 @@
 ## Как покрыть тестами
 
 1. Помечаем на архитектуре соответствующие микросервисы признаком "Adapter"
+
 ```
 Container(goods_adapter, “Goods ACL", "NestJS", $tags="adapter")
 ```
+
 2. Проверяем, что связи с внешними системами имеют только сервисы с таким признаком
 
 ### Примеры тестов
 
-[only acl can depence from external systems](https://github.com/Byndyusoft/aact/blob/721edde3767dc0e51d19c80c3b6adba9fbf7b007/test/architecture.test.ts#L111C7-L111C49)
+- [unit-тест правила ACL](../test/rules/acl.test.ts)
+- [пример на banking-plantuml](../examples/banking-plantuml/rules.test.ts) — `ACL — only acl-tagged containers depend on externals`

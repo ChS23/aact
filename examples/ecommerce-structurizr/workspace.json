@@ -1,0 +1,452 @@
+{
+  "configuration": {},
+  "description": "Microservice architecture with three bounded contexts",
+  "documentation": {},
+  "id": 1,
+  "lastModifiedAgent": "structurizr-javascript",
+  "lastModifiedDate": "2026-03-11T11:27:29Z",
+  "model": {
+    "softwareSystems": [
+      {
+        "documentation": {},
+        "id": "1",
+        "location": "Unspecified",
+        "name": "Payment Provider",
+        "properties": {
+          "structurizr.dsl.identifier": "payment"
+        },
+        "tags": "Element,Software System,External"
+      },
+      {
+        "documentation": {},
+        "id": "2",
+        "location": "Unspecified",
+        "name": "Notification Provider",
+        "properties": {
+          "structurizr.dsl.identifier": "notifications"
+        },
+        "tags": "Element,Software System,External"
+      },
+      {
+        "containers": [
+          {
+            "description": "Order management",
+            "documentation": {},
+            "id": "4",
+            "name": "Orders API",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_api"
+            },
+            "relationships": [
+              {
+                "description": "HTTP",
+                "destinationId": "6",
+                "id": "17",
+                "properties": {
+                  "structurizr.dsl.identifier": "c062bfee-a9f1-4f5f-962d-9a61c771858e"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "5",
+                "id": "18",
+                "properties": {
+                  "structurizr.dsl.identifier": "118409f8-eb59-463b-a149-5cea29e19fad"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "9",
+                "id": "22",
+                "properties": {
+                  "structurizr.dsl.identifier": "66385c83-2008-4fa1-ba32-0d4d1a42b2ae"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "8",
+                "id": "23",
+                "linkedRelationshipId": "22",
+                "sourceId": "4"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "13",
+                "id": "26",
+                "properties": {
+                  "structurizr.dsl.identifier": "0f7aaebe-5ad5-49af-b18b-d1c020a9f062"
+                },
+                "sourceId": "4",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "12",
+                "id": "27",
+                "linkedRelationshipId": "26",
+                "sourceId": "4"
+              }
+            ],
+            "tags": "Element,Container"
+          },
+          {
+            "description": "Payment integration",
+            "documentation": {},
+            "id": "5",
+            "name": "Orders ACL",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_acl"
+            },
+            "relationships": [
+              {
+                "description": "https://gateway.int.com:443/payment/v1",
+                "destinationId": "1",
+                "id": "20",
+                "properties": {
+                  "structurizr.dsl.identifier": "a3a6bdeb-f8c6-4791-815f-4fc61f268789"
+                },
+                "sourceId": "5",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,acl"
+          },
+          {
+            "description": "Order data access",
+            "documentation": {},
+            "id": "6",
+            "name": "Orders CRUD",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_crud"
+            },
+            "relationships": [
+              {
+                "description": "PostgreSQL",
+                "destinationId": "7",
+                "id": "19",
+                "properties": {
+                  "structurizr.dsl.identifier": "855f6496-961e-4cc3-a6a5-46bfde84a12f"
+                },
+                "sourceId": "6",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,repo"
+          },
+          {
+            "description": "Order storage",
+            "documentation": {},
+            "id": "7",
+            "name": "Orders DB",
+            "properties": {
+              "structurizr.dsl.identifier": "orders_db"
+            },
+            "tags": "Element,Container",
+            "technology": "PostgreSQL"
+          }
+        ],
+        "documentation": {},
+        "id": "3",
+        "location": "Unspecified",
+        "name": "Orders",
+        "properties": {
+          "structurizr.dsl.identifier": "orders"
+        },
+        "relationships": [
+          {
+            "description": "https://gateway.int.com:443/payment/v1",
+            "destinationId": "1",
+            "id": "21",
+            "linkedRelationshipId": "20",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "9",
+            "id": "24",
+            "linkedRelationshipId": "22",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "8",
+            "id": "25",
+            "linkedRelationshipId": "22",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "13",
+            "id": "28",
+            "linkedRelationshipId": "26",
+            "sourceId": "3"
+          },
+          {
+            "description": "HTTP",
+            "destinationId": "12",
+            "id": "29",
+            "linkedRelationshipId": "26",
+            "sourceId": "3"
+          }
+        ],
+        "tags": "Element,Software System"
+      },
+      {
+        "containers": [
+          {
+            "description": "Stock management",
+            "documentation": {},
+            "id": "9",
+            "name": "Inventory API",
+            "properties": {
+              "structurizr.dsl.identifier": "inventory_api"
+            },
+            "relationships": [
+              {
+                "description": "HTTP",
+                "destinationId": "10",
+                "id": "30",
+                "properties": {
+                  "structurizr.dsl.identifier": "8f0ee61e-5267-4453-ab77-f2b858d65ef5"
+                },
+                "sourceId": "9",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container"
+          },
+          {
+            "description": "Stock data access",
+            "documentation": {},
+            "id": "10",
+            "name": "Inventory CRUD",
+            "properties": {
+              "structurizr.dsl.identifier": "inventory_crud"
+            },
+            "relationships": [
+              {
+                "description": "PostgreSQL",
+                "destinationId": "11",
+                "id": "31",
+                "properties": {
+                  "structurizr.dsl.identifier": "310c9713-1b32-4912-bcdc-01b82ffdcc05"
+                },
+                "sourceId": "10",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,repo"
+          },
+          {
+            "description": "Stock storage",
+            "documentation": {},
+            "id": "11",
+            "name": "Inventory DB",
+            "properties": {
+              "structurizr.dsl.identifier": "inventory_db"
+            },
+            "tags": "Element,Container",
+            "technology": "PostgreSQL"
+          }
+        ],
+        "documentation": {},
+        "id": "8",
+        "location": "Unspecified",
+        "name": "Inventory",
+        "properties": {
+          "structurizr.dsl.identifier": "inventory"
+        },
+        "tags": "Element,Software System"
+      },
+      {
+        "containers": [
+          {
+            "description": "Shipping management",
+            "documentation": {},
+            "id": "13",
+            "name": "Fulfillment API",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_api"
+            },
+            "relationships": [
+              {
+                "description": "HTTP",
+                "destinationId": "15",
+                "id": "32",
+                "properties": {
+                  "structurizr.dsl.identifier": "21525b5b-974a-4855-aaa1-7a79d43d469c"
+                },
+                "sourceId": "13",
+                "tags": "Relationship"
+              },
+              {
+                "description": "HTTP",
+                "destinationId": "14",
+                "id": "33",
+                "properties": {
+                  "structurizr.dsl.identifier": "4916bbb4-08f5-4e71-9e36-6e434fbc3947"
+                },
+                "sourceId": "13",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container"
+          },
+          {
+            "description": "Notification integration",
+            "documentation": {},
+            "id": "14",
+            "name": "Fulfillment ACL",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_acl"
+            },
+            "relationships": [
+              {
+                "description": "https://gateway.int.com:443/notify/v1",
+                "destinationId": "2",
+                "id": "35",
+                "properties": {
+                  "structurizr.dsl.identifier": "92f2a8ba-89f1-4af4-af39-40c7018042c8"
+                },
+                "sourceId": "14",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,acl"
+          },
+          {
+            "description": "Shipping data access",
+            "documentation": {},
+            "id": "15",
+            "name": "Fulfillment CRUD",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_crud"
+            },
+            "relationships": [
+              {
+                "description": "PostgreSQL",
+                "destinationId": "16",
+                "id": "34",
+                "properties": {
+                  "structurizr.dsl.identifier": "a7aa0a32-c24d-44a6-8444-ed4fe555c11b"
+                },
+                "sourceId": "15",
+                "tags": "Relationship"
+              }
+            ],
+            "tags": "Element,Container,repo"
+          },
+          {
+            "description": "Shipping storage",
+            "documentation": {},
+            "id": "16",
+            "name": "Fulfillment DB",
+            "properties": {
+              "structurizr.dsl.identifier": "fulfillment_db"
+            },
+            "tags": "Element,Container",
+            "technology": "PostgreSQL"
+          }
+        ],
+        "documentation": {},
+        "id": "12",
+        "location": "Unspecified",
+        "name": "Fulfillment",
+        "properties": {
+          "structurizr.dsl.identifier": "fulfillment"
+        },
+        "relationships": [
+          {
+            "description": "https://gateway.int.com:443/notify/v1",
+            "destinationId": "2",
+            "id": "36",
+            "linkedRelationshipId": "35",
+            "sourceId": "12"
+          }
+        ],
+        "tags": "Element,Software System"
+      }
+    ]
+  },
+  "name": "Demo Workspace",
+  "properties": {
+    "structurizr.dsl": "d29ya3NwYWNlICJEZW1vIFdvcmtzcGFjZSIgIk1pY3Jvc2VydmljZSBhcmNoaXRlY3R1cmUgd2l0aCB0aHJlZSBib3VuZGVkIGNvbnRleHRzIiB7CgogICAgbW9kZWwgewogICAgICAgIHBheW1lbnQgPSBzb2Z0d2FyZVN5c3RlbSAiUGF5bWVudCBQcm92aWRlciIgewogICAgICAgICAgICB0YWdzICJFeHRlcm5hbCIKICAgICAgICB9CiAgICAgICAgbm90aWZpY2F0aW9ucyA9IHNvZnR3YXJlU3lzdGVtICJOb3RpZmljYXRpb24gUHJvdmlkZXIiIHsKICAgICAgICAgICAgdGFncyAiRXh0ZXJuYWwiCiAgICAgICAgfQoKICAgICAgICBvcmRlcnMgPSBzb2Z0d2FyZVN5c3RlbSAiT3JkZXJzIiB7CiAgICAgICAgICAgIG9yZGVyc19hcGkgPSBjb250YWluZXIgIk9yZGVycyBBUEkiICJPcmRlciBtYW5hZ2VtZW50IgogICAgICAgICAgICBvcmRlcnNfYWNsID0gY29udGFpbmVyICJPcmRlcnMgQUNMIiAiUGF5bWVudCBpbnRlZ3JhdGlvbiIgewogICAgICAgICAgICAgICAgdGFncyAiYWNsIgogICAgICAgICAgICB9CiAgICAgICAgICAgIG9yZGVyc19jcnVkID0gY29udGFpbmVyICJPcmRlcnMgQ1JVRCIgIk9yZGVyIGRhdGEgYWNjZXNzIiB7CiAgICAgICAgICAgICAgICB0YWdzICJyZXBvIgogICAgICAgICAgICB9CiAgICAgICAgICAgIG9yZGVyc19kYiA9IGNvbnRhaW5lciAiT3JkZXJzIERCIiAiT3JkZXIgc3RvcmFnZSIgIlBvc3RncmVTUUwiCiAgICAgICAgfQoKICAgICAgICBpbnZlbnRvcnkgPSBzb2Z0d2FyZVN5c3RlbSAiSW52ZW50b3J5IiB7CiAgICAgICAgICAgIGludmVudG9yeV9hcGkgPSBjb250YWluZXIgIkludmVudG9yeSBBUEkiICJTdG9jayBtYW5hZ2VtZW50IgogICAgICAgICAgICBpbnZlbnRvcnlfY3J1ZCA9IGNvbnRhaW5lciAiSW52ZW50b3J5IENSVUQiICJTdG9jayBkYXRhIGFjY2VzcyIgewogICAgICAgICAgICAgICAgdGFncyAicmVwbyIKICAgICAgICAgICAgfQogICAgICAgICAgICBpbnZlbnRvcnlfZGIgPSBjb250YWluZXIgIkludmVudG9yeSBEQiIgIlN0b2NrIHN0b3JhZ2UiICJQb3N0Z3JlU1FMIgogICAgICAgIH0KCiAgICAgICAgZnVsZmlsbG1lbnQgPSBzb2Z0d2FyZVN5c3RlbSAiRnVsZmlsbG1lbnQiIHsKICAgICAgICAgICAgZnVsZmlsbG1lbnRfYXBpID0gY29udGFpbmVyICJGdWxmaWxsbWVudCBBUEkiICJTaGlwcGluZyBtYW5hZ2VtZW50IgogICAgICAgICAgICBmdWxmaWxsbWVudF9hY2wgPSBjb250YWluZXIgIkZ1bGZpbGxtZW50IEFDTCIgIk5vdGlmaWNhdGlvbiBpbnRlZ3JhdGlvbiIgewogICAgICAgICAgICAgICAgdGFncyAiYWNsIgogICAgICAgICAgICB9CiAgICAgICAgICAgIGZ1bGZpbGxtZW50X2NydWQgPSBjb250YWluZXIgIkZ1bGZpbGxtZW50IENSVUQiICJTaGlwcGluZyBkYXRhIGFjY2VzcyIgewogICAgICAgICAgICAgICAgdGFncyAicmVwbyIKICAgICAgICAgICAgfQogICAgICAgICAgICBmdWxmaWxsbWVudF9kYiA9IGNvbnRhaW5lciAiRnVsZmlsbG1lbnQgREIiICJTaGlwcGluZyBzdG9yYWdlIiAiUG9zdGdyZVNRTCIKICAgICAgICB9CgogICAgICAgIG9yZGVyc19hcGkgLT4gb3JkZXJzX2NydWQgIkhUVFAiCiAgICAgICAgb3JkZXJzX2FwaSAtPiBvcmRlcnNfYWNsICJIVFRQIgogICAgICAgIG9yZGVyc19jcnVkIC0+IG9yZGVyc19kYiAiUG9zdGdyZVNRTCIKICAgICAgICBvcmRlcnNfYWNsIC0+IHBheW1lbnQgImh0dHBzOi8vZ2F0ZXdheS5pbnQuY29tOjQ0My9wYXltZW50L3YxIgoKICAgICAgICBvcmRlcnNfYXBpIC0+IGludmVudG9yeV9hcGkgIkhUVFAiCiAgICAgICAgb3JkZXJzX2FwaSAtPiBmdWxmaWxsbWVudF9hcGkgIkhUVFAiCgogICAgICAgIGludmVudG9yeV9hcGkgLT4gaW52ZW50b3J5X2NydWQgIkhUVFAiCiAgICAgICAgaW52ZW50b3J5X2NydWQgLT4gaW52ZW50b3J5X2RiICJQb3N0Z3JlU1FMIgoKICAgICAgICBmdWxmaWxsbWVudF9hcGkgLT4gZnVsZmlsbG1lbnRfY3J1ZCAiSFRUUCIKICAgICAgICBmdWxmaWxsbWVudF9hcGkgLT4gZnVsZmlsbG1lbnRfYWNsICJIVFRQIgogICAgICAgIGZ1bGZpbGxtZW50X2NydWQgLT4gZnVsZmlsbG1lbnRfZGIgIlBvc3RncmVTUUwiCiAgICAgICAgZnVsZmlsbG1lbnRfYWNsIC0+IG5vdGlmaWNhdGlvbnMgImh0dHBzOi8vZ2F0ZXdheS5pbnQuY29tOjQ0My9ub3RpZnkvdjEiCiAgICB9CgogICAgdmlld3MgewogICAgICAgIHN5c3RlbUxhbmRzY2FwZSB7CiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvbGF5b3V0IGxyCiAgICAgICAgfQogICAgfQp9Cg=="
+  },
+  "views": {
+    "configuration": {
+      "branding": {},
+      "lastSavedView": "SystemLandscape-001",
+      "metadataSymbols": "SquareBrackets",
+      "styles": {},
+      "terminology": {}
+    },
+    "systemLandscapeViews": [
+      {
+        "automaticLayout": {
+          "applied": true,
+          "edgeSeparation": 0,
+          "implementation": "Graphviz",
+          "nodeSeparation": 300,
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "vertices": false
+        },
+        "dimensions": {
+          "height": 1900,
+          "width": 2350
+        },
+        "elements": [
+          {
+            "id": "1",
+            "x": 950,
+            "y": 199
+          },
+          {
+            "id": "2",
+            "x": 1700,
+            "y": 799
+          },
+          {
+            "id": "3",
+            "x": 200,
+            "y": 799
+          },
+          {
+            "id": "8",
+            "x": 950,
+            "y": 1399
+          },
+          {
+            "id": "12",
+            "x": 950,
+            "y": 799
+          }
+        ],
+        "enterpriseBoundaryVisible": true,
+        "generatedKey": true,
+        "key": "SystemLandscape-001",
+        "order": 1,
+        "relationships": [
+          {
+            "id": "21"
+          },
+          {
+            "id": "25"
+          },
+          {
+            "id": "29"
+          },
+          {
+            "id": "36"
+          }
+        ]
+      }
+    ]
+  }
+}

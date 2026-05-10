@@ -1,10 +1,20 @@
 {
-  "extends": "@byndyusoft/tsconfig/tsconfig.node16.json",
   "compilerOptions": {
-    // Language and Environment
-    "lib": ["es2021", "dom"],
-    "esModuleInterop": true
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    "outDir": "./dist",
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "types": ["vitest/globals"]
   },
-  "exclude": ["./dist", "./node_modules"],
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts"],
+  "exclude": ["./dist", "./node_modules"]
 }
