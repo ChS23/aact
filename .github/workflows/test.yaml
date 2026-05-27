@@ -26,8 +26,10 @@ jobs:
         run: pnpm schema:check
       - name: Lint
         run: pnpm lint
-      - name: Build CLI
+      - name: Build packages
         run: pnpm build
+      - name: Pack smoke
+        run: pnpm pack:smoke
       - name: Tests with coverage (unit + integration + e2e)
         run: pnpm test:coverage
       - name: Upload coverage report

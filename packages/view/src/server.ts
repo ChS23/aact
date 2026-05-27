@@ -124,6 +124,20 @@ export interface ServerOptions {
   readonly authToken: string;
 }
 
+export const viewAuthState = (
+  url: URL,
+  headers: Headers,
+  authToken: string,
+): { readonly ok: boolean; readonly shouldSetCookie: boolean } => {
+  const rawCookie = headers.get("cookie") ?? "";
+  const viaQuery = url.searchParams.get("token") === authToken;
+  const viaCookie = rawCookie
+    .split(";")
+    .map((part) => part.trim())
+    .some((part) => part === `aact_view_token=${authToken}`);
+  return { ok: viaQuery || viaCookie, shouldSetCookie: viaQuery };
+};
+
 /**
  * Bring up the local workbench HTTP server.
  *
@@ -146,17 +160,14 @@ export const startServer = async (
   const peers = new Set<{ send: (data: string) => void }>();
   const authCookie = `aact_view_token=${options.authToken}; Path=/; SameSite=Strict; HttpOnly`;
 
-  const hasAuthCookie = (headers: Headers): boolean => {
-    const raw = headers.get("cookie") ?? "";
-    return raw
-      .split(";")
-      .map((part) => part.trim())
-      .some((part) => part === `aact_view_token=${options.authToken}`);
-  };
+  const authState = (
+    url: URL,
+    headers: Headers,
+  ): { readonly ok: boolean; readonly shouldSetCookie: boolean } =>
+    viewAuthState(url, headers, options.authToken);
 
   const isAuthorized = (url: URL, headers: Headers): boolean =>
-    url.searchParams.get("token") === options.authToken ||
-    hasAuthCookie(headers);
+    authState(url, headers).ok;
 
   const parseRequestUrl = (input: string): URL =>
     new URL(input, "http://localhost");
@@ -172,9 +183,10 @@ export const startServer = async (
 
   const htmlHeaders = (
     contentType: string,
+    setCookie: boolean,
   ): Readonly<Record<string, string>> => ({
     "content-type": contentType,
-    "set-cookie": authCookie,
+    ...(setCookie ? { "set-cookie": authCookie } : {}),
   });
 
   const sendToSubscribers = (message: ServerMessage): void => {
@@ -267,7 +279,10 @@ export const startServer = async (
     }
   };
 
-  app.get("/", async () => {
+  app.get("/", async (event) => {
+    const url = parseRequestUrl(event.req.url);
+    const auth = authState(url, event.req.headers);
+    if (!auth.ok) return unauthorized();
     const asset = await serveAsset("index.html");
     if (!asset) {
       return new Response(
@@ -279,26 +294,28 @@ export const startServer = async (
       );
     }
     return new Response(asset.body, {
-      headers: htmlHeaders(asset.contentType),
+      headers: htmlHeaders(asset.contentType, auth.shouldSetCookie),
     });
   });
 
   app.get("/**:path", async (event) => {
-    const url = new URL(event.req.url);
+    const url = parseRequestUrl(event.req.url);
     if (url.pathname.startsWith("/api/")) {
       return new Response("Not Found", { status: 404 });
     }
+    const auth = authState(url, event.req.headers);
+    if (!auth.ok) return unauthorized();
     const asset = await serveAsset(url.pathname);
     if (asset) {
       return new Response(asset.body, {
-        headers: htmlHeaders(asset.contentType),
+        headers: htmlHeaders(asset.contentType, auth.shouldSetCookie),
       });
     }
     // SPA fallback — let the client route in-app.
     const indexAsset = await serveAsset("index.html");
     if (!indexAsset) return new Response("Not Found", { status: 404 });
     return new Response(indexAsset.body, {
-      headers: htmlHeaders(indexAsset.contentType),
+      headers: htmlHeaders(indexAsset.contentType, auth.shouldSetCookie),
     });
   });
 

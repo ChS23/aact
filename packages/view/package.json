@@ -37,10 +37,13 @@
     "build": "npm run build:ui && npm run build:server",
     "build:server": "tsc -p tsconfig.json",
     "build:ui": "vite build",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "lint": "npm run typecheck",
+    "typecheck": "npm run typecheck:server && npm run typecheck:ui",
+    "typecheck:server": "tsc --noEmit -p tsconfig.json",
+    "typecheck:ui": "tsc --noEmit -p ui/tsconfig.json"
   },
   "peerDependencies": {
-    "aact": "workspace:^"
+    "aact": "^3.0.0-beta.28"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

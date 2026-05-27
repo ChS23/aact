@@ -223,7 +223,37 @@ describe("executeView — port validation", () => {
     ).rejects.toMatchObject({
       name: "ToolError",
       kind: "view.bootFailed",
-      message: expect.stringContaining("--port must be a number"),
+      message: expect.stringContaining("--port must be an integer"),
+    });
+    expect(runWorkbench).not.toHaveBeenCalled();
+  });
+
+  it("rejects --port values with numeric suffixes", async () => {
+    const runWorkbench = vi.fn().mockResolvedValue({ exitCode: 0, url: "u" });
+    companionState.runWorkbench = runWorkbench;
+    const { executeView } = await loadView();
+
+    await expect(
+      executeView(baseConfig, { port: "123abc" }, null),
+    ).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "view.bootFailed",
+      message: expect.stringContaining("--port must be an integer"),
+    });
+    expect(runWorkbench).not.toHaveBeenCalled();
+  });
+
+  it("rejects --port values outside 0..65535", async () => {
+    const runWorkbench = vi.fn().mockResolvedValue({ exitCode: 0, url: "u" });
+    companionState.runWorkbench = runWorkbench;
+    const { executeView } = await loadView();
+
+    await expect(
+      executeView(baseConfig, { port: "70000" }, null),
+    ).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "view.bootFailed",
+      message: expect.stringContaining("0..65535"),
     });
     expect(runWorkbench).not.toHaveBeenCalled();
   });

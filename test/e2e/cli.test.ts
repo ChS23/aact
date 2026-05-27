@@ -420,6 +420,22 @@ Container(extra, "Extra")
     expect(data).toHaveProperty("patch");
     expect(Array.isArray(data.patch)).toBe(true);
   });
+
+  it("rejects --rename-threshold values with numeric suffixes", async () => {
+    await fs.writeFile(path.join(workDir, "a.puml"), SIMPLE_PUML);
+    const result = await runCli([
+      "diff",
+      "a.puml",
+      "a.puml",
+      "--rename-threshold",
+      "0.7abc",
+      "--json",
+    ]);
+    expect(result.exitCode).toBe(2);
+    const envelope = JSON.parse(result.stdout) as Record<string, unknown>;
+    const diag = (envelope.diagnostics as Array<Record<string, unknown>>)[0];
+    expect(diag.kind).toBe("config.invalidSchema");
+  });
 });
 
 describe("aact check --fix demo loop", () => {

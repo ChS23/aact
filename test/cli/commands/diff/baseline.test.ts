@@ -70,6 +70,35 @@ describe("loadBaseline — file path inputs", () => {
       cleanupParent(file);
     }
   });
+
+  it("treats absolute paths containing ':' as file paths, not git refs", async () => {
+    const file = makeTempPuml(SIMPLE_PUML, "arch:win.puml");
+    try {
+      const result = await loadBaseline({
+        arg: file,
+        sideLabel: "baseline",
+      });
+      expect(result.side.format).toBe("plantuml");
+      expect(Object.keys(result.model.elements)).toContain("svc");
+    } finally {
+      cleanupParent(file);
+    }
+  });
+
+  it("throws format.unknown for an invalid explicit format override", async () => {
+    const file = makeTempPuml(SIMPLE_PUML);
+    try {
+      await expect(
+        loadBaseline({
+          arg: file,
+          formatOverride: "bogus",
+          sideLabel: "baseline",
+        }),
+      ).rejects.toMatchObject({ kind: "format.unknown" });
+    } finally {
+      cleanupParent(file);
+    }
+  });
 });
 
 describe("loadBaseline — model-json inputs", () => {

@@ -55,12 +55,15 @@ npx aact check
 npx aact check --dry-run             # preview auto-fix без записи
 npx aact model                       # inspect нормализованной C4-модели
 npx aact analyze                     # coupling/cohesion метрики
+npx aact view                        # локальный live-workbench в браузере
 npx aact generate --format plantuml  # сгенерировать .puml из источника
+npx aact generate --format model-json
 npx aact generate --format kubernetes
+npx aact generate --format compose
 ```
 
-> Для `structurizr` укажите `source.writePath` в `aact.config.ts` —
-> путь к `workspace.dsl`, в который пишутся правки от `--fix`.
+`--fix` пишет правки обратно в `source.path`. Отдельного
+`source.writePath` в v3 нет.
 
 ### Что создаёт `aact init`
 
@@ -78,7 +81,7 @@ import type { AactConfig } from "aact";
 
 const config: AactConfig = {
   source: {
-    type: "plantuml", // "plantuml" | "structurizr"
+    type: "plantuml", // "plantuml" | "structurizr" | "model-json" | "kubernetes" | "compose"
     path: "./architecture.puml",
   },
   rules: {

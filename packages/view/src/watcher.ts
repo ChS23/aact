@@ -14,6 +14,7 @@ export interface WatcherOptions {
   readonly paths: readonly string[];
   readonly debounceMs?: number;
   readonly onChange: () => void | Promise<void>;
+  readonly onError?: (error: unknown) => void;
 }
 
 export interface WatcherHandle {
@@ -60,6 +61,7 @@ export const startWatcher = (options: WatcherOptions): WatcherHandle => {
   watcher.on("change", schedule);
   watcher.on("add", schedule);
   watcher.on("unlink", schedule);
+  watcher.on("error", (error) => options.onError?.(error));
 
   return {
     close: async () => {

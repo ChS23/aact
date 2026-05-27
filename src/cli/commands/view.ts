@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { AactConfig } from "../../config";
 import type { Renderer } from "../output";
@@ -69,6 +70,7 @@ const isModuleNotFound = (error: unknown): boolean => {
  * `latest` (or drop the qualifier).
  */
 const COMPANION_DIST_TAG = "beta";
+const CORE_INSTALL_SPEC = `aact@${COMPANION_DIST_TAG}`;
 const COMPANION_INSTALL_SPEC = `@aact/view@${COMPANION_DIST_TAG}`;
 
 const fullCompanionInstallHint = [
@@ -112,13 +114,21 @@ const isRunningFromTempCache = (): boolean => {
   return /[/\\](?:_npx|\.?dlx)\b/.test(here);
 };
 
-const importCompanion = async (): Promise<ViewCompanionModule> => {
+const importCompanion = async (
+  resolutionRoot?: string,
+): Promise<ViewCompanionModule> => {
   // Dynamic import via a string variable keeps the core build from
   // trying to resolve @aact/view at bundle time — unbuild would
   // otherwise either externalise it (fine) or warn. The companion
   // is genuinely optional; the import happens only when the user
   // invokes `aact view`.
-  const specifier = "@aact/view";
+  const specifier = resolutionRoot
+    ? pathToFileURL(
+        createRequire(path.join(resolutionRoot, "package.json")).resolve(
+          "@aact/view",
+        ),
+      ).href
+    : "@aact/view";
   const mod = (await import(specifier)) as ViewCompanionModule;
   if (typeof mod.runWorkbench !== "function") {
     throw new ToolError(
@@ -143,10 +153,16 @@ const detectPackageManager = (cwd: string): PackageManager => {
 };
 
 const installArgs = (pm: PackageManager): readonly string[] => {
-  if (pm === "pnpm") return ["add", "-D", COMPANION_INSTALL_SPEC];
-  if (pm === "yarn") return ["add", "-D", COMPANION_INSTALL_SPEC];
-  if (pm === "bun") return ["add", "-d", COMPANION_INSTALL_SPEC];
-  return ["install", "--save-dev", COMPANION_INSTALL_SPEC];
+  if (pm === "pnpm") {
+    return ["add", "-D", CORE_INSTALL_SPEC, COMPANION_INSTALL_SPEC];
+  }
+  if (pm === "yarn") {
+    return ["add", "-D", CORE_INSTALL_SPEC, COMPANION_INSTALL_SPEC];
+  }
+  if (pm === "bun") {
+    return ["add", "-d", CORE_INSTALL_SPEC, COMPANION_INSTALL_SPEC];
+  }
+  return ["install", "--save-dev", CORE_INSTALL_SPEC, COMPANION_INSTALL_SPEC];
 };
 
 /** Ask the user before installing. Non-TTY environments (CI,
@@ -183,6 +199,24 @@ const runInstall = (pm: PackageManager, cwd: string): Promise<void> =>
     });
   });
 
+const loadProjectCompanion = async (
+  cwd: string,
+): Promise<ViewCompanionModule | undefined> => {
+  if (!existsSync(path.join(cwd, "package.json"))) return undefined;
+  try {
+    return await importCompanion(cwd);
+  } catch (error) {
+    if (error instanceof ToolError) throw error;
+    if (isModuleNotFound(error)) return undefined;
+    throw new ToolError(
+      "view.bootFailed",
+      `Failed to load @aact/view from the current project: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+};
+
 const loadCompanion = async (): Promise<ViewCompanionModule> => {
   try {
     return await importCompanion();
@@ -205,6 +239,10 @@ const loadCompanion = async (): Promise<ViewCompanionModule> => {
     //     to the one resolving our binary, so adding the companion
     //     in cwd doesn't show up on retry import.
     //   • cwd without package.json — no tree to install into.
+    const cwd = process.cwd();
+    const hasPackageJson = existsSync(path.join(cwd, "package.json"));
+    const projectCompanion = await loadProjectCompanion(cwd);
+    if (projectCompanion) return projectCompanion;
     if (isRunningFromTempCache()) {
       throw new ToolError(
         "view.companionMissing",
@@ -225,8 +263,6 @@ const loadCompanion = async (): Promise<ViewCompanionModule> => {
       );
     }
 
-    const cwd = process.cwd();
-    const hasPackageJson = existsSync(path.join(cwd, "package.json"));
     if (!hasPackageJson) {
       throw new ToolError("view.companionMissing", fullCompanionInstallHint);
     }
@@ -242,7 +278,7 @@ const loadCompanion = async (): Promise<ViewCompanionModule> => {
       throw new ToolError("view.companionMissing", fullCompanionInstallHint);
     }
     await runInstall(pm, cwd);
-    return await importCompanion();
+    return await importCompanion(cwd);
   }
 };
 
@@ -254,19 +290,31 @@ interface ViewArgs {
   readonly "diff-format"?: string;
 }
 
+const parsePort = (raw: string | undefined): number | undefined => {
+  if (raw === undefined) return undefined;
+  if (!/^\d+$/.test(raw)) {
+    throw new ToolError(
+      "view.bootFailed",
+      `--port must be an integer (got "${raw}")`,
+    );
+  }
+  const port = Number(raw);
+  if (port < 0 || port > 65_535) {
+    throw new ToolError(
+      "view.bootFailed",
+      `--port must be in range 0..65535 (got "${raw}")`,
+    );
+  }
+  return port;
+};
+
 export const executeView = async (
   config: AactConfig,
   args: ViewArgs,
   configPath: string | null,
 ): Promise<ExecuteResult<ViewData>> => {
   const companion = await loadCompanion();
-  const port = args.port ? Number.parseInt(args.port, 10) : undefined;
-  if (port !== undefined && Number.isNaN(port)) {
-    throw new ToolError(
-      "view.bootFailed",
-      `--port must be a number (got "${args.port}")`,
-    );
-  }
+  const port = parsePort(args.port);
   const result = await companion.runWorkbench({
     config,
     configPath,

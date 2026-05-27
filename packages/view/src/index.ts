@@ -230,6 +230,12 @@ export const runWorkbench = async (
           console.error(`  ✗ reload failed: ${viewError.message}`);
         }
       },
+      onError: (error) => {
+        const viewError = buildReloadError(options, error, performance.now());
+        server?.broadcastError(viewError);
+        // eslint-disable-next-line no-console
+        console.error(`  ✗ watcher failed: ${viewError.message}`);
+      },
     });
 
     await new Promise<void>((resolve) => {

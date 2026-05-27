@@ -121,3 +121,4 @@ export type {
   SkillData,
   SkillPlanResult,
 } from "./cli/commands/skill";
+export type { ViewData } from "./cli/commands/view";

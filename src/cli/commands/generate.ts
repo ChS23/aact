@@ -156,6 +156,7 @@ export const executeGenerate = async (
 
   if (sink.kind === "file") {
     const file = output.files[0];
+    await fs.mkdir(path.dirname(sink.path), { recursive: true });
     await fs.writeFile(sink.path, file.content);
     return {
       data: {
@@ -171,9 +172,11 @@ export const executeGenerate = async (
   // directory sink
   await fs.mkdir(sink.path, { recursive: true });
   await Promise.all(
-    output.files.map((f) =>
-      fs.writeFile(path.join(sink.path, f.path), f.content),
-    ),
+    output.files.map(async (f) => {
+      const outputPath = path.join(sink.path, f.path);
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      await fs.writeFile(outputPath, f.content);
+    }),
   );
   return {
     data: {

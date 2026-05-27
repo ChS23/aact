@@ -40,7 +40,7 @@ const configTemplate = `import type { AactConfig } from "aact";
 const config: AactConfig = {
   // Source of architecture description
   source: {
-    type: "plantuml", // "plantuml" | "structurizr"
+    type: "plantuml", // "plantuml" | "structurizr" | "model-json" | "kubernetes" | "compose"
     path: "./architecture.puml",
   },
 

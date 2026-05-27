@@ -45,7 +45,8 @@
   "license": "GPL-3.0",
   "author": "Ruslan Safin (Byndyusoft)",
   "scripts": {
-    "build": "unbuild",
+    "build": "pnpm run build:core && pnpm --filter @aact/view build",
+    "build:core": "unbuild",
     "schema:gen": "node --experimental-strip-types scripts/generate-schema.ts",
     "schema:check": "node --experimental-strip-types scripts/generate-schema.ts && git diff --exit-code schemas/",
     "test": "vitest run",
@@ -54,15 +55,19 @@
     "test:e2e": "vitest run --project e2e",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm run typecheck:core && pnpm --filter @aact/view typecheck",
+    "typecheck:core": "tsc --noEmit",
     "changelog": "changelogen",
     "release": "changelogen --release --push",
     "knip": "knip",
     "publint": "publint",
-    "lint": "npm run lint:eslint && npm run lint:prettier",
+    "lint": "npm run lint:eslint && npm run lint:prettier && pnpm --filter @aact/view lint",
     "lint:eslint": "eslint .",
     "lint:prettier": "prettier --ignore-path ./.gitignore --ignore-path ./.prettierignore --check \"./**/*.{ts,js,json,yaml,yml,md}\"",
-    "prepare": "test -d .git && husky || true"
+    "pack:smoke": "mkdir -p /tmp/aact-packs && pnpm pack --pack-destination /tmp/aact-packs && pnpm --filter @aact/view pack --pack-destination /tmp/aact-packs",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm lint && pnpm typecheck && pnpm build && pnpm test:coverage && pnpm publint",
+    "prepare": "test -d .git && test -w .git/config && husky || true"
   },
   "lint-staged": {
     "*.{ts,js}": [

@@ -54,11 +54,14 @@ After that, edit `architecture.puml` to describe your own system — the syntax 
 npx aact check --dry-run             # preview auto-fix without writing
 npx aact model                       # inspect the normalized C4 model
 npx aact analyze                     # coupling / cohesion metrics
+npx aact view                        # local live workbench in the browser
 npx aact generate --format plantuml  # generate .puml from the source
+npx aact generate --format model-json
 npx aact generate --format kubernetes
+npx aact generate --format compose
 ```
 
-> For `structurizr`, set `source.writePath` in `aact.config.ts` — the path to the `workspace.dsl` that `--fix` writes back into.
+`--fix` writes edits back to `source.path`. v3 no longer has a separate `source.writePath`.
 
 ### What `aact init` creates
 
@@ -73,7 +76,7 @@ import type { AactConfig } from "aact";
 
 const config: AactConfig = {
   source: {
-    type: "plantuml", // "plantuml" | "structurizr"
+    type: "plantuml", // "plantuml" | "structurizr" | "model-json" | "kubernetes" | "compose"
     path: "./architecture.puml",
   },
   rules: {

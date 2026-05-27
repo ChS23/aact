@@ -39,8 +39,14 @@ import { ToolError } from "../../output";
  * `--baseline-format <name>` explicitly.
  */
 
+const WINDOWS_ABSOLUTE_PATH = /^[a-zA-Z]:[\\/]/;
+
 const isGitRef = (arg: string): boolean =>
-  arg.includes(":") && !arg.startsWith("./");
+  arg.includes(":") &&
+  !WINDOWS_ABSOLUTE_PATH.test(arg) &&
+  !arg.startsWith("./") &&
+  !arg.startsWith("../") &&
+  !path.isAbsolute(arg);
 
 const splitGitRef = (arg: string): { ref: string; path: string } => {
   const idx = arg.indexOf(":");
@@ -232,10 +238,19 @@ export const loadBaseline = async (
     }
   }
 
-  const format = await loadFormat(formatHint);
+  let format: Awaited<ReturnType<typeof loadFormat>>;
+  try {
+    format = await loadFormat(formatHint);
+  } catch {
+    throw new ToolError(
+      "format.unknown",
+      `Unknown format "${formatHint}" for ${sideLabel}. Known formats: ${knownFormatNames().join(", ")}`,
+      { format: formatHint },
+    );
+  }
   if (!canLoad(format)) {
     throw new ToolError(
-      "format.unsupportedFix",
+      "model.unsupportedLoad",
       `Format "${formatHint}" does not support load`,
       { format: formatHint },
     );

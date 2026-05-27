@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build CLI
+      - name: Build packages
         run: pnpm build
 
       - name: Smoke — full user walkthrough on a scratch project

@@ -139,10 +139,22 @@
     };
   });
 
-  const sessionToken =
-    typeof location !== "undefined"
-      ? new URLSearchParams(location.search).get("token")
-      : null;
+  const readSessionToken = (): string | null => {
+    if (typeof location === "undefined") return null;
+    const url = new URL(location.href);
+    const token = url.searchParams.get("token");
+    if (token) {
+      url.searchParams.delete("token");
+      history.replaceState(
+        history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }
+    return token;
+  };
+
+  const sessionToken = readSessionToken();
 
   const withSessionToken = (path: string): string =>
     sessionToken ? `${path}?token=${encodeURIComponent(sessionToken)}` : path;
@@ -485,6 +497,9 @@
     );
   };
 
+  const elementNameFromNodeId = (id: string): string | null =>
+    id.startsWith("e:") ? id.slice(2) : null;
+
   const evidenceString = (value: unknown): string | null =>
     typeof value === "string" && value.length > 0 ? value : null;
 
@@ -555,7 +570,8 @@
           style: `${existingStyle} outline: 3px solid ${color}; outline-offset: 5px; border-radius: 8px;`,
         };
       }
-      if (cycleMembers.has(n.id)) {
+      const nodeName = elementNameFromNodeId(n.id);
+      if (nodeName && cycleMembers.has(nodeName)) {
         return {
           ...n,
           style: `${existingStyle} box-shadow: 0 0 0 3px #ef4444; border-radius: 8px;`,
@@ -574,8 +590,13 @@
       const cross = isCross(e);
       const intraInFilter = filterActive && !cross;
       const crossInFilter = filterActive && cross;
+      const sourceName = elementNameFromNodeId(e.source);
+      const targetName = elementNameFromNodeId(e.target);
       const inCycle =
-        cycleMembers.has(e.source) && cycleMembers.has(e.target);
+        sourceName !== null &&
+        targetName !== null &&
+        cycleMembers.has(sourceName) &&
+        cycleMembers.has(targetName);
       const diffStatus = edgeDiffStatus(e);
 
       // Diff status wins when present — the user booted with `--diff`

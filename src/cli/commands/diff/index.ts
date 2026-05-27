@@ -104,8 +104,8 @@ const resolveCurrentInput = async (
 
 const parseRenameThreshold = (raw: number | string | undefined): number => {
   if (raw === undefined) return DEFAULT_RENAME_THRESHOLD;
-  const n = typeof raw === "number" ? raw : Number.parseFloat(raw);
-  if (Number.isNaN(n) || n < 0 || n > 1) {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0 || n > 1) {
     throw new ToolError(
       "config.invalidSchema",
       `--rename-threshold must be a number in [0,1]; got "${raw}"`,
