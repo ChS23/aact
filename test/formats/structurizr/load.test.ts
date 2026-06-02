@@ -5,6 +5,7 @@ import path from "pathe";
 
 import { load } from "../../../src/formats/structurizr/load";
 import { structurizrDslSyntax } from "../../../src/formats/structurizr/syntax";
+import type { LoadResult } from "../../../src/formats/types";
 import type { Model } from "../../../src/model";
 import { allElements, getElement } from "../../../src/model";
 
@@ -14,12 +15,13 @@ beforeAll(async () => {
 });
 
 let counter = 0;
-const loadWorkspace = async (workspace: unknown): Promise<Model> => {
+const loadWorkspaceResult = async (workspace: unknown): Promise<LoadResult> => {
   const file = path.join(tmpDir, `workspace-${counter++}.json`);
   await writeFile(file, JSON.stringify(workspace), "utf8");
-  const result = await load(file);
-  return result.model;
+  return load(file);
 };
+const loadWorkspace = async (workspace: unknown): Promise<Model> =>
+  (await loadWorkspaceResult(workspace)).model;
 
 describe("structurizr load — fixture", () => {
   let model: Model;
@@ -109,7 +111,7 @@ describe("structurizr load — DSL identifier", () => {
         people: [],
       },
     });
-    expect(model.boundaries.sys_raw).toBeDefined();
+    expect(getElement(model, "sys_raw")).toBeDefined();
   });
 
   it("model.elements Record is sorted alphabetically", async () => {
@@ -526,35 +528,39 @@ describe("structurizr load — defaults & resilience", () => {
     expect(getElement(model, "c")?.description).toBe("");
   });
 
-  it("does NOT throw on components (v3 silently drops them)", async () => {
-    await expect(
-      loadWorkspace({
-        model: {
-          softwareSystems: [
-            {
-              id: "1",
-              name: "Sys",
-              containers: [
-                {
-                  id: "a",
-                  name: "A",
-                  components: [
-                    {
-                      id: "comp",
-                      name: "Comp",
-                      relationships: [{ destinationId: "b" }],
-                    },
-                  ],
-                  relationships: [],
-                },
-                { id: "b", name: "B", relationships: [] },
-              ],
-            },
-          ],
-          people: [],
-        },
-      }),
-    ).resolves.toBeDefined();
+  it("loads container components as component-level elements", async () => {
+    const model = await loadWorkspace({
+      model: {
+        softwareSystems: [
+          {
+            id: "1",
+            name: "Sys",
+            containers: [
+              {
+                id: "a",
+                name: "A",
+                components: [
+                  {
+                    id: "comp",
+                    name: "Comp",
+                    technology: "PostgreSQL",
+                    relationships: [{ destinationId: "b" }],
+                  },
+                ],
+                relationships: [],
+              },
+              { id: "b", name: "B", relationships: [] },
+            ],
+          },
+        ],
+        people: [],
+      },
+    });
+
+    expect(model.boundaries[1]?.boundaryNames).toContain("a");
+    expect(model.boundaries.a?.elementNames).toEqual(["comp"]);
+    expect(getElement(model, "comp")?.kind).toBe("ComponentDb");
+    expect(getElement(model, "comp")?.relations[0].to).toBe("b");
   });
 
   it("handles a system with undefined containers", async () => {
@@ -564,7 +570,8 @@ describe("structurizr load — defaults & resilience", () => {
         people: [],
       },
     });
-    expect(model.boundaries.sys1?.elementNames).toEqual([]);
+    expect(getElement(model, "sys1")?.kind).toBe("System");
+    expect(model.boundaries.sys1).toBeUndefined();
   });
 
   it("handles workspace with no `people` field", async () => {
@@ -831,7 +838,7 @@ describe("structurizr load — boundary metadata", () => {
             id: "1",
             name: "Sys",
             tags: "domain, public",
-            containers: [],
+            containers: [{ id: "api", name: "API", relationships: [] }],
           },
         ],
         people: [],
@@ -840,10 +847,7 @@ describe("structurizr load — boundary metadata", () => {
     expect(model.boundaries[1]?.tags).toEqual(["domain", "public"]);
   });
 
-  it("internal SoftwareSystem relationships are silently dropped (documented limitation)", async () => {
-    // Pin documented behavior: relations on internal SoftwareSystem are NOT
-    // pushed into the resulting Boundary (it has no relations). Otherwise
-    // we'd silently produce data not in v3 Model contract.
+  it("preserves internal leaf SoftwareSystem relationships", async () => {
     const model = await loadWorkspace({
       model: {
         softwareSystems: [
@@ -862,8 +866,41 @@ describe("structurizr load — boundary metadata", () => {
         people: [],
       },
     });
-    expect(allElements(model)).toHaveLength(0);
-    expect(model.boundaries.sys_a?.elementNames).toEqual([]);
+    expect(getElement(model, "sys_a")?.kind).toBe("System");
+    expect(getElement(model, "sys_a")?.relations[0].to).toBe("sys_b");
+  });
+
+  it("warns when a decomposed SoftwareSystem relationship cannot be represented", async () => {
+    const result = await loadWorkspaceResult({
+      model: {
+        softwareSystems: [
+          {
+            id: "sys_a",
+            name: "Sys A",
+            relationships: [{ destinationId: "sys_b" }],
+            containers: [{ id: "api", name: "API", relationships: [] }],
+          },
+          {
+            id: "sys_b",
+            name: "Sys B",
+            containers: [{ id: "worker", name: "Worker", relationships: [] }],
+          },
+        ],
+        people: [],
+      },
+    });
+
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        kind: "loader-warning",
+        source: "structurizr",
+        code: "boundary-source-relationship-not-represented",
+        element: "sys_a",
+      }),
+    );
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({ kind: "dangling-relation" }),
+    );
   });
 
   it("multiple internal SoftwareSystems each become a root boundary", async () => {
@@ -930,7 +967,7 @@ describe("structurizr load — F2 fidelity (url, group, perspectives)", () => {
     expect(getElement(model, "u")?.link).toBe("https://hr.example.com/u");
   });
 
-  it("Internal SoftwareSystem.url → Boundary.link", async () => {
+  it("Decomposed internal SoftwareSystem.url → Boundary.link", async () => {
     const model = await loadWorkspace({
       model: {
         softwareSystems: [
@@ -938,7 +975,7 @@ describe("structurizr load — F2 fidelity (url, group, perspectives)", () => {
             id: "sys",
             name: "Sys",
             url: "https://wiki.example.com/sys",
-            containers: [],
+            containers: [{ id: "api", name: "API", relationships: [] }],
           },
         ],
         people: [],

@@ -80,7 +80,10 @@ export const parseSource = (
   //    lowering attaches them as `Element.properties` /
   //    `Relation.properties` once it knows each node's
   //    sourceLocation.
-  const result = toModel(ast, { attachedProperties: pre.attachedProperties });
+  const result = toModel(ast, {
+    attachedProperties: pre.attachedProperties,
+    simpleConstants: pre.simpleConstants,
+  });
 
   // 6. Aggregate lex + parse errors.
   const parseErrors: ChevrotainParseError[] = [];

@@ -2,13 +2,20 @@ import fs from "node:fs/promises";
 
 import path from "pathe";
 
-import type { Boundary, Element, Relation } from "../../model";
+import type {
+  Boundary,
+  Element,
+  ElementKind,
+  ModelIssue,
+  Relation,
+} from "../../model";
 import { buildModel } from "../../model";
 import { inferKindFromTechnology } from "../_shared/kindHeuristics";
 import { parseCsvTags } from "../_shared/tags";
 import type { LoadResult } from "../types";
 import { parseSource } from "./parser";
 import type {
+  StructurizrComponent,
   StructurizrContainer,
   StructurizrPerson,
   StructurizrProperties,
@@ -90,6 +97,20 @@ const buildExternalSystemContainer = (
   properties: toProperties(s.properties, s.group, s.perspectives),
 });
 
+const buildInternalSystemContainer = (
+  s: StructurizrSoftwareSystem,
+): Element => ({
+  name: dslId(s.id, s.properties),
+  label: s.name,
+  kind: "System",
+  external: false,
+  description: s.description ?? "",
+  tags: parseCsvTags(s.tags),
+  relations: [],
+  link: s.url,
+  properties: toProperties(s.properties, s.group, s.perspectives),
+});
+
 const buildContainer = (c: StructurizrContainer): Element => ({
   name: dslId(c.id, c.properties),
   label: c.name,
@@ -103,14 +124,61 @@ const buildContainer = (c: StructurizrContainer): Element => ({
   properties: toProperties(c.properties, c.group, c.perspectives),
 });
 
-const buildSystemBoundary = (s: StructurizrSoftwareSystem): Boundary => ({
+const componentKindFromTechnology = (
+  technology: string | undefined,
+  name: string,
+): ElementKind => {
+  const inferred = inferKindFromTechnology(technology, name);
+  if (inferred === "ContainerDb") return "ComponentDb";
+  if (inferred === "ContainerQueue") return "ComponentQueue";
+  return "Component";
+};
+
+const buildComponent = (c: StructurizrComponent): Element => ({
+  name: dslId(c.id, c.properties),
+  label: c.name,
+  kind: componentKindFromTechnology(c.technology, c.name),
+  external: false,
+  description: c.description ?? "",
+  technology: c.technology,
+  tags: parseCsvTags(c.tags),
+  relations: [],
+  link: c.url,
+  properties: toProperties(c.properties, c.group, c.perspectives),
+});
+
+const hasComponents = (c: StructurizrContainer): boolean =>
+  (c.components?.length ?? 0) > 0;
+
+const buildContainerBoundary = (c: StructurizrContainer): Boundary => ({
+  name: dslId(c.id, c.properties),
+  label: c.name,
+  kind: "Container",
+  description: c.description,
+  tags: parseCsvTags(c.tags),
+  elementNames: (c.components ?? []).map((component) =>
+    dslId(component.id, component.properties),
+  ),
+  boundaryNames: [],
+  link: c.url,
+  properties: toProperties(c.properties, c.group, c.perspectives),
+});
+
+const buildSystemBoundary = (
+  s: StructurizrSoftwareSystem,
+  childContainers: readonly StructurizrContainer[],
+): Boundary => ({
   name: dslId(s.id, s.properties),
   label: s.name,
   kind: "System",
   description: s.description,
   tags: parseCsvTags(s.tags),
-  elementNames: (s.containers ?? []).map((c) => dslId(c.id, c.properties)),
-  boundaryNames: [],
+  elementNames: childContainers
+    .filter((c) => !hasComponents(c))
+    .map((c) => dslId(c.id, c.properties)),
+  boundaryNames: childContainers
+    .filter(hasComponents)
+    .map((c) => dslId(c.id, c.properties)),
   link: s.url,
   properties: toProperties(s.properties, s.group, s.perspectives),
 });
@@ -134,6 +202,92 @@ const buildRelation = (
   };
 };
 
+const HTTP_URL_RE = /^https?:\/\//i;
+
+const stripQuoted = (value: string): string => {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+};
+
+const parseLocalIncludeTarget = (line: string): string | undefined => {
+  const trimmed = line.trimStart();
+  if (!trimmed.startsWith("!include")) return undefined;
+  const raw = trimmed.slice("!include".length);
+  if (raw.length === 0 || !/\s/u.test(raw[0])) return undefined;
+
+  const value = raw.trim();
+  const target =
+    value.startsWith('"') || value.startsWith("'")
+      ? stripQuoted(value)
+      : (value.split(/\s+/u)[0] ?? "");
+  if (target.length === 0 || HTTP_URL_RE.test(target)) return undefined;
+  return target;
+};
+
+const expandDslIncludePath = async (
+  includePath: string,
+  stack: Set<string>,
+): Promise<string> => {
+  const stat = await fs.stat(includePath);
+  if (stat.isDirectory()) {
+    const entries = await fs.readdir(includePath, { withFileTypes: true });
+    const parts: string[] = [];
+    for (const entry of entries
+      .filter((e) => e.isFile() && !e.name.startsWith("."))
+      .sort((a, b) => a.name.localeCompare(b.name))) {
+      parts.push(
+        await expandDslIncludes(path.join(includePath, entry.name), stack),
+      );
+    }
+    return parts.join("\n");
+  }
+  return expandDslIncludes(includePath, stack);
+};
+
+const expandDslIncludes = async (
+  filepath: string,
+  stack = new Set<string>(),
+): Promise<string> => {
+  const absPath = path.resolve(filepath);
+  if (stack.has(absPath)) {
+    throw new Error(`Structurizr DSL include cycle detected: ${absPath}`);
+  }
+
+  stack.add(absPath);
+  try {
+    const text = await fs.readFile(absPath, "utf8");
+    const out: string[] = [];
+    for (const line of text.split(/(?<=\n)/u)) {
+      let newline = "";
+      if (line.endsWith("\r\n")) {
+        newline = "\r\n";
+      } else if (line.endsWith("\n")) {
+        newline = "\n";
+      }
+      const content = newline ? line.slice(0, -newline.length) : line;
+      const target = parseLocalIncludeTarget(content);
+      if (target === undefined) {
+        out.push(line);
+        continue;
+      }
+
+      const includePath = path.resolve(path.dirname(absPath), target);
+      const expanded = await expandDslIncludePath(includePath, stack);
+      out.push(expanded);
+      if (newline && !expanded.endsWith("\n")) out.push(newline);
+    }
+    return out.join("");
+  } finally {
+    stack.delete(absPath);
+  }
+};
+
 interface ElementWithRelations {
   readonly sourceId: string;
   readonly relationships?: readonly StructurizrRelationship[];
@@ -143,11 +297,9 @@ interface ElementWithRelations {
  * Structurizr workspace.json → Model.
  *
  * Known limitations (документируется в README):
- *  - Component-level элементы и их relations не загружаются в v3.0
- *    (можно opt-in через config option в будущем minor release).
- *  - System-level relations на internal SoftwareSystems (SoftwareSystem → SoftwareSystem)
- *    silently дропаются — internal system мапится в Boundary, у которого нет relations.
- *    Container-level и cross-system-external relations работают как ожидается.
+ *  - System-level relations на decomposed internal SoftwareSystems
+ *    (которые мапятся в Boundary) surfaced как loader-warning, потому что
+ *    Boundary в v3 Model не имеет outgoing relations.
  *  - Tag inheritance (Structurizr auto-наследование "Software System" tag)
  *    отключено — user tags только из workspace.json.
  *  - enrichTagsFromNames эвристика v2 (имя содержит "crud" → tag "repo") убрана.
@@ -169,6 +321,7 @@ export const load = async (filePath: string): Promise<LoadResult> => {
   const containers: Element[] = [];
   const boundaries: Boundary[] = [];
   const rootBoundaryNames: string[] = [];
+  const loaderIssues: ModelIssue[] = [];
   const idToName = new Map<string, string>();
   /** Subset of idToName — только те id'шники которые мапятся в Container
    * (не Boundary). Relations можно push'ать только сюда. */
@@ -182,24 +335,46 @@ export const load = async (filePath: string): Promise<LoadResult> => {
     idToContainerName.set(person.id, c.name);
   }
 
-  // Pass 2: software systems (external → Container, internal → Boundary + child Containers)
+  // Pass 2: software systems
+  // - external systems → Element(kind=System, external=true)
+  // - internal leaf systems → Element(kind=System)
+  // - internal decomposed systems → Boundary + child Containers/Components
   for (const system of workspace.model.softwareSystems ?? []) {
     if (isExternal(system)) {
       const c = buildExternalSystemContainer(system);
       containers.push(c);
       idToName.set(system.id, c.name);
       idToContainerName.set(system.id, c.name);
+    } else if ((system.containers?.length ?? 0) === 0) {
+      const c = buildInternalSystemContainer(system);
+      containers.push(c);
+      idToName.set(system.id, c.name);
+      idToContainerName.set(system.id, c.name);
     } else {
-      const boundary = buildSystemBoundary(system);
+      const childContainers = system.containers ?? [];
+      const boundary = buildSystemBoundary(system, childContainers);
       boundaries.push(boundary);
       rootBoundaryNames.push(boundary.name);
       idToName.set(system.id, boundary.name);
 
-      for (const cont of system.containers ?? []) {
-        const c = buildContainer(cont);
-        containers.push(c);
-        idToName.set(cont.id, c.name);
-        idToContainerName.set(cont.id, c.name);
+      for (const cont of childContainers) {
+        if (hasComponents(cont)) {
+          const b = buildContainerBoundary(cont);
+          boundaries.push(b);
+          idToName.set(cont.id, b.name);
+
+          for (const component of cont.components ?? []) {
+            const c = buildComponent(component);
+            containers.push(c);
+            idToName.set(component.id, c.name);
+            idToContainerName.set(component.id, c.name);
+          }
+        } else {
+          const c = buildContainer(cont);
+          containers.push(c);
+          idToName.set(cont.id, c.name);
+          idToContainerName.set(cont.id, c.name);
+        }
       }
     }
   }
@@ -228,28 +403,64 @@ export const load = async (filePath: string): Promise<LoadResult> => {
           relationships: cont.relationships,
         });
       }
+      for (const component of cont.components ?? []) {
+        if (component.relationships) {
+          elementsWithRelations.push({
+            sourceId: component.id,
+            relationships: component.relationships,
+          });
+        }
+      }
     }
   }
 
-  // Pass 3: relations — push only into Container-mapped sources
-  // (Boundary sources i.e. internal SoftwareSystem-level relations silently dropped)
+  // Pass 3: relations — push only into Element-mapped sources.
+  // Boundary sources can't carry outgoing relations in v3 Model, so make
+  // the loss explicit instead of pretending the exported JSON fully loaded.
   const containersByName = new Map<string, Element>(
     containers.map((c) => [c.name, c]),
   );
   for (const { sourceId, relationships } of elementsWithRelations) {
+    // Structurizr JSON includes derived aggregate relationships linked
+    // to concrete author-level relations. Those are view duplicates.
+    const authorRelationships = relationships?.filter(
+      (rel) => !rel.linkedRelationshipId,
+    );
     const sourceName = idToContainerName.get(sourceId);
-    if (!sourceName || !relationships) continue;
+    if (!authorRelationships || authorRelationships.length === 0) continue;
+    if (!sourceName) {
+      const mappedName = idToName.get(sourceId);
+      if (mappedName !== undefined) {
+        loaderIssues.push({
+          kind: "loader-warning",
+          source: "structurizr",
+          code: "boundary-source-relationship-not-represented",
+          message: `Relationship from "${mappedName}" is attached to a Structurizr element that maps to a Boundary in aact; Boundary relations are not represented in v3 Model.`,
+          element: mappedName,
+        });
+      }
+      continue;
+    }
     const source = containersByName.get(sourceName);
     if (!source) continue;
 
     const newRelations: Relation[] = [...source.relations];
-    for (const rel of relationships) {
-      // Structurizr JSON can include derived relationships linked to a
-      // concrete container-level relation (for example Container -> System).
-      // They are view/aggregate duplicates, not author-level model edges.
-      if (rel.linkedRelationshipId) continue;
-      const targetName = idToName.get(rel.destinationId);
-      if (!targetName) continue; // dangling — validateModel surfaces
+    for (const rel of authorRelationships) {
+      const mappedTargetName = idToName.get(rel.destinationId);
+      if (
+        mappedTargetName !== undefined &&
+        !containersByName.has(mappedTargetName)
+      ) {
+        loaderIssues.push({
+          kind: "loader-warning",
+          source: "structurizr",
+          code: "boundary-target-relationship-not-represented",
+          message: `Relationship to "${mappedTargetName}" targets a Structurizr element that maps to a Boundary in aact; Boundary relations are not represented in v3 Model.`,
+          element: sourceName,
+        });
+        continue;
+      }
+      const targetName = mappedTargetName ?? rel.destinationId;
       newRelations.push(buildRelation(rel, targetName));
     }
     containersByName.set(sourceName, { ...source, relations: newRelations });
@@ -259,6 +470,7 @@ export const load = async (filePath: string): Promise<LoadResult> => {
     elements: [...containersByName.values()],
     boundaries,
     rootBoundaryNames,
+    preIssues: loaderIssues,
   });
 };
 
@@ -270,7 +482,7 @@ export const load = async (filePath: string): Promise<LoadResult> => {
  * `LoadResult.issues` for the linter to render.
  */
 const loadFromDsl = async (filepath: string): Promise<LoadResult> => {
-  const text = await fs.readFile(filepath, "utf8");
+  const text = await expandDslIncludes(filepath);
   const result = parseSource(text, filepath);
   if (result.parseErrors.length > 0) {
     const summary = result.parseErrors

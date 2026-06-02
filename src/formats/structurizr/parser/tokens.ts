@@ -63,6 +63,14 @@ export const TextBlock = createToken({
   pattern: /"""[\s\S]*?"""/,
 });
 
+/** Bare URL token used by official DSL forms such as
+ * `url https://example.com`. Kept narrower than "any bare value" so
+ * identifiers and include paths stay context-specific. */
+export const UrlLiteral = createToken({
+  name: "UrlLiteral",
+  pattern: /[a-zA-Z][a-zA-Z0-9+.-]{0,32}:\/\/[^\s{}"]+/,
+});
+
 // ── Operators and punctuation ──────────────────────────────────────────
 
 export const NoRelationship = createToken({
@@ -270,6 +278,7 @@ export const allTokens = [
   // Literals
   TextBlock,
   StringLiteral,
+  UrlLiteral,
 
   // Operators / punctuation
   NoRelationship,

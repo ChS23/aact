@@ -151,6 +151,7 @@ describe("Structurizr parser pipeline (CST → AST → Model)", () => {
   it("resolves hierarchical refs `boundary.local` to nested elements", () => {
     const src = `workspace {
       model {
+        !identifiers hierarchical
         bank = softwareSystem "Bank" {
           api = container "API"
           db = container "Database"
@@ -163,10 +164,10 @@ describe("Structurizr parser pipeline (CST → AST → Model)", () => {
     const { model, parseErrors } = parseSource(src, "hier.dsl");
     expect(parseErrors).toEqual([]);
     expect(model.elements["client"]?.relations).toEqual([
-      expect.objectContaining({ to: "api", description: "calls" }),
+      expect.objectContaining({ to: "bank.api", description: "calls" }),
     ]);
-    expect(model.elements["api"]?.relations).toEqual([
-      expect.objectContaining({ to: "db", description: "reads" }),
+    expect(model.elements["bank.api"]?.relations).toEqual([
+      expect.objectContaining({ to: "bank.db", description: "reads" }),
     ]);
   });
 

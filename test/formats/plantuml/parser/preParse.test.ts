@@ -1,5 +1,6 @@
 import {
   extractAttachedProperties,
+  extractSimpleConstants,
   keepFirstDiagram,
   preParse,
   stripDeploymentBlocks,
@@ -78,6 +79,27 @@ describe("PUML preParse — content stripping", () => {
     expect(text).toContain("Container(api,");
   });
 
+  it("warns when parseSource ignores a local !include", () => {
+    const src = `!include people.puml\nContainer(api, "API")\n`;
+    const { issues } = preParse(src, FILE);
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        kind: "info",
+        message: expect.stringMatching(/Local !include "people\.puml"/),
+      }),
+    );
+  });
+
+  it("warns when parseSource ignores local !include_once", () => {
+    const src = `!include_once common.puml\nContainer(api, "API")\n`;
+    const { issues } = preParse(src, FILE);
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringMatching(/common\.puml/),
+      }),
+    );
+  });
+
   it("strips LAYOUT_WITH_LEGEND() opaque call", () => {
     const src = `LAYOUT_WITH_LEGEND()\nContainer(api, "API")\n`;
     const { text } = preParse(src, FILE);
@@ -118,6 +140,36 @@ describe("PUML preParse — content stripping", () => {
     expect(text).not.toContain('Container(b, "B")');
     expect(issues).toHaveLength(1);
     expect(issues[0].message).toMatch(/Multiple/);
+  });
+});
+
+describe("PUML preParse — simple constants", () => {
+  it("extracts !$var and !define literal constants without changing source text", () => {
+    const src = [
+      '!$combinedSprite="person2,scale=0.5"',
+      '!define TAG_CRITICAL "critical"',
+      'Container(api, "API", $sprite=$combinedSprite, $tags=TAG_CRITICAL)',
+    ].join("\n");
+
+    const constants = extractSimpleConstants(src);
+
+    expect(constants.get("$combinedSprite")).toBe("person2,scale=0.5");
+    expect(constants.get("TAG_CRITICAL")).toBe("critical");
+  });
+});
+
+describe("PUML preParse — arithmetic stripping", () => {
+  it("does not strip arithmetic-like text inside quoted labels", () => {
+    const src = 'Container(api, "API (v2)-1", "Node")\n';
+    const { text } = preParse(src, FILE);
+    expect(text).toContain('"API (v2)-1"');
+  });
+
+  it("strips arithmetic tails after Index() outside strings", () => {
+    const src = 'Rel(a, b, "calls", $index=Index()-1)\n';
+    const { text } = preParse(src, FILE);
+    expect(text).toContain("$index=Index()  ");
+    expect(text.length).toBe(src.length);
   });
 });
 

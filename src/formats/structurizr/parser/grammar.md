@@ -7,9 +7,12 @@ is anchored to authoritative behaviour rather than memory or
 documentation drift.
 
 The reference parser is line-based with a context stack; ours is a
-block-grammar chevrotain parser. The **accepted surface is identical**
-— the same sources produce the same Model — but the recognition
-strategy differs. This document defines the surface, not the strategy.
+block-grammar chevrotain parser. The aact parser targets **semantic
+parity for the supported C4 modelling subset** of Structurizr DSL; it
+does not claim whole-language parity with the Java parser. Constructs
+that would otherwise produce a silently incomplete Model must either
+land in the Model or surface an explicit loader warning / parse error.
+This document defines that surface, not the parsing strategy.
 
 References used while authoring:
 
@@ -21,19 +24,19 @@ References used while authoring:
 
 ## Scope policy
 
-Six categories — three primary (in-scope / opaque / parsed-then-info-issue)
+Six categories — three primary (in-scope / opaque / parsed-then-warning-issue)
 plus three boundary cases (hard parse error / tokenize-ignore / in-scope
 minimal). See `docs/v3-parser-phase-0-inventory.md` for the reasoning
 behind the primary three.
 
-| Category                   | Goes to                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Examples                                                                                                                                                                                                                                                                   |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **In scope**               | `Model` via the AST → toModel mapping                                                                                                                                                                                                                                                                                                                                                                                                                                | workspace, model, elements, relationships, properties, perspectives, !include, !const, !identifiers                                                                                                                                                                        |
-| **Opaque**                 | stripped from the token stream pre-parse (`preParse.ts`); keyword + source range surfaced on `ChevrotainParseResult.opaqueBlocks` so a future writer can re-emit them. Inner text not captured today — no rule, analyzer, or generator reads from these.                                                                                                                                                                                                             | views, styles, configuration, themes, branding, terminology, archetypes, !docs, !adrs, !plugin, !script                                                                                                                                                                    |
-| **Parsed-then-info-issue** | parsed only for syntactic correctness (so a legal DSL file does not crash); emits `ModelIssue` severity=info; never reaches Model or raw                                                                                                                                                                                                                                                                                                                             | deploymentEnvironment, deploymentNode, infrastructureNode, softwareSystemInstance, containerInstance, deploymentGroup, instanceOf, healthCheck                                                                                                                             |
-| **Hard parse error**       | reference parser throws `RuntimeException`; aact must match to stay aligned                                                                                                                                                                                                                                                                                                                                                                                          | `!ref`, `!extend`, `!constant`, `enterprise { ... }` — all four were deprecated and **then removed**; the reference now errors on them with a message pointing to the replacement. Silent-skip would diverge from the reference (we'd accept files the reference rejects). |
-| **Tokenize-ignore at lex** | lexer recognises the token, parser skips the block as untyped opaque content (no info-issue, no warning)                                                                                                                                                                                                                                                                                                                                                             | `!components` (component finder + family — note the actual token is `!components`, not `componentFinder`), `findElement(s)`, `findRelationship(s)`, `customElement` (`element` keyword in model).                                                                          |
-| **Archetypes (in scope)**  | alias declarations (`<alias> = <baseKeyword> [{ defaults? }]`) and kind-default declarations (`<baseKeyword> { defaults }`) extracted pre-parse. Element decls that match an alias or kind get archetype defaults merged onto them: description / technology fallback (source wins), tags / properties / perspectives additive. Chained aliases resolve recursively. Relationship archetypes (`https = -> { … }`) and selector-body propagation are documented gaps. | `archetypes { application = container { tag "Application" } }` → `api = application "X"` lands as Container with tag "Application"; `archetypes { softwareSystem { description "Default" } }` → `a = softwareSystem "A"` lands with description "Default"                  |
+| Category                      | Goes to                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Examples                                                                                                                                                                                                                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **In scope**                  | `Model` via the AST → toModel mapping                                                                                                                                                                                                                                                                                                                                                                                                                                | workspace, model, elements, relationships, relationship bodies, properties, perspectives, !const, !var, !identifiers, !impliedRelationships                                                                                                                                |
+| **Opaque**                    | stripped from the token stream pre-parse (`preParse.ts`); keyword + source range surfaced on `ChevrotainParseResult.opaqueBlocks` so a future writer can re-emit them. Inner text not captured today — no rule, analyzer, or generator reads from these.                                                                                                                                                                                                             | views, styles, configuration, themes, branding, terminology, archetypes, !docs, !adrs, !plugin, !script                                                                                                                                                                    |
+| **Parsed-then-warning-issue** | parsed only for syntactic correctness (so a legal DSL file does not crash); emits `ModelIssue`/loader diagnostic; never reaches Model or raw                                                                                                                                                                                                                                                                                                                         | `!include` expansion, `workspace extends` merge, selector body propagation, deploymentEnvironment, deploymentNode, infrastructureNode, softwareSystemInstance, containerInstance, deploymentGroup, instanceOf, healthCheck                                                 |
+| **Hard parse error**          | reference parser throws `RuntimeException`; aact must match to stay aligned                                                                                                                                                                                                                                                                                                                                                                                          | `!ref`, `!extend`, `!constant`, `enterprise { ... }` — all four were deprecated and **then removed**; the reference now errors on them with a message pointing to the replacement. Silent-skip would diverge from the reference (we'd accept files the reference rejects). |
+| **Tokenize-ignore at lex**    | lexer recognises the token, parser skips the block as untyped opaque content (no info-issue, no warning)                                                                                                                                                                                                                                                                                                                                                             | `!components` (component finder + family — note the actual token is `!components`, not `componentFinder`), `findElement(s)`, `findRelationship(s)`, `customElement` (`element` keyword in model).                                                                          |
+| **Archetypes (in scope)**     | alias declarations (`<alias> = <baseKeyword> [{ defaults? }]`) and kind-default declarations (`<baseKeyword> { defaults }`) extracted pre-parse. Element decls that match an alias or kind get archetype defaults merged onto them: description / technology fallback (source wins), tags / properties / perspectives additive. Chained aliases resolve recursively. Relationship archetypes (`https = -> { … }`) and selector-body propagation are documented gaps. | `archetypes { application = container { tag "Application" } }` → `api = application "X"` lands as Container with tag "Application"; `archetypes { softwareSystem { description "Default" } }` → `a = softwareSystem "A"` lands with description "Default"                  |
 
 The chevrotain grammar is the **union** of categories 1–3. Category 4 is
 handled at lex time.
@@ -52,10 +55,15 @@ fixtures (Big Bank, getting-started, multi-line, etc.).
 - workspace / model / element / relationship base grammar
 - element body statements (description / technology / tags / tag / url
   / properties / perspectives)
-- directives (`!include`, `!const`, `!var`, `!identifiers`,
+- relationship body statements (tags / tag / url / properties /
+  perspectives)
+- directives (`!const`, `!var`, `!identifiers`,
   `!impliedRelationships`) at top, workspace, and model scope
 - workspace-scope `properties { ... }`
 - bare paths in `!include` and `extends` (e.g. `path/to/parent.dsl`)
+  parse cleanly and emit loader warnings because aact does not expand
+  them into the Model yet
+- official unquoted URL statements (`url https://example.com`)
 - triple-quoted text blocks (`"""..."""`) as `!const` / `!var` values
 - multi-line `\` continuations (pre-lex pass)
 - opaque block stripping (views / styles / configuration / branding /
@@ -73,7 +81,9 @@ fixtures (Big Bank, getting-started, multi-line, etc.).
 - implicit-source `-> destination ...` form inside element body
 - `this` as source AND destination, resolved to enclosing element
 - `-/>` no-relationship form (parsed, no Model edge)
-- hierarchical refs `bank.api -> bank.db` (Identifier accepts `.`)
+- official flat vs hierarchical identifier scope: flat scope rejects
+  duplicate nested ids; hierarchical scope uses qualified Model names
+  such as `bank.api`
 - bare slash in property values (`structurizr.groupSeparator /`)
 - case-insensitive identifier resolution
 - element-kind keyword used as identifier (`softwareSystem = softwareSystem "X"`)
@@ -104,12 +114,15 @@ group "Layer" }` sets `Component.properties.group = "Layer"`.
 - **Workspace name/description/extends** — surfaced in
   `Model.workspace` as `{ name?, description?, extendsTarget? }`.
   Workspace-body `name "..."` / `description "..."` overrides win
-  over the header positionals (last-wins).
+  over the header positionals (last-wins). `extendsTarget` is metadata
+  only; a loader warning is emitted because aact does not merge the
+  referenced workspace.
 - **Archetypes block** — declaration is stripped opaque so
   archetype-bearing fixtures parse cleanly.
 - **Selectors `!element`/`!elements`/`!relationship`/
   `!relationships`** — declaration blocks are stripped opaque so
-  selector-bearing fixtures parse cleanly.
+  selector-bearing fixtures parse cleanly; a loader warning is emitted
+  because the body is not propagated to selected model items.
 - **Bare `impliedRelationships`** — accepted alongside
   `!impliedRelationships` (reference uses case-insensitive
   bang-stripping). Both feed the same toModel strategy.
@@ -143,6 +156,11 @@ description "…" } }` (no alias name on LHS) applies the body to
 
 ### Remaining gaps (deliberate)
 
+- **Include / workspace-extends expansion** — `!include` and
+  `workspace extends ...` are parsed and surfaced as loader warnings,
+  but referenced files/URLs/directories are not merged into the aact
+  Model yet. This avoids silent loss while keeping the pure string
+  parser independent from filesystem/network resolution.
 - **Relationship archetypes** — `https = -> { technology "HTTPS" }`
   and usage `a --https-> b`. Requires a new `--<aliasName>->` lexer
   token and changes to the relationship rule. Rare in practice;
@@ -150,9 +168,9 @@ description "…" } }` (no alias name on LHS) applies the body to
   surfaces as a parse error.
 - **Selector body propagation** — `!element <ref> { tag "x" }` should
   attach the body to the selected element. The block is stripped
-  today (selector parsing without applying body), so users get a
-  clean parse but the linter doesn't see those tags. Reference:
-  `FindElement(s)Parser`, `ElementsParser` body statements.
+  today and a loader warning is emitted instead of silently losing
+  the body. Reference: `FindElement(s)Parser`, `ElementsParser` body
+  statements.
 - **Empty `""` vs `undefined`** — reference returns `""` for missing
   description/technology/relation.description. Our Model carries
   `undefined`. Deliberate divergence: TS idioms favour `undefined`
@@ -258,11 +276,10 @@ form: `archetypes { https = -> { tags "secure" } }` then
 
 The aact parser MUST extract the keyword→base-type mapping from any
 `archetypes { ... }` block before parsing the model body. Archetype
-defaults (description/technology/tags etc.) may be applied during
-toModel as initial values for elements declared via the alias — TBD
-when full archetype support lands. Today aact strips the archetypes
-block opaque-style; usage forms (`<alias> <id> "name"` and
-`a --<alias>-> b`) are documented gaps.
+defaults (description/technology/tags/properties/perspectives) are
+applied during toModel as initial values for elements declared via
+the alias. Relationship archetype usage (`a --<alias>-> b`) remains
+the documented gap.
 
 ### Relationships
 
@@ -421,9 +438,9 @@ Model — the user sees both parse errors and rule violations in one pass.
 - LSP server, CST output mode, incremental parsing (memo §8 Q#1).
 - Re-parsing inside view / style / deployment block content. These
   remain opaque; if a user ever needs structured access we add it then.
-- Source maps across `!include` boundaries are nice-to-have; we will
-  populate `SourceLocation.file` with the actual included path but a
-  visualised include chain is out of scope.
+- Source maps across `!include` boundaries until include expansion
+  lands. For now `!include` emits a loader warning and the referenced
+  source is not loaded.
 
 ## 7. Secondary oracle — structurizr-cli
 

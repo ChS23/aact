@@ -49,6 +49,15 @@ describe("PUML toModel — element macros → Container", () => {
     expect(model.elements["db"].kind).toBe("ContainerDb");
   });
 
+  it("SystemDb preserves original C4 shape as metadata", () => {
+    const src = `@startuml\nSystemDb(catalog, "Catalog DB")\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.elements["catalog"]).toMatchObject({
+      kind: "System",
+      properties: { "plantuml.macro": "SystemDb" },
+    });
+  });
+
   it("Context family uses $type for technology (not $techn)", () => {
     // grammar.md: Person/System/etc. have no $techn slot; $type carries it.
     const src = `@startuml\nPerson(alice, "Alice", "A user", $type="developer")\n@enduml\n`;
@@ -93,6 +102,14 @@ describe("PUML toModel — relation macros → Container.relations", () => {
     });
   });
 
+  it("keeps official Rel descr slot separate from tags", () => {
+    const src = `@startuml\nContainer(a, "A")\nContainer(b, "B")\nRel(a, b, "calls", "HTTPS", "Opens dashboard")\n@enduml\n`;
+    const { model } = lower(src);
+    const rel = model.elements["a"].relations[0];
+    expect(rel.tags).toEqual([]);
+    expect(rel.properties?.["plantuml.descr"]).toBe("Opens dashboard");
+  });
+
   it("Rel_Back(a, b) emits a Relation FROM b TO a (semantic swap)", () => {
     const src = `@startuml\nContainer(a, "A")\nContainer(b, "B")\nRel_Back(a, b, "answers to")\n@enduml\n`;
     const { model } = lower(src);
@@ -126,20 +143,18 @@ describe("PUML toModel — relation macros → Container.relations", () => {
     expect(model.elements["a"].relations[0].order).toBeUndefined();
   });
 
-  it("dangling relation source manufactures placeholder container (validator catches it)", () => {
+  it("dangling relation source emits warning without manufacturing a placeholder", () => {
     const src = `@startuml\nContainer(b, "B")\nRel(missing, b, "calls")\n@enduml\n`;
-    const { model } = lower(src);
-    expect(model.elements["missing"]).toBeDefined();
-    expect(model.elements["missing"].relations[0].to).toBe("b");
-  });
-
-  it("dangling-source placeholder borrows sourceLocation from first-use Rel call", () => {
-    const src = `@startuml\nContainer(b, "B")\nRel(missing, b, "calls")\n@enduml\n`;
-    const expected = src.indexOf("Rel(");
-    const { model } = lower(src);
-    const m = model.elements["missing"];
-    expect(m.sourceLocation?.start.offset).toBe(expected);
-    expect(m.sourceLocation?.file).toBe(FILE);
+    const { model, issues } = lower(src);
+    expect(model.elements["missing"]).toBeUndefined();
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        kind: "loader-warning",
+        source: "plantuml",
+        code: "relationship-source-not-resolved",
+        element: "missing",
+      }),
+    );
   });
 });
 

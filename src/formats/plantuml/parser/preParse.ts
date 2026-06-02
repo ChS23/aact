@@ -102,6 +102,8 @@ export type AttachedPropertiesByLine = ReadonlyMap<
   Readonly<Record<string, string>>
 >;
 
+export type SimpleConstants = ReadonlyMap<string, string>;
+
 export interface PreParseResult {
   /** Source text after all strip passes — same length as input (UTF-16 code units). */
   readonly text: string;
@@ -111,6 +113,8 @@ export interface PreParseResult {
    *  protocol, keyed by the target macro's 1-based line. Empty when
    *  the source uses no property table. */
   readonly attachedProperties: AttachedPropertiesByLine;
+  /** Literal `!$var=...` / `!define NAME ...` constants for C4 arg values. */
+  readonly simpleConstants: SimpleConstants;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -164,6 +168,84 @@ const rangeOf = (
  */
 export const stripPreprocessor = (text: string): string =>
   text.replaceAll(/^[ \t]*!.*$/gm, (line) => blank(line));
+
+const INCLUDE_DIRECTIVES = ["!include_once", "!include_many", "!include"];
+
+const includeTarget = (line: string): string | undefined => {
+  const trimmed = line.trimStart();
+  if (trimmed.startsWith("!includeurl")) return undefined;
+
+  const directive = INCLUDE_DIRECTIVES.find((d) => trimmed.startsWith(d));
+  if (directive === undefined) return undefined;
+
+  const raw = trimmed.slice(directive.length);
+  if (raw.length === 0 || !/\s/u.test(raw[0])) return undefined;
+  const value = raw.trim();
+  if (value.length === 0) return undefined;
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value.split(/\s+/u)[0];
+};
+
+const isLocalIncludeTarget = (target: string): boolean =>
+  !target.startsWith("<") &&
+  !/^https?:\/\//iu.test(target) &&
+  !target.startsWith("$") &&
+  !target.startsWith("%");
+
+const collectIgnoredLocalIncludes = (
+  text: string,
+  file: string,
+): readonly PreParseIssue[] => {
+  const issues: PreParseIssue[] = [];
+  let offset = 0;
+  for (const line of text.split(/(?<=\n)/u)) {
+    const target = includeTarget(line);
+    if (target && isLocalIncludeTarget(target)) {
+      issues.push({
+        kind: "info",
+        message: `Local !include "${target}" was ignored by parseSource(); use format.load() to expand local PlantUML includes from disk.`,
+        range: rangeOf(text, offset, offset + line.length, file),
+      });
+    }
+    offset += line.length;
+  }
+  return issues;
+};
+
+const SIMPLE_VAR_RE = /^\s*!\$([A-Za-z_]\w*)\s*=\s*(.*?)\s*$/u;
+const SIMPLE_DEFINE_RE = /^\s*!define\s+([A-Za-z_]\w*)\s+(.+?)\s*$/u;
+
+const unquoteConstantValue = (raw: string): string => {
+  const value = raw.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+};
+
+export const extractSimpleConstants = (text: string): SimpleConstants => {
+  const constants = new Map<string, string>();
+  for (const line of text.split(/\r?\n/u)) {
+    const varMatch = SIMPLE_VAR_RE.exec(line);
+    if (varMatch) {
+      constants.set(`$${varMatch[1]}`, unquoteConstantValue(varMatch[2]));
+      continue;
+    }
+
+    const defineMatch = SIMPLE_DEFINE_RE.exec(line);
+    if (!defineMatch) continue;
+    constants.set(defineMatch[1], unquoteConstantValue(defineMatch[2]));
+  }
+  return constants;
+};
 
 // ── Pass 2: whole-line comments ────────────────────────────────────
 
@@ -365,11 +447,74 @@ export const stripOpaqueMacros = (text: string): string => {
  * an operator (`+ - * /`), more whitespace, and digits. The
  * operator/digits are blanked; the value head survives.
  */
-export const stripArithmeticAfterFunctionCalls = (text: string): string =>
-  text.replaceAll(
-    /(\)|\$[A-Za-z_]\w*)(\s*[+\-*/]\s*\d+)/g,
-    (_match, head: string, tail: string) => head + blank(tail),
-  );
+const arithmeticTailLength = (text: string, start: number): number => {
+  let i = start;
+  while (i < text.length && /[ \t]/u.test(text[i])) i++;
+  if (!"+-*/".includes(text[i] ?? "")) return 0;
+  i++;
+  while (i < text.length && /[ \t]/u.test(text[i])) i++;
+  const digitsStart = i;
+  while (i < text.length && /\d/u.test(text[i])) i++;
+  return i > digitsStart ? i - start : 0;
+};
+
+export const stripArithmeticAfterFunctionCalls = (text: string): string => {
+  let out = "";
+  let i = 0;
+  let quote: '"' | "'" | undefined;
+
+  while (i < text.length) {
+    const ch = text[i];
+    if (quote) {
+      out += ch;
+      if (ch === "\\" && i + 1 < text.length) {
+        out += text[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === quote) quote = undefined;
+      i++;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === ")") {
+      out += ch;
+      const tailLength = arithmeticTailLength(text, i + 1);
+      if (tailLength > 0) {
+        out += blank(text.slice(i + 1, i + 1 + tailLength));
+        i += 1 + tailLength;
+        continue;
+      }
+      i++;
+      continue;
+    }
+
+    if (ch === "$" && /[A-Za-z_]/u.test(text[i + 1] ?? "")) {
+      const start = i;
+      i += 2;
+      while (i < text.length && /\w/u.test(text[i])) i++;
+      out += text.slice(start, i);
+      const tailLength = arithmeticTailLength(text, i);
+      if (tailLength > 0) {
+        out += blank(text.slice(i, i + tailLength));
+        i += tailLength;
+      }
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+
+  return out;
+};
 
 // ── Pass 5: deployment blocks (info-issue) ──────────────────────────
 
@@ -745,6 +890,8 @@ export const extractAttachedProperties = (
  * `toModel` to consume.
  */
 export const preParse = (text: string, file: string): PreParseResult => {
+  const preprocessorIssues = collectIgnoredLocalIncludes(text, file);
+  const simpleConstants = extractSimpleConstants(text);
   let cur = stripPreprocessor(text);
   cur = stripLineComments(cur);
   cur = stripPlantumlNative(cur);
@@ -757,7 +904,8 @@ export const preParse = (text: string, file: string): PreParseResult => {
   cur = diag.text;
   return {
     text: cur,
-    issues: [...dep.issues, ...diag.issues],
+    issues: [...preprocessorIssues, ...dep.issues, ...diag.issues],
     attachedProperties,
+    simpleConstants,
   };
 };

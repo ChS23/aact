@@ -43,6 +43,7 @@ import type {
   BoundaryKind,
   Element,
   ElementKind,
+  ModelIssue,
   Relation,
   SourceLocation,
 } from "../../../model";
@@ -59,6 +60,7 @@ import type {
   NamedArg,
   RelationMacro,
 } from "./ast";
+import type { SimpleConstants } from "./preParse";
 
 // ── Argument-extraction helpers ─────────────────────────────────────
 
@@ -68,10 +70,15 @@ import type {
  * (toModel handles function calls case-by-case where they carry
  * Model semantics, e.g. `Index()`).
  */
-const argString = (value: ArgumentValue | undefined): string | undefined => {
+const argString = (
+  value: ArgumentValue | undefined,
+  constants?: SimpleConstants,
+): string | undefined => {
   if (!value) return undefined;
   if (value.kind === "string") return value.value;
-  if (value.kind === "bareToken") return value.value;
+  if (value.kind === "bareToken") {
+    return constants?.get(value.value) ?? value.value;
+  }
   return undefined;
 };
 
@@ -83,12 +90,13 @@ const namedValue = (
 
 /** First defined string among the candidates. */
 const coalesceString = (
+  constants: SimpleConstants | undefined,
   ...candidates: (ArgumentValue | string | undefined)[]
 ): string | undefined => {
   for (const c of candidates) {
     if (c === undefined) continue;
     if (typeof c === "string") return c;
-    const s = argString(c);
+    const s = argString(c, constants);
     if (s !== undefined) return s;
   }
   return undefined;
@@ -105,10 +113,13 @@ const coalesceString = (
  * `$index=""`; `Index()` is a helper that returns an incrementing
  * counter at PUML render time.
  */
-const coerceOrder = (value: ArgumentValue | undefined): number | undefined => {
+const coerceOrder = (
+  value: ArgumentValue | undefined,
+  constants?: SimpleConstants,
+): number | undefined => {
   if (!value) return undefined;
   if (value.kind === "functionCallValue") return undefined; // `Index()`
-  const s = argString(value);
+  const s = argString(value, constants);
   if (s === undefined) return undefined;
   const n = Number(s);
   return Number.isFinite(n) ? n : undefined;
@@ -173,33 +184,39 @@ const slotsFor = (macroName: string): ElementSlots => {
 
 const buildElement = (
   macro: ElementMacro,
+  constants?: SimpleConstants,
 ): { element: Element; kind: ElementKind } | undefined => {
   const kindInfo = parseC4MacroKind(macro.macroName);
   if (!kindInfo) return undefined;
   const slots = slotsFor(macro.macroName);
 
-  const alias = argString(macro.positionals[0]);
-  const label = argString(macro.positionals[1]) ?? "";
+  const alias = argString(macro.positionals[0], constants);
+  const label = argString(macro.positionals[1], constants) ?? "";
   if (!alias) return undefined; // malformed — visitor's `recovered` would catch this
 
   const technology = coalesceString(
+    constants,
     namedValue(macro.namedArgs, slots.techNamedKey),
     macro.positionals[slots.techIndex],
   );
   const description =
     coalesceString(
+      constants,
       namedValue(macro.namedArgs, "descr"),
       macro.positionals[slots.descrIndex],
     ) ?? "";
   const sprite = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "sprite"),
     macro.positionals[slots.spriteIndex],
   );
   const tagsRaw = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "tags"),
     macro.positionals[slots.tagsIndex],
   );
   const link = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "link"),
     macro.positionals[slots.linkIndex],
   );
@@ -215,9 +232,24 @@ const buildElement = (
     sprite,
     relations: [],
     link,
+    properties: systemShapeProperties(macro.macroName),
     sourceLocation: macro.range,
   };
   return { element, kind: kindInfo.kind };
+};
+
+const systemShapeProperties = (
+  macroName: string,
+): Readonly<Record<string, string>> | undefined => {
+  if (
+    macroName === "SystemDb" ||
+    macroName === "SystemDb_Ext" ||
+    macroName === "SystemQueue" ||
+    macroName === "SystemQueue_Ext"
+  ) {
+    return { "plantuml.macro": macroName };
+  }
+  return undefined;
 };
 
 interface BoundaryBuildResult {
@@ -230,9 +262,10 @@ const buildBoundary = (
   macro: BoundaryMacro,
   childContainerNames: readonly string[],
   childBoundaryNames: readonly string[],
+  constants?: SimpleConstants,
 ): BoundaryBuildResult | undefined => {
-  const alias = argString(macro.positionals[0]);
-  const label = argString(macro.positionals[1]) ?? "";
+  const alias = argString(macro.positionals[0], constants);
+  const label = argString(macro.positionals[1], constants) ?? "";
   if (!alias) return undefined;
 
   // Generic `Boundary` has an extra `$type` slot at index 2 before
@@ -249,6 +282,7 @@ const buildBoundary = (
   if (isGeneric) {
     const typeStr =
       coalesceString(
+        constants,
         namedValue(macro.namedArgs, "type"),
         typeIdx >= 0 ? macro.positionals[typeIdx] : undefined,
       ) ?? "";
@@ -272,14 +306,17 @@ const buildBoundary = (
   }
 
   const tagsRaw = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "tags"),
     macro.positionals[tagsIdx],
   );
   const link = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "link"),
     macro.positionals[linkIdx],
   );
   const description = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "descr"),
     macro.positionals[descrIdx],
   );
@@ -313,37 +350,43 @@ interface RelationEmit {
  * preParse + visitor pipeline should reject those upstream, but we
  * never produce `dangling` entries from here.
  */
-const buildRelations = (macro: RelationMacro): RelationEmit[] => {
-  const from0 = argString(macro.positionals[0]);
-  const to0 = argString(macro.positionals[1]);
+const buildRelations = (
+  macro: RelationMacro,
+  constants?: SimpleConstants,
+): RelationEmit[] => {
+  const from0 = argString(macro.positionals[0], constants);
+  const to0 = argString(macro.positionals[1], constants);
   if (!from0 || !to0) return [];
 
   // Rel_Back* swaps semantically: `Rel_Back(a, b, "x")` means "b → a".
   const from = macro.back ? to0 : from0;
   const to = macro.back ? from0 : to0;
 
-  const label = argString(macro.positionals[2]) ?? "";
+  const label = argString(macro.positionals[2], constants) ?? "";
   // After alias/alias/label, the Rel signature shape is identical to
   // Container's `(techn, descr, sprite, tags, link)`.
   const technology = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "techn"),
     macro.positionals[3],
   );
-  const tagsRaw = coalesceString(
-    namedValue(macro.namedArgs, "tags"),
-    macro.positionals[6],
-    // Legacy fallback: pre-chevrotain loader read the descr slot as
-    // tags-CSV when no dedicated tags slot was set. PUML files in the
-    // wild still rely on the four-arg form `Rel(a, b, "L", "T",
-    // "tag1,tag2")`, so we honour it. The real tags slot wins when
-    // both are present.
+  const c4Descr = coalesceString(
+    constants,
+    namedValue(macro.namedArgs, "descr"),
     macro.positionals[4],
   );
+  const tagsRaw = coalesceString(
+    constants,
+    namedValue(macro.namedArgs, "tags"),
+    macro.positionals[6],
+  );
   const sprite = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "sprite"),
     macro.positionals[5],
   );
   const link = coalesceString(
+    constants,
     namedValue(macro.namedArgs, "link"),
     macro.positionals[7],
   );
@@ -351,8 +394,8 @@ const buildRelations = (macro: RelationMacro): RelationEmit[] => {
   // RelIndex* — `$e_index` (mandatory first positional, lifted into
   // `indexPositional` by visitor). `Rel*` accepts named `$index=N`.
   const order = macro.indexPositional
-    ? coerceOrder(macro.indexPositional)
-    : coerceOrder(namedValue(macro.namedArgs, "index"));
+    ? coerceOrder(macro.indexPositional, constants)
+    : coerceOrder(namedValue(macro.namedArgs, "index"), constants);
 
   const base: Relation = {
     to,
@@ -361,6 +404,7 @@ const buildRelations = (macro: RelationMacro): RelationEmit[] => {
     tags: parseCsvTags(tagsRaw),
     sprite,
     link,
+    properties: c4Descr ? { "plantuml.descr": c4Descr } : undefined,
     order,
     sourceLocation: macro.range,
   };
@@ -388,6 +432,8 @@ interface WalkAcc {
   readonly boundaries: Boundary[];
   readonly rootBoundaryNames: string[];
   readonly pendingRelations: RelationEmit[];
+  readonly issues: ModelIssue[];
+  readonly constants?: SimpleConstants;
 }
 
 /**
@@ -407,7 +453,7 @@ const walkStatements = (
   for (const stmt of statements) {
     switch (stmt.kind) {
       case "elementMacro": {
-        const built = buildElement(stmt);
+        const built = buildElement(stmt, acc.constants);
         if (built) {
           // Collision detection happens in buildModel — we accept
           // overwrite semantics here and let the build layer report
@@ -425,6 +471,7 @@ const walkStatements = (
           stmt,
           childResult.elementNames,
           childResult.boundaryNames,
+          acc.constants,
         );
         if (built) {
           acc.boundaries.push(built.boundary);
@@ -436,7 +483,7 @@ const walkStatements = (
         break;
       }
       case "relationMacro": {
-        acc.pendingRelations.push(...buildRelations(stmt));
+        acc.pendingRelations.push(...buildRelations(stmt, acc.constants));
         break;
       }
       case "layoutMacro":
@@ -470,6 +517,7 @@ export interface PumlToModelOptions {
     number,
     Readonly<Record<string, string>>
   >;
+  readonly simpleConstants?: SimpleConstants;
 }
 
 const lookupProperties = (
@@ -497,12 +545,14 @@ const attachPropertiesToModel = (
     let next = el;
     const elProps = lookupProperties(el.sourceLocation, attached);
     if (elProps) {
-      next = { ...next, properties: elProps };
+      next = { ...next, properties: { ...next.properties, ...elProps } };
       changed = true;
     }
     const newRels = el.relations.map((r) => {
       const relProps = lookupProperties(r.sourceLocation, attached);
-      return relProps ? { ...r, properties: relProps } : r;
+      return relProps
+        ? { ...r, properties: { ...r.properties, ...relProps } }
+        : r;
     });
     if (newRels.some((r, i) => r !== el.relations[i])) {
       next = { ...next, relations: newRels };
@@ -515,7 +565,7 @@ const attachPropertiesToModel = (
   for (const [name, b] of Object.entries(model.boundaries)) {
     const bProps = lookupProperties(b.sourceLocation, attached);
     if (bProps) {
-      boundaries[name] = { ...b, properties: bProps };
+      boundaries[name] = { ...b, properties: { ...b.properties, ...bProps } };
       changed = true;
     } else {
       boundaries[name] = b;
@@ -539,6 +589,8 @@ export const toModel = (
     boundaries: [],
     rootBoundaryNames: [],
     pendingRelations: [],
+    issues: [],
+    constants: options.simpleConstants,
   };
   const diagram = file.diagrams[0];
   if (diagram) {
@@ -552,25 +604,12 @@ export const toModel = (
   for (const emit of acc.pendingRelations) {
     const source = acc.elements.get(emit.from);
     if (!source) {
-      // Manufacture a placeholder container so the dangling reference
-      // is visible to the validator. This mirrors what the legacy
-      // loader did via Map collision; we use a fresh Container with
-      // the alias as the name so downstream rules can still inspect
-      // it. The validator catches both endpoint mismatches.
-      //
-      // `sourceLocation` borrows the first-use site (the relation
-      // that referenced this alias) so diagnostics like "container
-      // 'missing' is referenced but not declared" point at a real
-      // position in the source file.
-      acc.elements.set(emit.from, {
-        name: emit.from,
-        label: emit.from,
-        kind: "Container",
-        external: false,
-        description: "",
-        tags: [],
-        relations: [emit.relation],
-        sourceLocation: emit.relation.sourceLocation,
+      acc.issues.push({
+        kind: "loader-warning",
+        source: "plantuml",
+        code: "relationship-source-not-resolved",
+        message: `Relationship source "${emit.from}" is not declared; relation to "${emit.relation.to}" was ignored.`,
+        element: emit.from,
       });
       continue;
     }
@@ -584,6 +623,7 @@ export const toModel = (
     elements: [...acc.elements.values()],
     boundaries: acc.boundaries,
     rootBoundaryNames: acc.rootBoundaryNames,
+    preIssues: acc.issues,
   });
 
   return {

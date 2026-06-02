@@ -47,4 +47,47 @@ describe("Structurizr parser — identifier re-registration", () => {
     const { issues } = parse(src);
     expect(issues.some((i) => i.kind === "duplicate-identifier")).toBe(true);
   });
+
+  it("flat identifier scope rejects duplicate nested ids", () => {
+    const src = `workspace {
+      model {
+        s1 = softwareSystem "S1" {
+          api = container "API"
+        }
+        s2 = softwareSystem "S2" {
+          api = container "API"
+        }
+      }
+    }`;
+    const { issues } = parse(src);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "duplicate-identifier",
+          identifier: "api",
+        }),
+      ]),
+    );
+  });
+
+  it("hierarchical identifier scope permits duplicate local ids under different parents", () => {
+    const src = `workspace {
+      model {
+        !identifiers hierarchical
+        s1 = softwareSystem "S1" {
+          api = container "API"
+        }
+        s2 = softwareSystem "S2" {
+          api = container "API"
+        }
+        s1.api -> s2.api "Calls"
+      }
+    }`;
+    const { issues, model, parseErrors } = parse(src);
+    expect(parseErrors).toEqual([]);
+    expect(issues.filter((i) => i.kind === "duplicate-identifier")).toEqual([]);
+    expect(model.elements["s1.api"]?.relations).toEqual([
+      expect.objectContaining({ to: "s2.api", description: "Calls" }),
+    ]);
+  });
 });

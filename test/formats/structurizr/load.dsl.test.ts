@@ -4,6 +4,8 @@
  * covers the DSL dispatch path — the JSON path is exercised
  * exhaustively by `load.test.ts`.
  */
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { load } from "../../../src/formats/structurizr/load";
@@ -57,5 +59,66 @@ describe("structurizrFormat.load — .dsl dispatch", () => {
     // loader propagates. (Bad-syntax case is covered by parser-level
     // tests.)
     await expect(load("/nonexistent/path/workspace.dsl")).rejects.toThrow();
+  });
+
+  it("expands local !include files before parsing", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "aact-struct-include-"));
+    await writeFile(
+      path.join(dir, "people.dsl"),
+      'user = person "User"\n',
+      "utf8",
+    );
+    const main = path.join(dir, "workspace.dsl");
+    await writeFile(
+      main,
+      `workspace {
+        model {
+          !include people.dsl
+          api = softwareSystem "API"
+          user -> api "uses"
+        }
+      }`,
+      "utf8",
+    );
+
+    const result = await load(main);
+
+    expect(result.model.elements.user?.relations[0]).toEqual(
+      expect.objectContaining({ to: "api", description: "uses" }),
+    );
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({ code: "include-not-expanded" }),
+    );
+  });
+
+  it("expands local !include directories in stable filename order", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "aact-struct-dir-include-"));
+    const modelDir = path.join(dir, "model");
+    await mkdir(modelDir);
+    await writeFile(
+      path.join(modelDir, "01-people.dsl"),
+      'user = person "User"\n',
+    );
+    await writeFile(
+      path.join(modelDir, "02-system.dsl"),
+      'api = softwareSystem "API"\n',
+    );
+    const main = path.join(dir, "workspace.dsl");
+    await writeFile(
+      main,
+      `workspace {
+        model {
+          !include model
+          user -> api "uses"
+        }
+      }`,
+      "utf8",
+    );
+
+    const result = await load(main);
+
+    expect(result.model.elements.user).toBeDefined();
+    expect(result.model.elements.api).toBeDefined();
+    expect(result.model.elements.user?.relations[0]?.to).toBe("api");
   });
 });

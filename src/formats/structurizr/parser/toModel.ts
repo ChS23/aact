@@ -29,10 +29,19 @@ import type {
   ElementNode,
   ModelChildNode,
   ModelNode,
+  RelationshipBodyNode,
   RelationshipNode,
   ReopenNode,
   WorkspaceNode,
 } from "./ast";
+
+const STRUCTURIZR_LOADER = "structurizr";
+type IdentifierScope = "flat" | "hierarchical";
+
+interface IdentifierContext {
+  readonly scope: IdentifierScope;
+  readonly map: Map<string, string>;
+}
 
 /**
  * Convert a parsed Workspace AST into a `LoadResult`. Today the Model
@@ -50,12 +59,15 @@ export const toModel = (workspace: WorkspaceNode): LoadResult => {
   // (`api = container "..."` → `api` resolves to the container's name
   // = "API"). When no `assignedIdentifier` exists, the element's
   // user-visible `name` doubles as the lookup key.
-  const identifierMap = new Map<string, string>();
+  const identifiers: IdentifierContext = {
+    scope: identifierScope(workspace),
+    map: new Map<string, string>(),
+  };
 
   // Parser-emitted issues. Collisions on identifier registration land
   // here so the linter can surface them through `LoadResult.issues`
   // without disturbing the structural model.
-  const parserIssues: ModelIssue[] = [];
+  const parserIssues: ModelIssue[] = collectWorkspaceIssues(workspace);
 
   // Reference parser reads `structurizr.groupSeparator` from the
   // model's `properties { ... }` block before walking the body —
@@ -71,7 +83,7 @@ export const toModel = (workspace: WorkspaceNode): LoadResult => {
         child,
         containers,
         boundaries,
-        identifierMap,
+        identifiers,
         undefined,
         parserIssues,
         { groupSeparator, currentGroupPath: undefined },
@@ -94,6 +106,49 @@ export const toModel = (workspace: WorkspaceNode): LoadResult => {
     issues: [...parserIssues, ...built.issues],
   };
 };
+
+const identifierScope = (workspace: WorkspaceNode): IdentifierScope => {
+  let scope: IdentifierScope = "flat";
+  for (const node of workspace.body) {
+    if (node.kind === "identifiers") scope = node.scope;
+    if (node.kind !== "model") continue;
+    for (const child of node.children) {
+      if (child.kind === "identifiers") scope = child.scope;
+    }
+  }
+  return scope;
+};
+
+const collectWorkspaceIssues = (workspace: WorkspaceNode): ModelIssue[] => {
+  const issues: ModelIssue[] = [];
+  if (workspace.extendsTarget) {
+    issues.push({
+      kind: "loader-warning",
+      source: STRUCTURIZR_LOADER,
+      code: "extends-not-expanded",
+      message: `workspace extends "${workspace.extendsTarget.value}" was recorded as metadata but not expanded; aact loaded only local definitions.`,
+    });
+  }
+  for (const node of workspace.body) {
+    if (node.kind === "include") {
+      issues.push(includeNotExpandedIssue(node.target.value));
+    }
+    if (node.kind !== "model") continue;
+    for (const child of node.children) {
+      if (child.kind === "include") {
+        issues.push(includeNotExpandedIssue(child.target.value));
+      }
+    }
+  }
+  return issues;
+};
+
+const includeNotExpandedIssue = (target: string): ModelIssue => ({
+  kind: "loader-warning",
+  source: STRUCTURIZR_LOADER,
+  code: "include-not-expanded",
+  message: `!include "${target}" was parsed but not expanded; definitions from the included source are absent from the aact Model.`,
+});
 
 const findRootBoundaryNames = (boundaries: readonly Boundary[]): string[] => {
   const nested = new Set<string>();
@@ -325,13 +380,13 @@ const collectModelChild = (
   child: ModelChildNode,
   containers: Element[],
   boundaries: Boundary[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   parentIdentifierPath: string | undefined,
   parserIssues: ModelIssue[],
   groupCtx: GroupContext,
 ): void => {
   if (child.kind === "relationship") {
-    handleRelationship(child, containers, identifierMap);
+    handleRelationship(child, containers, identifiers, parserIssues);
     return;
   }
   if (child.kind === "reopen") {
@@ -339,7 +394,7 @@ const collectModelChild = (
       child,
       containers,
       boundaries,
-      identifierMap,
+      identifiers,
       parserIssues,
       groupCtx,
     );
@@ -350,7 +405,7 @@ const collectModelChild = (
       child as ElementNode,
       containers,
       boundaries,
-      identifierMap,
+      identifiers,
       parentIdentifierPath,
       parserIssues,
       groupCtx,
@@ -394,7 +449,7 @@ const handleGroup = (
   group: Extract<ElementNode, { kind: "group" }>,
   containers: Element[],
   boundaries: Boundary[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   parentIdentifierPath: string | undefined,
   parserIssues: ModelIssue[],
   groupCtx: GroupContext,
@@ -418,13 +473,20 @@ const handleGroup = (
   const boundariesBefore = boundaries.length;
   for (const member of group.members) {
     if (member.kind === "relationship") {
-      handleRelationship(member, containers, identifierMap);
+      handleRelationship(
+        member,
+        containers,
+        identifiers,
+        parserIssues,
+        undefined,
+        parentIdentifierPath,
+      );
     } else {
       handleElement(
         member,
         containers,
         boundaries,
-        identifierMap,
+        identifiers,
         parentIdentifierPath,
         parserIssues,
         nestedCtx,
@@ -482,7 +544,7 @@ const handleBoundary = (
   children: readonly (ElementNode | RelationshipNode)[],
   containers: Element[],
   boundaries: Boundary[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   selfIdentifierPath: string,
   name: string,
   parserIssues: ModelIssue[],
@@ -497,7 +559,7 @@ const handleBoundary = (
       child,
       containers,
       boundaries,
-      identifierMap,
+      identifiers,
       selfIdentifierPath,
       parserIssues,
       groupCtx,
@@ -512,8 +574,11 @@ const handleBoundary = (
     // the Model.
     for (const real of flattenGroupTargets(child)) {
       const childLookup = real.assignedIdentifier?.name ?? real.name.value;
+      const childIdentifierPath = `${selfIdentifierPath}.${childLookup}`;
       const nestedName =
-        identifierMap.get(childLookup.toLowerCase()) ?? childLookup;
+        identifiers.map.get(childIdentifierPath.toLowerCase()) ??
+        identifiers.map.get(childLookup.toLowerCase()) ??
+        childLookup;
       if (boundaries.some((b) => b.name === nestedName)) {
         childBoundaryNames.push(nestedName);
       } else {
@@ -523,7 +588,14 @@ const handleBoundary = (
   }
   for (const child of children) {
     if (child.kind === "relationship") {
-      handleRelationship(child, containers, identifierMap, name);
+      handleRelationship(
+        child,
+        containers,
+        identifiers,
+        parserIssues,
+        name,
+        selfIdentifierPath,
+      );
     }
   }
   // Aggregate the parent element's own body statements onto the
@@ -656,8 +728,10 @@ const handleLeaf = (
   element: Exclude<ElementNode, { kind: "group" }>,
   children: readonly (ElementNode | RelationshipNode)[],
   containers: Element[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   name: string,
+  parentIdentifierPath: string | undefined,
+  parserIssues: ModelIssue[],
 ): void => {
   const displayName = element.name.value;
   const agg = aggregateBody(element);
@@ -680,7 +754,14 @@ const handleLeaf = (
   });
   for (const child of children) {
     if (child.kind === "relationship") {
-      handleRelationship(child, containers, identifierMap, name);
+      handleRelationship(
+        child,
+        containers,
+        identifiers,
+        parserIssues,
+        name,
+        parentIdentifierPath,
+      );
     }
   }
 };
@@ -689,7 +770,7 @@ const handleElement = (
   element: ElementNode,
   containers: Element[],
   boundaries: Boundary[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   parentIdentifierPath: string | undefined,
   parserIssues: ModelIssue[],
   groupCtx: GroupContext,
@@ -699,7 +780,7 @@ const handleElement = (
       element,
       containers,
       boundaries,
-      identifierMap,
+      identifiers,
       parentIdentifierPath,
       parserIssues,
       groupCtx,
@@ -715,6 +796,11 @@ const handleElement = (
   // When the user omits the `id =` prefix, the display name doubles
   // as the identifier.
   const lookupKey = element.assignedIdentifier?.name ?? displayName;
+  const selfIdentifierPath = parentIdentifierPath
+    ? `${parentIdentifierPath}.${lookupKey}`
+    : lookupKey;
+  const modelName =
+    identifiers.scope === "hierarchical" ? selfIdentifierPath : lookupKey;
   // Reference parser's `IdentifiersRegister.register` throws when the
   // same identifier is bound to two distinct elements. We detect this
   // separately from the resolution map (which holds id→id) by
@@ -727,27 +813,22 @@ const handleElement = (
   // duplicate too. Checking identifierMap.has on the lowercased key
   // catches that — identifierMap is populated only by handleElement,
   // not by reopen, so reopens don't trigger false positives.
-  const alreadyRegistered = identifierMap.has(lookupKey.toLowerCase());
+  const registrationKey =
+    identifiers.scope === "hierarchical" ? selfIdentifierPath : lookupKey;
+  const alreadyRegistered = identifiers.map.has(registrationKey.toLowerCase());
   if (alreadyRegistered) {
     parserIssues.push({
       kind: "duplicate-identifier",
-      identifier: lookupKey,
+      identifier: registrationKey,
     });
   }
   // Keys are stored lowercased and looked up lowercased to mirror the
   // reference parser's equalsIgnoreCase identifier resolution. The
   // mapped value is the canonical identifier itself (the
   // Model.elements key) — relations / reopens resolve to that.
-  identifierMap.set(lookupKey.toLowerCase(), lookupKey);
-  const selfIdentifierPath = parentIdentifierPath
-    ? `${parentIdentifierPath}.${lookupKey}`
-    : lookupKey;
-  // Hierarchical path also resolves to the leaf identifier. Multiple
-  // nested boundaries can share local identifiers (`bank.api` vs
-  // `payments.api`); the qualified path disambiguates while the local
-  // key keeps backwards compatibility with un-prefixed references.
-  if (selfIdentifierPath !== lookupKey) {
-    identifierMap.set(selfIdentifierPath.toLowerCase(), lookupKey);
+  identifiers.map.set(registrationKey.toLowerCase(), modelName);
+  if (identifiers.scope === "hierarchical" && !parentIdentifierPath) {
+    identifiers.map.set(lookupKey.toLowerCase(), modelName);
   }
 
   const children = elementChildren(element);
@@ -764,15 +845,23 @@ const handleElement = (
       children,
       containers,
       boundaries,
-      identifierMap,
+      identifiers,
       selfIdentifierPath,
-      lookupKey,
+      modelName,
       parserIssues,
       groupCtx,
     );
     return;
   }
-  handleLeaf(element, children, containers, identifierMap, lookupKey);
+  handleLeaf(
+    element,
+    children,
+    containers,
+    identifiers,
+    modelName,
+    parentIdentifierPath,
+    parserIssues,
+  );
 };
 
 const kindFromLeaf = (
@@ -816,7 +905,7 @@ const kindFromAstKind = (k: ElementNode["kind"]): ElementKind => {
 
 /**
  * Push a Relation onto the source Container's `relations[]`. Source/dest
- * identifiers are resolved through `identifierMap`. When the relationship
+ * identifiers are resolved through `identifiers`. When the relationship
  * is in implicit-source form (`-> destination`) the source comes from
  * `enclosingElementName` — the element whose body contains the line.
  *
@@ -826,35 +915,69 @@ const kindFromAstKind = (k: ElementNode["kind"]): ElementKind => {
 const handleRelationship = (
   rel: RelationshipNode,
   containers: Element[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
+  parserIssues: ModelIssue[],
   enclosingElementName?: string,
+  referenceContextPath?: string,
 ): void => {
   if (rel.arrow === "-/>") return; // no-relationship form — deployment-only
   const sourceName = resolveRelationshipSource(
     rel,
-    identifierMap,
+    identifiers,
     enclosingElementName,
+    referenceContextPath,
   );
   // `this` keyword on the destination side resolves to the enclosing
   // element — same rule as on the source side. `softwareSystem "X" {
   // container "Y" { other -> this } }` makes `Y` the destination.
   const destinationName = rel.destination.isThis
     ? enclosingElementName
-    : (identifierMap.get(rel.destination.name.toLowerCase()) ??
-      rel.destination.name);
-  if (!sourceName || !destinationName) return;
+    : resolveIdentifierRef(rel.destination, identifiers, referenceContextPath);
+  if (!sourceName) {
+    parserIssues.push({
+      kind: "loader-warning",
+      source: "structurizr",
+      code: "relationship-source-not-resolved",
+      message: `Relationship to "${rel.destination.name}" has no resolvable source in this scope and was ignored.`,
+      element: rel.destination.name,
+    });
+    return;
+  }
+  if (!destinationName) {
+    parserIssues.push({
+      kind: "loader-warning",
+      source: "structurizr",
+      code: "relationship-destination-not-resolved",
+      message: `Relationship from "${sourceName}" references unknown destination "${rel.destination.name}" and was ignored.`,
+      element: sourceName,
+    });
+    return;
+  }
 
   const sourceContainer = containers.find((c) => c.name === sourceName);
-  if (!sourceContainer) return;
+  if (!sourceContainer) {
+    parserIssues.push({
+      kind: "loader-warning",
+      source: "structurizr",
+      code: "relationship-source-not-represented",
+      message: `Relationship source "${sourceName}" maps to a Boundary or unsupported element in aact; relation was ignored.`,
+      element: sourceName,
+    });
+    return;
+  }
 
+  const body = aggregateRelationshipBody(rel.body);
   const relation: Relation = {
     to: destinationName,
     description: rel.headerDescription?.value,
     technology: rel.headerTechnology?.value,
-    tags: [
+    tags: dedupeTags([
       ...DEFAULT_RELATION_TAGS,
       ...(rel.headerTags ? splitTags(rel.headerTags.value) : []),
-    ],
+      ...body.tags,
+    ]),
+    link: body.link,
+    properties: body.properties,
     sourceLocation: rel.range,
   };
 
@@ -869,6 +992,50 @@ const handleRelationship = (
   };
 };
 
+const aggregateRelationshipBody = (
+  statements: readonly RelationshipBodyNode[],
+): {
+  tags: string[];
+  link: string | undefined;
+  properties: Record<string, string> | undefined;
+} => {
+  const tags: string[] = [];
+  let link: string | undefined;
+  let properties: Record<string, string> | undefined;
+
+  for (const item of statements) {
+    switch (item.kind) {
+      case "tags":
+      case "tag": {
+        tags.push(...splitTags(item.value.value));
+        break;
+      }
+      case "url": {
+        link = item.value.value;
+        break;
+      }
+      case "properties": {
+        properties = properties ?? {};
+        for (const entry of item.entries) {
+          properties[entry.key.value] = entry.value.value;
+        }
+        break;
+      }
+      case "perspectives": {
+        properties = properties ?? {};
+        for (const entry of item.entries) {
+          const key = `perspective.${entry.name.name}`;
+          properties[key] = entry.description.value;
+          properties[`${key}.value`] = entry.value?.value ?? "";
+        }
+        break;
+      }
+    }
+  }
+
+  return { tags: dedupeTags(tags), link, properties };
+};
+
 /**
  * Re-open form: `existing { body }`. Find the previously declared
  * element by identifier (possibly hierarchical: `bank.api`) and merge
@@ -880,12 +1047,12 @@ const handleReopen = (
   reopen: ReopenNode,
   containers: Element[],
   boundaries: Boundary[],
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   parserIssues: ModelIssue[],
   groupCtx: GroupContext,
 ): void => {
   const targetDisplay =
-    identifierMap.get(reopen.target.name.toLowerCase()) ?? reopen.target.name;
+    resolveIdentifierRef(reopen.target, identifiers) ?? reopen.target.name;
 
   const bodyStatements = reopen.body.filter(
     (b): b is AggregateBodyStatementNode =>
@@ -910,7 +1077,14 @@ const handleReopen = (
       bodyStatements,
     );
     for (const rel of relationships) {
-      handleRelationship(rel, containers, identifierMap, targetDisplay);
+      handleRelationship(
+        rel,
+        containers,
+        identifiers,
+        parserIssues,
+        targetDisplay,
+        targetDisplay,
+      );
     }
     // New child element on a leaf Container — process it as a
     // standalone element. Reference would promote the Container to a
@@ -921,7 +1095,7 @@ const handleReopen = (
         child,
         containers,
         boundaries,
-        identifierMap,
+        identifiers,
         targetDisplay,
         parserIssues,
         groupCtx,
@@ -937,7 +1111,14 @@ const handleReopen = (
       bodyStatements,
     );
     for (const rel of relationships) {
-      handleRelationship(rel, containers, identifierMap, targetDisplay);
+      handleRelationship(
+        rel,
+        containers,
+        identifiers,
+        parserIssues,
+        targetDisplay,
+        targetDisplay,
+      );
     }
     // New nested elements: process them, then patch the target
     // Boundary's elementNames / boundaryNames lists to include
@@ -949,7 +1130,7 @@ const handleReopen = (
         child,
         containers,
         boundaries,
-        identifierMap,
+        identifiers,
         targetDisplay,
         parserIssues,
         groupCtx,
@@ -972,9 +1153,15 @@ const handleReopen = (
         boundaryNames: [...target.boundaryNames, ...addedBoundaryNames],
       };
     }
+    return;
   }
-  // Target not found — silently drop. The reference parser would have
-  // already errored on an unresolved identifier inside an element scope.
+  parserIssues.push({
+    kind: "loader-warning",
+    source: "structurizr",
+    code: "reopen-target-not-found",
+    message: `Reopen target "${reopen.target.name}" was not found; body was ignored.`,
+    element: reopen.target.name,
+  });
 };
 
 /**
@@ -1127,12 +1314,34 @@ const aggregateBodyStatements = (
  */
 const resolveRelationshipSource = (
   rel: RelationshipNode,
-  identifierMap: Map<string, string>,
+  identifiers: IdentifierContext,
   enclosingElementName: string | undefined,
+  referenceContextPath: string | undefined,
 ): string | undefined => {
   if (!rel.source) return enclosingElementName;
   if (rel.source.isThis) return enclosingElementName;
-  return identifierMap.get(rel.source.name.toLowerCase()) ?? rel.source.name;
+  return resolveIdentifierRef(rel.source, identifiers, referenceContextPath);
+};
+
+const resolveIdentifierRef = (
+  ref: { readonly name: string },
+  identifiers: IdentifierContext,
+  referenceContextPath?: string,
+): string | undefined => {
+  const raw = ref.name.toLowerCase();
+  if (
+    identifiers.scope === "hierarchical" &&
+    referenceContextPath &&
+    !ref.name.includes(".")
+  ) {
+    const scoped = identifiers.map.get(
+      `${referenceContextPath}.${ref.name}`.toLowerCase(),
+    );
+    if (scoped) return scoped;
+  }
+  const direct = identifiers.map.get(raw);
+  if (direct) return direct;
+  return identifiers.scope === "flat" ? ref.name : undefined;
 };
 
 const splitTags = (raw: string): readonly string[] =>

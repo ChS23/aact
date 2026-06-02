@@ -10,6 +10,7 @@
  * Remaining grammar.md surface area lands incrementally.
  */
 
+import type { ModelIssue } from "../../../model";
 import type { LoadResult } from "../../types";
 import { parseStructurizrDsl } from "./parser";
 import type {
@@ -138,16 +139,35 @@ export const parseSource = (
 
   const workspace = buildAst(cst, filePath);
   const loadResult = toModel(workspace);
+  const opaqueIssues = unsupportedOpaqueIssues(stripped.blocks);
 
   return {
     model: loadResult.model,
-    issues: loadResult.issues,
+    issues: [...loadResult.issues, ...opaqueIssues],
     parseErrors,
     opaqueBlocks: stripped.blocks,
     infoBlocks: deployment.blocks,
     archetypeAliases: archetyped.aliasMap,
   };
 };
+
+const unsupportedOpaqueIssues = (
+  blocks: readonly OpaqueBlock[],
+): ModelIssue[] =>
+  blocks
+    .filter((block) => isSelectorBlock(block.name))
+    .map((block) => ({
+      kind: "loader-warning" as const,
+      source: "structurizr",
+      code: "selector-body-not-applied",
+      message: `${block.name} selector body was parsed as opaque and not applied to the aact Model.`,
+    }));
+
+const isSelectorBlock = (name: string): boolean =>
+  name === "!element" ||
+  name === "!elements" ||
+  name === "!relationship" ||
+  name === "!relationships";
 
 /**
  * Replace every `\\\n[whitespace]*` with a single space so the

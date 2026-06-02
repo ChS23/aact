@@ -203,6 +203,7 @@ const tokenFromIdentifierName = (cst: CstNode): IToken => {
     "Container",
     "Component",
     "Group",
+    "Element",
   ]) {
     const tok = children[key]?.[0];
     if (tok) return tok;
@@ -236,6 +237,7 @@ class StructurizrCstToAst extends BaseVisitor {
       ctx.name?.[0] ??
       ctx.description?.[0] ??
       ctx.extendsTarget?.[0] ??
+      ctx.extendsTargetUrl?.[0] ??
       ctx.LBrace?.[0] ??
       ctx.RBrace?.[0] ??
       fallbackToken;
@@ -248,8 +250,12 @@ class StructurizrCstToAst extends BaseVisitor {
     const description = ctx.description
       ? this.stringFromToken(ctx.description[0])
       : undefined;
-    const extendsTarget = ctx.extendsTarget
-      ? this.stringFromToken(ctx.extendsTarget[0])
+    const extendsTargetToken =
+      ctx.extendsTarget?.[0] ??
+      ctx.extendsTargetUrl?.[0] ??
+      ctx.extendsTargetPath?.[0];
+    const extendsTarget = extendsTargetToken
+      ? stringFromAnyToken(extendsTargetToken, this.file)
       : undefined;
     const body: WorkspaceBodyNode[] = [];
     for (const m of ctx.modelBlock ?? []) {
@@ -260,6 +266,10 @@ class StructurizrCstToAst extends BaseVisitor {
     }
     for (const d of ctx.workspaceDescriptionStmt ?? []) {
       body.push(this.visit(d) as DescriptionOverride);
+    }
+    for (const d of ctx.directive ?? []) {
+      const node = this.visit(d) as WorkspaceBodyNode | undefined;
+      if (node) body.push(node);
     }
     return {
       kind: "workspace",
@@ -693,12 +703,17 @@ class StructurizrCstToAst extends BaseVisitor {
     };
   }
 
-  urlStmt(ctx: { Url: [IToken]; StringLiteral: [IToken] }) {
+  urlStmt(ctx: {
+    Url: [IToken];
+    StringLiteral?: [IToken];
+    UrlLiteral?: [IToken];
+    Identifier?: [IToken];
+  }) {
     const keyword = ctx.Url[0];
-    const value = ctx.StringLiteral[0];
+    const value = (ctx.StringLiteral ?? ctx.UrlLiteral ?? ctx.Identifier)![0];
     return {
       kind: "url" as const,
-      value: this.stringFromToken(value),
+      value: stringFromAnyToken(value, this.file),
       range: rangeFromTokens(keyword, value, this.file),
     };
   }
@@ -724,10 +739,11 @@ class StructurizrCstToAst extends BaseVisitor {
   propertyEntry(ctx: {
     key: [IToken];
     value?: [IToken];
+    valueUrl?: [IToken];
     valueSlash?: [IToken];
   }) {
     const keyToken = ctx.key[0];
-    const valueToken = (ctx.value ?? ctx.valueSlash)![0];
+    const valueToken = (ctx.value ?? ctx.valueUrl ?? ctx.valueSlash)![0];
     const isStringValue = valueToken.tokenType.name === "StringLiteral";
     const isStringKey = keyToken.tokenType.name === "StringLiteral";
     return {
@@ -812,21 +828,17 @@ class StructurizrCstToAst extends BaseVisitor {
     BangInclude?: [IToken];
     BangIncludeUrl?: [IToken];
     StringLiteral?: [IToken];
+    UrlLiteral?: [IToken];
     Identifier?: [IToken];
   }) {
     const keyword = (ctx.BangInclude?.[0] ?? ctx.BangIncludeUrl?.[0])!;
-    const valueToken = (ctx.StringLiteral?.[0] ?? ctx.Identifier?.[0])!;
-    const targetValue =
-      valueToken.tokenType.name === "StringLiteral"
-        ? unwrapStringLiteral(valueToken.image)
-        : valueToken.image;
+    const valueToken = (ctx.StringLiteral ??
+      ctx.UrlLiteral ??
+      ctx.Identifier)![0];
+    const targetValue = stringFromAnyToken(valueToken, this.file);
     return {
       kind: "include" as const,
-      target: {
-        kind: "string" as const,
-        value: targetValue,
-        range: rangeFromToken(valueToken, this.file),
-      },
+      target: targetValue,
       range: rangeFromTokens(keyword, valueToken, this.file),
     };
   }
@@ -952,11 +964,18 @@ class StructurizrCstToAst extends BaseVisitor {
     const arrowToken =
       ctx.arrow?.[0] ?? ctx.Relationship?.[0] ?? ctx.NoRelationship?.[0];
 
+    const relationshipBodyClose = ctx.relationshipBody?.[0]
+      ? findClosingBrace(ctx.relationshipBody[0])
+      : undefined;
     const lastToken =
+      relationshipBodyClose ??
       ctx.tags?.[0] ??
       ctx.technology?.[0] ??
       ctx.description?.[0] ??
       destinationToken;
+    const body = ctx.relationshipBody
+      ? (this.visit(ctx.relationshipBody[0]) as RelationshipNode["body"])
+      : [];
 
     const source: IdentifierRef | undefined = sourceToken
       ? {
@@ -997,17 +1016,34 @@ class StructurizrCstToAst extends BaseVisitor {
         ? this.stringFromToken(ctx.technology[0])
         : undefined,
       headerTags: ctx.tags ? this.stringFromToken(ctx.tags[0]) : undefined,
-      body: [],
+      body,
       range: rangeFromTokens(startToken, lastToken, this.file),
     };
   }
 
+  relationshipBody(ctx: RelationshipBodyCtx): RelationshipNode["body"] {
+    const items: RelationshipNode["body"][number][] = [];
+    for (const stmt of ctx.relationshipBodyStatement ?? []) {
+      const node = this.visit(stmt) as RelationshipNode["body"][number];
+      items.push(node);
+    }
+    return items;
+  }
+
+  relationshipBodyStatement(
+    ctx: RelationshipBodyStatementCtx,
+  ): RelationshipNode["body"][number] {
+    const node =
+      ctx.tagsStmt?.[0] ??
+      ctx.tagStmt?.[0] ??
+      ctx.urlStmt?.[0] ??
+      ctx.propertiesBlock?.[0] ??
+      ctx.perspectivesBlock?.[0];
+    return this.visit(node!) as RelationshipNode["body"][number];
+  }
+
   private stringFromToken(token: IToken): AstStringLiteral {
-    return {
-      kind: "string",
-      value: unwrapStringLiteral(token.image),
-      range: rangeFromToken(token, this.file),
-    };
+    return stringFromAnyToken(token, this.file);
   }
 
   /** Build a `StringLiteral` AST node for a value sourced from a
@@ -1106,9 +1142,12 @@ interface WorkspaceBlockCtx {
   readonly name?: readonly [IToken];
   readonly description?: readonly [IToken];
   readonly extendsTarget?: readonly [IToken];
+  readonly extendsTargetUrl?: readonly [IToken];
+  readonly extendsTargetPath?: readonly [IToken];
   readonly modelBlock?: readonly CstNode[];
   readonly workspaceNameStmt?: readonly CstNode[];
   readonly workspaceDescriptionStmt?: readonly CstNode[];
+  readonly directive?: readonly CstNode[];
   readonly LBrace?: readonly [IToken];
   readonly RBrace?: readonly [IToken];
 }
@@ -1184,6 +1223,19 @@ interface RelationshipCtx {
   readonly description?: readonly [IToken];
   readonly technology?: readonly [IToken];
   readonly tags?: readonly [IToken];
+  readonly relationshipBody?: readonly [CstNode];
+}
+
+interface RelationshipBodyCtx {
+  readonly relationshipBodyStatement?: readonly CstNode[];
+}
+
+interface RelationshipBodyStatementCtx {
+  readonly tagsStmt?: readonly [CstNode];
+  readonly tagStmt?: readonly [CstNode];
+  readonly urlStmt?: readonly [CstNode];
+  readonly propertiesBlock?: readonly [CstNode];
+  readonly perspectivesBlock?: readonly [CstNode];
 }
 
 export const buildAst = (cst: CstNode, file: string): WorkspaceNode => {

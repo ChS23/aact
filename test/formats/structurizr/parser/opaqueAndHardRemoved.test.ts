@@ -150,8 +150,16 @@ describe("Structurizr parser — auxiliary directives (!docs / !script / etc)", 
         }
       }
     }`;
-    const { parseErrors } = parse(src);
+    const { issues, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "loader-warning",
+          code: "selector-body-not-applied",
+        }),
+      ]),
+    );
   });
 
   it("strips `!relationships <selector> { ... }` selector block", () => {
@@ -165,8 +173,16 @@ describe("Structurizr parser — auxiliary directives (!docs / !script / etc)", 
         }
       }
     }`;
-    const { parseErrors } = parse(src);
+    const { issues, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "loader-warning",
+          code: "selector-body-not-applied",
+        }),
+      ]),
+    );
   });
 
   it("strips `archetypes { ... }` block (declaration parses cleanly)", () => {

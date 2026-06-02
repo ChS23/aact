@@ -83,7 +83,7 @@ describe("Structurizr parser — re-open form", () => {
     ]);
   });
 
-  it("silently drops a reopen pointing at an unknown identifier", () => {
+  it("warns when a reopen points at an unknown identifier", () => {
     const src = `workspace {
       model {
         api = container "API"
@@ -92,9 +92,17 @@ describe("Structurizr parser — re-open form", () => {
         }
       }
     }`;
-    const { model, parseErrors } = parse(src);
+    const { model, parseErrors, issues } = parse(src);
     expect(parseErrors).toEqual([]);
     expect(model.elements["api"]).toBeDefined();
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        kind: "loader-warning",
+        source: "structurizr",
+        code: "reopen-target-not-found",
+        element: "ghost",
+      }),
+    );
   });
 
   it("reopen on a Boundary attaches new nested elements to its elementNames", () => {
@@ -122,6 +130,7 @@ describe("Structurizr parser — re-open form", () => {
   it("hierarchical reopen target resolves via dotted identifier map", () => {
     const src = `workspace {
       model {
+        !identifiers hierarchical
         bank = softwareSystem "Bank" {
           api = container "API"
         }
@@ -132,6 +141,6 @@ describe("Structurizr parser — re-open form", () => {
     }`;
     const { model, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
-    expect(model.elements["api"]?.description).toBe("API inside bank");
+    expect(model.elements["bank.api"]?.description).toBe("API inside bank");
   });
 });

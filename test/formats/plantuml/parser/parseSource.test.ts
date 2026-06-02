@@ -28,6 +28,18 @@ Container(api, "API")
     expect(result.model.elements["api"]).toBeDefined();
   });
 
+  it("resolves simple !$var and !define constants in C4 arguments", () => {
+    const src = `@startuml
+!$combinedSprite="person2,scale=0.5"
+!define TAG_CRITICAL "critical"
+Container(api, "API", $sprite=$combinedSprite, $tags=TAG_CRITICAL)
+@enduml`;
+    const result = parseSource(src, FILE);
+    expect(result.parseErrors).toEqual([]);
+    expect(result.model.elements["api"]?.sprite).toBe("person2,scale=0.5");
+    expect(result.model.elements["api"]?.tags).toEqual(["critical"]);
+  });
+
   it("surfaces preParseIssue when a Deployment_Node is encountered", () => {
     const src = `@startuml\nDeployment_Node(prod, "Prod") {\n  Container(api, "API")\n}\nPerson(c, "C")\n@enduml\n`;
     const result = parseSource(src, FILE);
@@ -123,9 +135,11 @@ describe("parseSource — canonical fixtures from .parser-refs/C4-PlantUML/sampl
     expect(signRels).toEqual(["security"]);
   });
 
-  // Full reference corpus pass — every in-scope fixture must produce
-  // a populated Model with zero parse errors. Out-of-scope fixtures
-  // (sequence diagrams, old-format Dynamic) are deliberately excluded.
+  // Full reference corpus pass — every in-scope static fixture must
+  // produce a populated Model with zero parse errors. Out-of-scope
+  // fixtures (deployment, sequence, old-format Dynamic) are excluded
+  // because aact's Model is C4 static + dynamic relations, not
+  // deployment topology.
   const IN_SCOPE_FIXTURES: readonly string[] = [
     "C4_Component Diagram Sample - bigbankplc.puml",
     "C4_Container Diagram Sample - bigbankplc-icons.puml",
@@ -137,8 +151,6 @@ describe("parseSource — canonical fixtures from .parser-refs/C4-PlantUML/sampl
     "C4_Context Diagram Sample - bigbankplc-landscape.puml",
     "C4_Context Diagram Sample - bigbankplc.puml",
     "C4_Context Diagram Sample - enterprise.puml",
-    "C4_Deployment Diagram Sample - bigbankplc-details.puml",
-    "C4_Deployment Diagram Sample - bigbankplc.puml",
     "C4_Dynamic Diagram Sample - bigbankplc.puml",
     "C4_Dynamic Diagram Sample - message bus.puml",
   ];
@@ -149,10 +161,23 @@ describe("parseSource — canonical fixtures from .parser-refs/C4-PlantUML/sampl
       const src = readFixture(filename);
       const result = parseSource(src, FILE);
       expect(result.parseErrors).toEqual([]);
-      // Every fixture has at least one Container (the deployment ones
-      // surface their wrapped containers via preParse-strip — they
-      // still leave standalone elements).
       expect(Object.keys(result.model.elements).length).toBeGreaterThan(0);
+    },
+  );
+
+  const DEPLOYMENT_FIXTURES: readonly string[] = [
+    "C4_Deployment Diagram Sample - bigbankplc-details.puml",
+    "C4_Deployment Diagram Sample - bigbankplc.puml",
+  ];
+
+  it.each(DEPLOYMENT_FIXTURES)(
+    "out-of-scope deployment fixture %s emits preParse warning",
+    (filename) => {
+      const src = readFixture(filename);
+      const result = parseSource(src, FILE);
+      expect(result.parseErrors).toEqual([]);
+      expect(result.preParseIssues.length).toBeGreaterThan(0);
+      expect(result.preParseIssues[0]?.message).toMatch(/Deployment/);
     },
   );
 

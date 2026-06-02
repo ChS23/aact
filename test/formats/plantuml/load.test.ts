@@ -69,6 +69,114 @@ describe("PlantUML load — unit", () => {
     return result.model;
   };
 
+  it("fails loudly on PlantUML parser errors", async () => {
+    const file = await writeFixture(
+      "bad.puml",
+      ["@startuml", 'Container(api, "API"', "@enduml"].join("\n"),
+    );
+
+    await expect(load(file)).rejects.toThrow(/Failed to parse PlantUML/);
+  });
+
+  it("expands local !include files before parsing", async () => {
+    await writeFixture("people.puml", 'Person(customer, "Customer")\n');
+    const file = await writeFixture(
+      "main-include.puml",
+      [
+        "@startuml",
+        "!include people.puml",
+        'Container(api, "API")',
+        'Rel(customer, api, "Uses")',
+        "@enduml",
+      ].join("\n"),
+    );
+
+    const result = await load(file);
+
+    expect(result.model.elements.customer?.relations[0]).toEqual(
+      expect.objectContaining({ to: "api", description: "Uses" }),
+    );
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({ message: expect.stringMatching(/include/i) }),
+    );
+  });
+
+  it("expands local !include_once only once", async () => {
+    await writeFixture("shared-once.puml", 'Person(customer, "Customer")\n');
+    const file = await writeFixture(
+      "main-include-once.puml",
+      [
+        "@startuml",
+        "!include_once shared-once.puml",
+        "!include_once shared-once.puml",
+        'Container(api, "API")',
+        'Rel(customer, api, "Uses")',
+        "@enduml",
+      ].join("\n"),
+    );
+
+    const result = await load(file);
+
+    expect(result.issues).not.toContainEqual(
+      expect.objectContaining({ kind: "duplicate-element-name" }),
+    );
+    expect(result.model.elements.customer?.relations[0]?.to).toBe("api");
+  });
+
+  it("expands local !include_many every time", async () => {
+    await writeFixture(
+      "shared-many.puml",
+      [
+        'Person(customer_many, "Customer")',
+        'Rel(customer_many, api, "Uses")',
+      ].join("\n"),
+    );
+    const file = await writeFixture(
+      "main-include-many.puml",
+      [
+        "@startuml",
+        'Container(api, "API")',
+        "!include_many shared-many.puml",
+        "!include_many shared-many.puml",
+        "@enduml",
+      ].join("\n"),
+    );
+
+    const result = await load(file);
+
+    expect(result.model.elements.customer_many?.relations).toHaveLength(2);
+    expect(
+      result.model.elements.customer_many?.relations.every(
+        (r) => r.to === "api",
+      ),
+    ).toBe(true);
+  });
+
+  it("surfaces pre-parse notes as loader warnings", async () => {
+    const file = await writeFixture(
+      "deployment-note.puml",
+      [
+        "@startuml",
+        'Deployment_Node(prod, "Prod") {',
+        '  Container(api, "API")',
+        "}",
+        'Person(user, "User")',
+        "@enduml",
+      ].join("\n"),
+    );
+
+    const result = await load(file);
+
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        kind: "loader-warning",
+        source: "plantuml",
+        code: "preparse-info",
+        message: expect.stringMatching(/Deployment/),
+      }),
+    );
+  });
+
   it("strips the $tags= prefix and surfaces as Container.tags", async () => {
     const model = await loadFromContent(
       "tags.puml",
@@ -420,22 +528,21 @@ describe("PlantUML load — unit", () => {
     },
   );
 
-  it("parses relation tags from the descr/5th arg", async () => {
+  it("preserves official relation descr slot without treating it as tags", async () => {
     const model = await loadFromContent(
-      "rel-tags.puml",
+      "rel-descr.puml",
       [
         "@startuml",
         "!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml",
         'Container(a, "A")',
         'Container(b, "B")',
-        'Rel(a, b, "label", "REST", "async, audit")',
+        'Rel(a, b, "label", "REST", "opens dashboard")',
         "@enduml",
       ].join("\n"),
     );
-    expect(getElement(model, "a")?.relations[0].tags).toEqual([
-      "async",
-      "audit",
-    ]);
+    const rel = getElement(model, "a")?.relations[0];
+    expect(rel?.tags).toEqual([]);
+    expect(rel?.properties?.["plantuml.descr"]).toBe("opens dashboard");
   });
 
   it("parses relation technology from the 4th arg", async () => {

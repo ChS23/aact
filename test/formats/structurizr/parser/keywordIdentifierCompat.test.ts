@@ -20,6 +20,17 @@ describe("Structurizr parser — keyword-as-identifier compatibility", () => {
     expect(model.elements["container"]).toBeDefined();
   });
 
+  it("`element` keyword can be used as the LHS of an assignment", () => {
+    const src = `workspace {
+      model {
+        element = element "Custom"
+      }
+    }`;
+    const { model, parseErrors } = parse(src);
+    expect(parseErrors).toEqual([]);
+    expect(model.elements["element"]).toBeDefined();
+  });
+
   it("element-kind keyword identifier resolves on the source side", () => {
     const src = `workspace {
       model {
@@ -86,6 +97,7 @@ describe("Structurizr parser — case-insensitive identifier lookup", () => {
   it("hierarchical reference is also case-insensitive", () => {
     const src = `workspace {
       model {
+        !identifiers hierarchical
         bank = softwareSystem "Bank" {
           api = container "API"
         }
@@ -96,7 +108,7 @@ describe("Structurizr parser — case-insensitive identifier lookup", () => {
     const { model, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
     expect(model.elements["user"]?.relations).toEqual([
-      expect.objectContaining({ to: "api", description: "uses" }),
+      expect.objectContaining({ to: "bank.api", description: "uses" }),
     ]);
   });
 });

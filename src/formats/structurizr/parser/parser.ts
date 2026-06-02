@@ -72,6 +72,7 @@ import {
   TextBlock,
   This,
   Url,
+  UrlLiteral,
   Workspace,
 } from "./tokens";
 
@@ -110,6 +111,7 @@ class StructurizrParser extends CstParser {
       this.CONSUME(Extends);
       this.OR1([
         { ALT: () => this.CONSUME3(StringLiteral, { LABEL: "extendsTarget" }) },
+        { ALT: () => this.CONSUME(UrlLiteral, { LABEL: "extendsTargetUrl" }) },
         { ALT: () => this.CONSUME(Identifier, { LABEL: "extendsTargetPath" }) },
       ]);
     });
@@ -294,7 +296,11 @@ class StructurizrParser extends CstParser {
 
   private urlStmt = this.RULE("urlStmt", () => {
     this.CONSUME(Url);
-    this.CONSUME(StringLiteral);
+    this.OR([
+      { ALT: () => this.CONSUME(StringLiteral) },
+      { ALT: () => this.CONSUME(UrlLiteral) },
+      { ALT: () => this.CONSUME(Identifier) },
+    ]);
   });
 
   /**
@@ -320,6 +326,7 @@ class StructurizrParser extends CstParser {
     // digits, `.`, `_`, `-`, `/` mid-token; Slash covers a lone `/`.
     this.OR2([
       { ALT: () => this.CONSUME2(StringLiteral, { LABEL: "value" }) },
+      { ALT: () => this.CONSUME(UrlLiteral, { LABEL: "valueUrl" }) },
       { ALT: () => this.CONSUME2(Identifier, { LABEL: "value" }) },
       { ALT: () => this.CONSUME(Slash, { LABEL: "valueSlash" }) },
     ]);
@@ -362,6 +369,7 @@ class StructurizrParser extends CstParser {
     ]);
     this.OR1([
       { ALT: () => this.CONSUME(StringLiteral) },
+      { ALT: () => this.CONSUME(UrlLiteral) },
       { ALT: () => this.CONSUME(Identifier) },
     ]);
   });
@@ -455,6 +463,7 @@ class StructurizrParser extends CstParser {
             this.CONSUME2(StringLiteral, { LABEL: "technology" }),
           );
           this.OPTION4(() => this.CONSUME3(StringLiteral, { LABEL: "tags" }));
+          this.OPTION8(() => this.SUBRULE(this.relationshipBody));
         },
       },
       {
@@ -477,10 +486,30 @@ class StructurizrParser extends CstParser {
             this.CONSUME5(StringLiteral, { LABEL: "technology" }),
           );
           this.OPTION7(() => this.CONSUME6(StringLiteral, { LABEL: "tags" }));
+          this.OPTION9(() => this.SUBRULE1(this.relationshipBody));
         },
       },
     ]);
   });
+
+  private relationshipBody = this.RULE("relationshipBody", () => {
+    this.CONSUME(LBrace);
+    this.MANY(() => this.SUBRULE(this.relationshipBodyStatement));
+    this.CONSUME(RBrace);
+  });
+
+  private relationshipBodyStatement = this.RULE(
+    "relationshipBodyStatement",
+    () => {
+      this.OR([
+        { ALT: () => this.SUBRULE(this.tagsStmt) },
+        { ALT: () => this.SUBRULE(this.tagStmt) },
+        { ALT: () => this.SUBRULE(this.urlStmt) },
+        { ALT: () => this.SUBRULE(this.propertiesBlock) },
+        { ALT: () => this.SUBRULE(this.perspectivesBlock) },
+      ]);
+    },
+  );
 }
 
 export const parserInstance = new StructurizrParser();

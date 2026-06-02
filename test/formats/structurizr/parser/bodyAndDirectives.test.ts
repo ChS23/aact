@@ -148,6 +148,53 @@ describe("Structurizr parser — body statements + directives", () => {
     expect(model.elements["api"]?.link).toBe("https://docs.example.com/api");
   });
 
+  it("body `url` accepts official unquoted URL form", () => {
+    const src = `workspace {
+      model {
+        api = container "API" {
+          url https://docs.example.com/api
+        }
+      }
+    }`;
+    const { model, parseErrors } = parse(src);
+    expect(parseErrors).toEqual([]);
+    expect(model.elements["api"]?.link).toBe("https://docs.example.com/api");
+  });
+
+  it("relationship body applies tags/url/properties/perspectives", () => {
+    const src = `workspace {
+      model {
+        user = person "User"
+        api = softwareSystem "API"
+        user -> api "Uses" {
+          tags "Critical"
+          url https://example.com/rel
+          properties {
+            sla "99.9"
+          }
+          perspectives {
+            Security "Threat model reviewed" "high"
+          }
+        }
+      }
+    }`;
+    const { model, parseErrors } = parse(src);
+    expect(parseErrors).toEqual([]);
+    expect(model.elements["user"]?.relations).toEqual([
+      expect.objectContaining({
+        to: "api",
+        description: "Uses",
+        tags: ["Relationship", "Critical"],
+        link: "https://example.com/rel",
+        properties: {
+          sla: "99.9",
+          "perspective.Security": "Threat model reviewed",
+          "perspective.Security.value": "high",
+        },
+      }),
+    ]);
+  });
+
   it("body `properties` accepts bare `/` as a value (e.g. groupSeparator)", () => {
     const src = `workspace {
       model {
@@ -273,8 +320,16 @@ workspace {
         api = container "API"
       }
     }`;
-    const { parseErrors } = parse(src);
+    const { parseErrors, issues } = parse(src);
     expect(parseErrors).toEqual([]);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "loader-warning",
+          code: "include-not-expanded",
+        }),
+      ]),
+    );
   });
 
   it("supports !include with bare path (unquoted, with slashes)", () => {
@@ -284,16 +339,32 @@ workspace {
         api = container "API"
       }
     }`;
-    const { parseErrors } = parse(src);
+    const { parseErrors, issues } = parse(src);
     expect(parseErrors).toEqual([]);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "loader-warning",
+          code: "include-not-expanded",
+        }),
+      ]),
+    );
   });
 
   it("`workspace extends path/to/parent.dsl` parses without errors", () => {
     const src = `workspace extends path/to/parent.dsl {
       model {}
     }`;
-    const { parseErrors } = parse(src);
+    const { parseErrors, issues } = parse(src);
     expect(parseErrors).toEqual([]);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "loader-warning",
+          code: "extends-not-expanded",
+        }),
+      ]),
+    );
   });
 
   it("supports !identifiers hierarchical", () => {

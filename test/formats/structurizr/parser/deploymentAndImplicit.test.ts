@@ -106,7 +106,7 @@ describe("Structurizr parser — implicit-source relationships", () => {
     expect(rel?.tags).toEqual(["Relationship", "internal", "critical"]);
   });
 
-  it("implicit-source at model scope is dropped (no enclosing element)", () => {
+  it("implicit-source at model scope emits warning (no enclosing element)", () => {
     const src = `workspace {
       model {
         a = person "Alice"
@@ -114,12 +114,17 @@ describe("Structurizr parser — implicit-source relationships", () => {
         -> b "orphan"
       }
     }`;
-    const { model, parseErrors } = parse(src);
+    const { model, parseErrors, issues } = parse(src);
     expect(parseErrors).toEqual([]);
-    // No enclosing element at model scope — the implicit-source line
-    // is silently dropped from the model.
     expect(model.elements["a"]?.relations).toEqual([]);
     expect(model.elements["b"]?.relations).toEqual([]);
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        kind: "loader-warning",
+        source: "structurizr",
+        code: "relationship-source-not-resolved",
+      }),
+    );
   });
 });
 

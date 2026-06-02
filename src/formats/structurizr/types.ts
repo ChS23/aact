@@ -72,7 +72,7 @@ export interface StructurizrContainer {
   relationships?: StructurizrRelationship[];
 }
 
-interface StructurizrComponent {
+export interface StructurizrComponent {
   id: string;
   name: string;
   description?: string;
