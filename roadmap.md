@@ -6,7 +6,6 @@
 ✅ Покрытие тестами архитектуры модульного монолита<br/>
 ✅ [Справочник](https://github.com/Byndyusoft/aact/blob/main/patterns.md) принципов и паттернов проектирования (в формате ADR)<br/>
 ✅ Примеры тестов на пункты [справочника](https://github.com/Byndyusoft/aact/blob/main/patterns.md)<br/>
-🟩 Добавление реализаций и примеров под разные стэки (сейчас TypeScript и C#)
 
 ### CLI и конфигурация
 
