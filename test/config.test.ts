@@ -55,6 +55,17 @@ describe("AactConfigSchema — rule options accepted/rejected", () => {
     ).toBe(false);
   });
 
+  it("acl: accepts namePatterns (string[]) and rejects scalar", () => {
+    expect(
+      parses({ ...baseSource, rules: { acl: { namePatterns: ["*_acl"] } } })
+        .success,
+    ).toBe(true);
+    expect(
+      parses({ ...baseSource, rules: { acl: { namePatterns: "*_acl" } } })
+        .success,
+    ).toBe(false);
+  });
+
   it("apiGateway: accepts aclTag (string) and gatewayPattern (RegExp)", () => {
     expect(
       parses({
@@ -69,6 +80,21 @@ describe("AactConfigSchema — rule options accepted/rejected", () => {
       parses({
         ...baseSource,
         rules: { apiGateway: { gatewayPattern: "not-a-regex" } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("apiGateway: accepts aclNamePatterns (string[]) and rejects scalar", () => {
+    expect(
+      parses({
+        ...baseSource,
+        rules: { apiGateway: { aclNamePatterns: ["*_gateway"] } },
+      }).success,
+    ).toBe(true);
+    expect(
+      parses({
+        ...baseSource,
+        rules: { apiGateway: { aclNamePatterns: "*_gateway" } },
       }).success,
     ).toBe(false);
   });
@@ -88,6 +114,21 @@ describe("AactConfigSchema — rule options accepted/rejected", () => {
     ).toBe(false);
   });
 
+  it("crud: accepts repoNamePatterns (string[]) and rejects scalar", () => {
+    expect(
+      parses({
+        ...baseSource,
+        rules: { crud: { repoNamePatterns: ["*_store"] } },
+      }).success,
+    ).toBe(true);
+    expect(
+      parses({
+        ...baseSource,
+        rules: { crud: { repoNamePatterns: "*_store" } },
+      }).success,
+    ).toBe(false);
+  });
+
   it("dbPerService: accepts ownerTags (string[]) and rejects scalar", () => {
     expect(
       parses({
@@ -99,6 +140,21 @@ describe("AactConfigSchema — rule options accepted/rejected", () => {
       parses({
         ...baseSource,
         rules: { dbPerService: { ownerTags: "owner" } },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("dbPerService: accepts ownerNamePatterns (string[]) and rejects scalar", () => {
+    expect(
+      parses({
+        ...baseSource,
+        rules: { dbPerService: { ownerNamePatterns: ["*_repo"] } },
+      }).success,
+    ).toBe(true);
+    expect(
+      parses({
+        ...baseSource,
+        rules: { dbPerService: { ownerNamePatterns: "*_repo" } },
       }).success,
     ).toBe(false);
   });

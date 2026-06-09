@@ -60,6 +60,9 @@ export const AactConfigSchema = v.strictObject({
     v.looseObject({
       acl: ruleOption({
         tag: v.optional(v.string()),
+        // Name-convention fallback: a container counts as ACL even
+        // without the explicit tag if its name matches a pattern.
+        namePatterns: v.optional(v.array(v.string())),
       }),
       // The four option-less rules accept `boolean | {}` so the
       // config shape is symmetric with the option-bearing rules.
@@ -71,12 +74,20 @@ export const AactConfigSchema = v.strictObject({
       apiGateway: ruleOption({
         aclTag: v.optional(v.string()),
         gatewayPattern: v.optional(v.instance(RegExp)),
+        // Name-convention fallback for ACL detection (mirrors acl.namePatterns).
+        aclNamePatterns: v.optional(v.array(v.string())),
       }),
       crud: ruleOption({
         repoTags: v.optional(v.array(v.string())),
+        // Name-convention fallback: a container counts as a repo even
+        // without an explicit tag if its name matches a pattern
+        // (`*_repo`, `*_repository`, ...). Defaults documented on CrudOptions.
+        repoNamePatterns: v.optional(v.array(v.string())),
       }),
       dbPerService: ruleOption({
         ownerTags: v.optional(v.array(v.string())),
+        // Name-convention fallback for owner detection (mirrors crud.repoNamePatterns).
+        ownerNamePatterns: v.optional(v.array(v.string())),
       }),
       cohesion: ruleOption({}),
       stableDependencies: ruleOption({}),
