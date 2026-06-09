@@ -240,6 +240,65 @@ describe("renderDiffText", () => {
     expect(text).toContain("web → legacy");
   });
 
+  it("renders relation renamed/moved via the future-proofing branch", () => {
+    // Relations don't currently emit renamed/moved, but the renderer
+    // keeps a branch for forward-compat. Drive it directly so the
+    // path stays covered if the differ ever starts producing them.
+    const text = render(
+      envelopeFor([
+        {
+          entity: "relation",
+          action: "renamed",
+          severity: "structural",
+          address: "relation:api→db",
+          from: "api",
+          to: "db",
+          fields: [{ field: "technology", before: "HTTP", after: "gRPC" }],
+        },
+        {
+          entity: "relation",
+          action: "moved",
+          severity: "structural",
+          address: "relation:web→api",
+          from: "web",
+          to: "api",
+          fields: [],
+        },
+      ]),
+    );
+    expect(text).toContain("api → db");
+    expect(text).toContain("web → api");
+    expect(text).toContain("HTTP");
+    expect(text).toContain("gRPC");
+  });
+
+  it("falls back to JSON.stringify for exotic field values (symbol)", () => {
+    // A symbol isn't undefined/null/array/object/string/number/boolean,
+    // so it hits the final JSON.stringify fallback in formatFieldValue.
+    // JSON.stringify(symbol) yields `undefined` — no throw — which is
+    // exactly the branch we want to exercise.
+    const text = render(
+      envelopeFor([
+        {
+          entity: "element",
+          action: "modified",
+          severity: "semantic",
+          address: "element:x",
+          name: "x",
+          kind: "Container",
+          fields: [
+            {
+              field: "order",
+              before: Symbol("a"),
+              after: 2,
+            },
+          ],
+        },
+      ]),
+    );
+    expect(text).toContain("order");
+  });
+
   it("renders relation modified with field summary", () => {
     const text = render(
       envelopeFor([

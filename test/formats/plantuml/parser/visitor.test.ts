@@ -220,4 +220,184 @@ describe("PUML visitor — CST → AST", () => {
     const stmt = ast.diagrams[0].statements[0];
     expect(stmt.range.start.offset).toBe(expectedOffset);
   });
+
+  it("resolves all backslash escapes inside a string literal", () => {
+    // One label exercises every branch of `unwrapStringLiteral`:
+    // \t → tab, \r → CR, \" → quote, \\ → backslash, \z → default (z).
+    const src = String.raw`@startuml
+Container(api, "a\tb\rc\"d\\e\zf")
+@enduml
+`;
+    const { ast, lexErrors, parseErrors } = parse(src);
+    expect(lexErrors).toEqual([]);
+    expect(parseErrors).toEqual([]);
+    const stmt = ast.diagrams[0].statements[0];
+    if (stmt.kind !== "elementMacro") throw new Error("expected elementMacro");
+    const label = stmt.positionals[1];
+    if (label.kind !== "string") throw new Error("expected string literal");
+    // \t→tab, \r→CR, \"→quote, \\→backslash, \z→z (default branch).
+    expect(label.value).toBe('a\tb\rc"d\\ezf');
+  });
+
+  it("diagramName on its own line — quoted string form (separate token)", () => {
+    // `@startuml` line is bare; the quoted name lands as a standalone
+    // StringLiteral consumed by the `diagramName` rule (not the
+    // `@startuml <name>` same-line form handled by the lexer token).
+    const src = `@startuml\n"My Diagram"\nContainer(api, "API")\n@enduml\n`;
+    const { ast, lexErrors, parseErrors } = parse(src);
+    expect(lexErrors).toEqual([]);
+    expect(parseErrors).toEqual([]);
+    expect(ast.diagrams[0].name).toMatchObject({
+      kind: "diagramName",
+      value: "My Diagram",
+      form: "string",
+    });
+  });
+
+  it("diagramName on its own line — bare identifier form (separate token)", () => {
+    const src = `@startuml\nMyDiagram\nContainer(api, "API")\n@enduml\n`;
+    const { ast, lexErrors, parseErrors } = parse(src);
+    expect(lexErrors).toEqual([]);
+    expect(parseErrors).toEqual([]);
+    expect(ast.diagrams[0].name).toMatchObject({
+      kind: "diagramName",
+      value: "MyDiagram",
+      form: "identifier",
+    });
+  });
+
+  it("empty named-arg value recovers to an empty bareToken", () => {
+    // `$tags=` with nothing after `=` makes chevrotain recover with an
+    // empty `argValue` CST node. The visitor must still produce a
+    // bareToken (value "") rather than throw — and `cstRange` on the
+    // childless node falls back to its 1:1 placeholder location.
+    const src = `@startuml\nContainer(api, $tags=)\n@enduml\n`;
+    const { ast, parseErrors } = parse(src);
+    // Error recovery means a parse error is expected here.
+    expect(parseErrors.length).toBeGreaterThan(0);
+    const stmt = ast.diagrams[0].statements[0];
+    if (stmt.kind !== "elementMacro") throw new Error("expected elementMacro");
+    const tags = stmt.namedArgs.find((a) => a.name === "tags");
+    expect(tags).toBeDefined();
+    expect(tags!.value).toMatchObject({ kind: "bareToken", value: "" });
+    // Placeholder range from the empty-token `cstRange` fallback.
+    expect(tags!.value.range.start).toMatchObject({
+      line: 1,
+      col: 1,
+      offset: 0,
+    });
+  });
+});
+
+// ── Defensive branches ────────────────────────────────────────────
+//
+// These code paths are unreachable through the chevrotain grammar
+// (the keyword→macro maps are exhaustive over the grammar's keyword
+// alternatives, and a real CST keyword node always holds one token).
+// They guard against a future grammar/visitor drift. We exercise them
+// by feeding `buildAst` a hand-crafted CST that the parser itself
+// would never emit, asserting the documented throw / fallback.
+
+type FakeToken = {
+  image: string;
+  tokenType: { name: string };
+  startLine: number;
+  startColumn: number;
+  startOffset: number;
+  endLine: number;
+  endColumn: number;
+  endOffset: number;
+};
+
+const fakeToken = (name: string, image: string): FakeToken => ({
+  image,
+  tokenType: { name },
+  startLine: 1,
+  startColumn: 1,
+  startOffset: 0,
+  endLine: 1,
+  endColumn: Math.max(1, image.length),
+  endOffset: Math.max(0, image.length - 1),
+});
+
+const fakeRule = (name: string, children: Record<string, unknown[]>) => ({
+  name,
+  children,
+});
+
+const diagramWith = (statement: unknown) =>
+  fakeRule("pumlFile", {
+    diagram: [
+      fakeRule("diagram", {
+        StartUml: [fakeToken("StartUml", "@startuml")],
+        EndUml: [fakeToken("EndUml", "@enduml")],
+        statement: [statement],
+      }),
+    ],
+  });
+
+describe("PUML visitor — defensive branches via hand-crafted CST", () => {
+  it("firstChildToken throws when a keyword node has no token children", () => {
+    const elementCall = fakeRule("elementCall", {
+      elementKeyword: [fakeRule("elementKeyword", {})],
+      argList: [fakeRule("argList", {})],
+    });
+    const cst = diagramWith(
+      fakeRule("statement", { elementCall: [elementCall] }),
+    );
+    expect(() => buildAst(cst as never, FILE)).toThrow(
+      /No child token found in CST node "elementKeyword"/,
+    );
+  });
+
+  it("elementCall throws on an unmapped element keyword token", () => {
+    const elementCall = fakeRule("elementCall", {
+      elementKeyword: [
+        fakeRule("elementKeyword", { Bogus: [fakeToken("Bogus", "Bogus")] }),
+      ],
+      argList: [fakeRule("argList", {})],
+    });
+    const cst = diagramWith(
+      fakeRule("statement", { elementCall: [elementCall] }),
+    );
+    expect(() => buildAst(cst as never, FILE)).toThrow(
+      /Unknown element keyword token "Bogus"/,
+    );
+  });
+
+  it("boundaryCall throws on an unmapped boundary keyword token", () => {
+    const boundaryCall = fakeRule("boundaryCall", {
+      boundaryKeyword: [
+        fakeRule("boundaryKeyword", { Bogus: [fakeToken("Bogus", "Bogus")] }),
+      ],
+      argList: [fakeRule("argList", {})],
+    });
+    const cst = diagramWith(
+      fakeRule("statement", { boundaryCall: [boundaryCall] }),
+    );
+    expect(() => buildAst(cst as never, FILE)).toThrow(
+      /Unknown boundary keyword token "Bogus"/,
+    );
+  });
+
+  it("relationCall throws on an unmapped relation keyword token", () => {
+    const relationCall = fakeRule("relationCall", {
+      relationKeyword: [
+        fakeRule("relationKeyword", { Bogus: [fakeToken("Bogus", "Bogus")] }),
+      ],
+      argList: [fakeRule("argList", {})],
+    });
+    const cst = diagramWith(
+      fakeRule("statement", { relationCall: [relationCall] }),
+    );
+    expect(() => buildAst(cst as never, FILE)).toThrow(
+      /Unknown relation keyword token "Bogus"/,
+    );
+  });
+
+  it("statement with no recognized child is silently dropped (undefined)", () => {
+    const cst = diagramWith(fakeRule("statement", {}));
+    const ast = buildAst(cst as never, FILE);
+    expect(ast.diagrams[0].statements).toEqual([]);
+  });
 });

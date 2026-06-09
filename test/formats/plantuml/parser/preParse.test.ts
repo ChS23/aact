@@ -11,6 +11,9 @@ import {
 
 const FILE = "test.puml";
 
+const expectSameLength = (out: string, src: string) =>
+  expect(out.length).toBe(src.length);
+
 describe("PUML preParse — length preservation", () => {
   // Critical invariant: every pass must replace stripped content with
   // whitespace of identical length so chevrotain offsets stay
@@ -368,5 +371,106 @@ describe("PUML preParse — extractAttachedProperties", () => {
       path: String.raw`C:\Users\me`,
       quote: `she said "hi"`,
     });
+  });
+
+  it("keeps a bare (unquoted) AddProperty value verbatim", () => {
+    // `enabled` is not quoted — unwrapArg's JSON-parse branch is
+    // skipped and the bare token survives as the value verbatim.
+    const src = [
+      "@startuml", //                       1
+      'AddProperty("flag", enabled)', //    2 ← bare value
+      'Container(api, "API")', //           3 ← target
+      "@enduml", //                         4
+    ].join("\n");
+    const map = extractAttachedProperties(src);
+    expect(map.get(3)).toEqual({ flag: "enabled" });
+  });
+});
+
+describe("PUML preParse — note ... end note block regex (second pass)", () => {
+  // The first pass blanks line-leading `note` / `end note` / `endnote`.
+  // The second pass (`note\b[\s\S]*?\bend\s*note\b`) catches `note`
+  // keywords that are NOT line-leading — so they survive pass 1 and
+  // must be cleaned up as a span here.
+  it("strips an inline `note ... endnote` span that is not line-leading", () => {
+    const src = `@startuml\nfoo note left : body text here endnote bar\nContainer(api, "API")\n@enduml\n`;
+    const out = stripPlantumlNative(src);
+    expectSameLength(out, src);
+    expect(out).not.toMatch(/body text here/);
+    // Surrounding `foo` / `bar` on the same line survive.
+    expect(out).toContain("foo");
+    expect(out).toContain("bar");
+    expect(out).toContain('Container(api, "API")');
+  });
+
+  it("strips a multi-line `note ... end note` span when not line-leading", () => {
+    const src = [
+      "@startuml",
+      "  x note here",
+      "  body line",
+      "  z end note",
+      'Container(api, "API")',
+      "@enduml",
+      "",
+    ].join("\n");
+    const out = stripPlantumlNative(src);
+    expectSameLength(out, src);
+    expect(out).not.toMatch(/body line/);
+    expect(out).not.toMatch(/note here/);
+    // The leading `x` before `note` is preserved by the span match.
+    expect(out).toContain("  x ");
+    expect(out).toContain('Container(api, "API")');
+  });
+});
+
+describe("PUML preParse — stripOpaqueMacros unbalanced fallback", () => {
+  it("falls back to single-line strip when opaque macro paren never closes", () => {
+    // `LAYOUT_WITH_LEGEND(` opens but never closes through the rest of
+    // the buffer — the balancer reaches EOF without depth 0, so the
+    // fallback blanks only the opening line and leaves the remainder.
+    const src = `LAYOUT_WITH_LEGEND(\nContainer(api, "API")\n`;
+    const out = stripOpaqueMacros(src);
+    expectSameLength(out, src);
+    // Opening line blanked.
+    expect(out).not.toMatch(/LAYOUT_WITH_LEGEND/);
+    // Remainder of the file is NOT eaten by the unbalanced strip.
+    expect(out).toContain('Container(api, "API")');
+  });
+});
+
+describe("PUML preParse — positionAt range computation", () => {
+  it("computes a multi-line range for a deployment block not at offset 0", () => {
+    // The deployment macro starts on line 3 (offset > 0), so
+    // positionAt iterates to count lines/cols for the issue range —
+    // and the issue's end lands at the block's closing brace.
+    const src = [
+      "@startuml", //               line 1
+      'Person(c, "Customer")', //   line 2
+      'Deployment_Node(prod, "Prod") {', // line 3
+      '  Container(api, "API")', // line 4
+      "}", //                       line 5
+      "@enduml", //                 line 6
+      "",
+    ].join("\n");
+    const { issues } = stripDeploymentBlocks(src, FILE);
+    expect(issues).toHaveLength(1);
+    const { start, end } = issues[0].range;
+    // positionAt iterated past lines 1-2 to reach the line-3 macro.
+    expect(start.line).toBe(3);
+    expect(start.col).toBe(1);
+    expect(end.line).toBeGreaterThan(start.line);
+    expect(start.offset).toBe(src.indexOf("Deployment_Node"));
+  });
+
+  it("computes a range reaching end-of-source for a trailing second diagram", () => {
+    // keepFirstDiagram blanks from the second @startuml to the end of
+    // the buffer; positionAt is called with offset === source length,
+    // exercising the `i < source.length` loop guard.
+    const src = `@startuml\nContainer(a, "A")\n@enduml\n@startuml\nContainer(b, "B")\n@enduml`;
+    const { issues } = keepFirstDiagram(src, FILE);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].range.end.offset).toBe(src.length);
+    // The end position resolves to the final line of the source.
+    expect(issues[0].range.end.line).toBeGreaterThan(1);
   });
 });

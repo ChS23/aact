@@ -1,3 +1,4 @@
+import { parseSource } from "../../../../src/formats/plantuml/parser";
 import { c4PumlParser } from "../../../../src/formats/plantuml/parser/parser";
 import { preParse } from "../../../../src/formats/plantuml/parser/preParse";
 import { C4PumlLexer } from "../../../../src/formats/plantuml/parser/tokens";
@@ -257,5 +258,127 @@ Rel(banking_system, mainframe, "Uses")
     // Rel_Back(customer, mail_system) → mail_system → customer
     expect(model.elements["mail_system"].relations[0].to).toBe("customer");
     expect(model.elements["mail_system"].external).toBe(true);
+  });
+});
+
+describe("PUML toModel — argString edge cases", () => {
+  it("element with no label leaves Element.label empty (missing positional)", () => {
+    // `Container(api)` — only the alias positional is present, so
+    // argString(positionals[1]) receives `undefined` and returns
+    // undefined; buildElement coalesces label to "".
+    const src = `@startuml\nContainer(api)\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.elements["api"]).toMatchObject({
+      name: "api",
+      label: "",
+    });
+  });
+
+  it("function-call sprite value does not survive to Element.sprite", () => {
+    // `$sprite=RoundedBoxShape()` is a FunctionCallValue; argString
+    // returns undefined for it, so the sprite never lands on Model.
+    const src = `@startuml\nContainer(api, "API", $sprite=RoundedBoxShape())\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.elements["api"].sprite).toBeUndefined();
+  });
+
+  it("function-call positional tags value does not survive to Element.tags", () => {
+    // Positional sprite slot carrying a function call (e.g. a sprite
+    // factory) — argString returns undefined, so tags stay empty.
+    const src = `@startuml\nPerson(alice, "Alice", "user", Robot())\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.elements["alice"].sprite).toBeUndefined();
+  });
+});
+
+describe("PUML toModel — generic Boundary $type decoding", () => {
+  it("generic Boundary($type=Enterprise) decodes kind Enterprise", () => {
+    const src = `@startuml\nBoundary(b, "B", $type="Enterprise") {\n  System(s, "S")\n}\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.boundaries["b"].kind).toBe("Enterprise");
+  });
+
+  it("generic Boundary($type=Component) decodes kind Component", () => {
+    const src = `@startuml\nBoundary(b, "B", $type="Component") {\n  Component(c, "C")\n}\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.boundaries["b"].kind).toBe("Component");
+  });
+
+  it("generic Boundary with positional $type (no named arg) decodes kind", () => {
+    // Positional `$type` slot at index 2 for the generic Boundary
+    // macro — exercises the typeIdx>=0 positional fallback.
+    const src = `@startuml\nBoundary(b, "B", "Enterprise") {\n  System(s, "S")\n}\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.boundaries["b"].kind).toBe("Enterprise");
+  });
+
+  it("generic Boundary with unknown $type falls back to System kind", () => {
+    const src = `@startuml\nBoundary(b, "B", $type="Whatever") {\n  System(s, "S")\n}\n@enduml\n`;
+    const { model } = lower(src);
+    expect(model.boundaries["b"].kind).toBe("System");
+  });
+});
+
+describe("PUML toModel — attachPropertiesToModel boundary branch", () => {
+  it("attaches AddProperty rows preceding a boundary to Boundary.properties", () => {
+    // AddProperty rows attach to the next in-scope macro; here the
+    // next macro is a System_Boundary, so the boundary loop in
+    // attachPropertiesToModel picks them up.
+    const src = [
+      "@startuml",
+      'AddProperty("owner", "platform-team")',
+      'AddProperty("zone", "trusted")',
+      'System_Boundary(bank, "Bank") {',
+      '  Container(api, "API")',
+      "}",
+      "@enduml",
+      "",
+    ].join("\n");
+    const { model } = parseSource(src, FILE);
+    expect(model.boundaries["bank"].properties).toMatchObject({
+      owner: "platform-team",
+      zone: "trusted",
+    });
+  });
+
+  it("leaves boundaries without attached rows untouched while another picks props up", () => {
+    // Two boundaries: only the first carries AddProperty rows. The
+    // second exercises the `else` branch (boundary with no attached
+    // properties) inside attachPropertiesToModel.
+    const src = [
+      "@startuml",
+      'AddProperty("owner", "team-a")',
+      'System_Boundary(b1, "First") {',
+      '  Container(api, "API")',
+      "}",
+      'System_Boundary(b2, "Second") {',
+      '  Container(web, "Web")',
+      "}",
+      "@enduml",
+      "",
+    ].join("\n");
+    const { model } = parseSource(src, FILE);
+    expect(model.boundaries["b1"].properties).toMatchObject({
+      owner: "team-a",
+    });
+    // Second boundary untouched — no synthetic properties attached.
+    expect(model.boundaries["b2"].properties?.["owner"]).toBeUndefined();
+  });
+});
+
+describe("PUML toModel — simple constants substitution in argString", () => {
+  it("resolves a !define constant used as a bare arg value", () => {
+    // bareToken value resolves through the constants map (argString
+    // constants?.get branch); end-to-end via parseSource which wires
+    // simpleConstants into toModel.
+    const src = [
+      "@startuml",
+      '!define TAG_CRIT "critical"',
+      'Container(api, "API", $tags=TAG_CRIT)',
+      "@enduml",
+      "",
+    ].join("\n");
+    const { model } = parseSource(src, FILE);
+    expect(model.elements["api"].tags).toEqual(["critical"]);
   });
 });

@@ -1,10 +1,12 @@
 import { loadConfig } from "c12";
+import { runCommand } from "citty";
 
 import {
   executeRuleExplain,
   executeRuleList,
   renderRuleExplainText,
   renderRuleListText,
+  rule,
 } from "../../src/cli/commands/rule";
 import { buildEnvelope } from "../../src/cli/output";
 import { defineRule } from "../../src/rules/types";
@@ -252,6 +254,26 @@ describe("executeRuleExplain", () => {
     });
   });
 
+  it("appends config custom-rule names to the known-rules list in the unknown error", async () => {
+    // Custom rules registered in config must surface in the
+    // "Known rules: …" hint so users discover their own rules.
+    const myRule = defineRule({
+      name: "noLegacy",
+      description: "no legacy tag",
+      check: () => [],
+    });
+    mockConfig({
+      source: { type: "plantuml", path: "x.puml" },
+      customRules: [myRule],
+    });
+    await expect(
+      executeRuleExplain({ _: ["doesNotExist"] }),
+    ).rejects.toMatchObject({
+      kind: "config.unknownRule",
+      message: expect.stringContaining("noLegacy"),
+    });
+  });
+
   it("omits optional fields from envelope when the rule has no rationale/examples/adr", async () => {
     const minimal = defineRule({
       name: "minimal",
@@ -343,5 +365,109 @@ describe("renderRuleExplainText", () => {
     expect(text).not.toContain("Examples");
     expect(text).not.toContain("ADR");
     expect(text).not.toContain("See also");
+  });
+
+  it("word-wraps a long rationale across multiple lines", () => {
+    // Each word is short, but together they exceed the 78-col wrap
+    // width — exercising the wrap branch in `wrapPrefixed`. The full
+    // rationale must survive (no words dropped) split over >1 line.
+    const longRationale = Array.from({ length: 30 }, (_, i) => `word${i}`).join(
+      " ",
+    );
+    const { sink, output } = captureSink();
+    renderRuleExplainText(
+      buildEnvelope({
+        command: "rule explain",
+        exitCode: 0,
+        data: {
+          name: "wrappy",
+          description: "wraps",
+          source: "built-in",
+          enabled: true,
+          hasFix: false,
+          rationale: longRationale,
+        },
+        meta: { durationMs: 1, configPath: null, source: null },
+      }),
+      sink,
+    );
+    const text = output();
+    expect(text).toContain("Rationale");
+    // First and last words both present despite the wrap.
+    expect(text).toContain("word0");
+    expect(text).toContain("word29");
+    // The rationale body spans more than a single rendered line.
+    const rationaleBody = text.slice(text.indexOf("Rationale"));
+    const wrappedLines = rationaleBody
+      .split("\n")
+      .filter((l) => l.includes("word"));
+    expect(wrappedLines.length).toBeGreaterThan(1);
+  });
+
+  it("word-wraps a long example note across multiple lines", () => {
+    const longNote = Array.from({ length: 30 }, (_, i) => `note${i}`).join(" ");
+    const { sink, output } = captureSink();
+    renderRuleExplainText(
+      buildEnvelope({
+        command: "rule explain",
+        exitCode: 0,
+        data: {
+          name: "notey",
+          description: "notes",
+          source: "built-in",
+          enabled: true,
+          hasFix: false,
+          examples: [{ label: "bad", source: "Rel(a, db)", note: longNote }],
+        },
+        meta: { durationMs: 1, configPath: null, source: null },
+      }),
+      sink,
+    );
+    const text = output();
+    expect(text).toContain("note0");
+    expect(text).toContain("note29");
+    const noteLines = text.split("\n").filter((l) => l.includes("note"));
+    expect(noteLines.length).toBeGreaterThan(1);
+  });
+});
+
+describe("rule command (citty subcommand dispatch)", () => {
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
+  });
+
+  const capturedStdout = (): string =>
+    stdoutSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
+
+  it("`rule list` renders the built-in rule table and exits 0", async () => {
+    mockNoConfig();
+    await runCommand(rule, { rawArgs: ["list"] });
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    const out = capturedStdout();
+    expect(out).toContain("Built-in");
+    expect(out).toContain("rules enabled");
+  });
+
+  it("`rule explain <name>` renders a built-in rule's rationale and exits 0", async () => {
+    mockNoConfig();
+    await runCommand(rule, { rawArgs: ["explain", "crud"] });
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    const out = capturedStdout();
+    expect(out).toContain("crud");
+    expect(out).toContain("Rationale");
+  });
+
+  it("`rule explain <unknown>` surfaces the unknown-rule error and exits 2", async () => {
+    mockNoConfig();
+    await runCommand(rule, { rawArgs: ["explain", "doesNotExist"] });
+    expect(exitSpy).toHaveBeenCalledWith(2);
   });
 });

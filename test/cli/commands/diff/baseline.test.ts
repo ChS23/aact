@@ -85,6 +85,39 @@ describe("loadBaseline — file path inputs", () => {
     }
   });
 
+  it("auto-detects structurizr for a file literally named workspace.json", async () => {
+    const workspace = {
+      model: {
+        softwareSystems: [
+          {
+            id: "1",
+            name: "Sys",
+            properties: { "structurizr.dsl.identifier": "sys" },
+            containers: [
+              {
+                id: "2",
+                name: "Svc",
+                properties: { "structurizr.dsl.identifier": "svc" },
+                relationships: [],
+              },
+            ],
+          },
+        ],
+        people: [],
+      },
+    };
+    const file = makeTempPuml(JSON.stringify(workspace), "workspace.json");
+    try {
+      const result = await loadBaseline({ arg: file, sideLabel: "baseline" });
+      // basename === "workspace.json" → structurizr (line 123 branch), not
+      // model-json, even though the extension is `.json`.
+      expect(result.side.format).toBe("structurizr");
+      expect(Object.keys(result.model.elements)).toContain("svc");
+    } finally {
+      cleanupParent(file);
+    }
+  });
+
   it("throws format.unknown for an invalid explicit format override", async () => {
     const file = makeTempPuml(SIMPLE_PUML);
     try {
@@ -213,9 +246,26 @@ describe("loadBaseline — model-json inputs", () => {
   });
 });
 
-// stdin tests skipped under vitest — readFileSync(0) errors out before
-// reaching the format check in the test runner's pipe-less environment.
-// e2e coverage exercises the stdin path via real subprocess.
+// The actual stdin *read* (readFileSync(0)) is exercised in
+// baselineMocked.test.ts, which mocks node:fs so the runner's pipe-less
+// fd 0 doesn't throw. Here we cover the format-hint guard, which fires
+// BEFORE any read and therefore is safe under vitest.
+describe("loadBaseline — stdin guard", () => {
+  it("throws format.unknown when stdin has no explicit --<side>-format", async () => {
+    await expect(
+      loadBaseline({ arg: "-", sideLabel: "baseline" }),
+    ).rejects.toMatchObject({ kind: "format.unknown" });
+  });
+
+  it("the stdin guard error names the side-specific format flag", async () => {
+    const error = await loadBaseline({ arg: "-", sideLabel: "current" }).catch(
+      (error_: unknown) => error_,
+    );
+    expect((error as { message: string }).message).toContain(
+      "--current-format",
+    );
+  });
+});
 
 describe("loadBaseline — git ref input", () => {
   it("throws model.sourceNotFound for a bogus git ref", async () => {
@@ -246,6 +296,74 @@ describe("loadBaseline — git ref input", () => {
       });
       const result = await loadBaseline({
         arg: "HEAD:arch.puml",
+        sideLabel: "baseline",
+        cwd: repo,
+      });
+      expect(result.side.format).toBe("plantuml");
+      expect(Object.keys(result.model.elements)).toContain("svc");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("auto-detects structurizr from a .dsl git ref path", async () => {
+    const { execSync } = await import("node:child_process");
+    const repo = mkdtempSync(path.join(tmpdir(), "aact-baseline-git-dsl-"));
+    try {
+      execSync("git init -q", { cwd: repo });
+      execSync("git config user.email 'test@x' && git config user.name 'T'", {
+        cwd: repo,
+        shell: "/bin/sh",
+      });
+      writeFileSync(
+        path.join(repo, "workspace.dsl"),
+        `workspace {
+          model {
+            user = person "User"
+            api = softwareSystem "API"
+            user -> api "uses"
+          }
+        }`,
+        "utf8",
+      );
+      execSync("git add workspace.dsl && git commit -q -m init", {
+        cwd: repo,
+        shell: "/bin/sh",
+      });
+      const result = await loadBaseline({
+        arg: "HEAD:workspace.dsl",
+        sideLabel: "baseline",
+        cwd: repo,
+      });
+      // .dsl extension → structurizr detection (detectFormatFromPath), and
+      // the scratch file keeps the .dsl suffix (scratchExt git-ref branch).
+      expect(result.side.format).toBe("structurizr");
+      expect(Object.keys(result.model.elements)).toContain("api");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to formatHint suffix for an extensionless git-ref path", async () => {
+    const { execSync } = await import("node:child_process");
+    const repo = mkdtempSync(path.join(tmpdir(), "aact-baseline-git-noext-"));
+    try {
+      execSync("git init -q", { cwd: repo });
+      execSync("git config user.email 'test@x' && git config user.name 'T'", {
+        cwd: repo,
+        shell: "/bin/sh",
+      });
+      // No extension on the committed file → detectFormatFromPath returns
+      // undefined, formatOverride supplies the hint, and scratchExt falls
+      // back to `.${formatHint}` because path.extname is empty.
+      writeFileSync(path.join(repo, "Archfile"), SIMPLE_PUML, "utf8");
+      execSync("git add Archfile && git commit -q -m init", {
+        cwd: repo,
+        shell: "/bin/sh",
+      });
+      const result = await loadBaseline({
+        arg: "HEAD:Archfile",
+        formatOverride: "plantuml",
         sideLabel: "baseline",
         cwd: repo,
       });

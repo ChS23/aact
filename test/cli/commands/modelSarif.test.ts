@@ -146,6 +146,15 @@ describe("modelSarifAdapter — results mapping", () => {
         issue: { kind: "unknown-kind", element: "weird", raw: "Mystery" },
         needle: /weird.*Mystery/,
       },
+      {
+        issue: {
+          kind: "loader-warning",
+          source: "compose",
+          code: "version-obsolete",
+          message: "version field is obsolete",
+        },
+        needle: /\[compose:version-obsolete] version field is obsolete/,
+      },
     ];
     for (const { issue, needle } of cases) {
       const log = modelSarifAdapter(envelopeWith([issue]));

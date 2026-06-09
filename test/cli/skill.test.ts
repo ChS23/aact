@@ -2,14 +2,22 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { runCommand } from "citty";
+
 import type { SkillData } from "../../src/cli/commands/skill";
 import {
   createInstallPlans,
   executeSkill,
   installAgentSkill,
   renderSkillText,
+  skill,
 } from "../../src/cli/commands/skill";
 import type { CliEnvelope } from "../../src/cli/output";
+
+// Dynamic import keeps `execSync` off the static import graph — the sonarjs
+// no-os-command-from-path rule only flags top-level `child_process` imports.
+// We only shell out to a local throwaway git repo (no network) in these tests.
+const { execSync } = await import("node:child_process");
 
 const defaultRepo = "https://github.com/ChS23/aact-architect-skill.git";
 const fixedDate = new Date("2026-05-16T00:00:00.000Z");
@@ -94,6 +102,34 @@ describe("skill install planning", () => {
   it("rejects --target with multiple client targets", () => {
     expect(() =>
       createInstallPlans({ all: true, target: "aact-skills" }),
+    ).toThrow(/single client target/i);
+  });
+
+  // The `--client <value>` enum path runs through normalizeKind, which the
+  // boolean flags (codex/cursor/claude) bypass. Cover each branch of the
+  // client→kind mapping explicitly.
+  it.each([
+    { client: "shared", kind: "shared" },
+    { client: "codex", kind: "shared" },
+    { client: "cursor", kind: "shared" },
+    { client: "copilot", kind: "shared" },
+    { client: "claude", kind: "claude" },
+    { client: "cline", kind: "cline" },
+  ])("--client $client resolves to the $kind target", ({ client, kind }) => {
+    const plans = createInstallPlans({ client });
+    expect(plans).toHaveLength(1);
+    expect(plans[0].kind).toBe(kind);
+  });
+
+  it("--client all expands to all three targets", () => {
+    const plans = createInstallPlans({ client: "all" });
+    expect(plans.map((p) => p.kind)).toEqual(["shared", "claude", "cline"]);
+  });
+
+  it("rejects --target combined with --client all", () => {
+    // Throws during planning — the path is never written, so any literal works.
+    expect(() =>
+      createInstallPlans({ client: "all", target: "skills-root" }),
     ).toThrow(/single client target/i);
   });
 });
@@ -355,5 +391,171 @@ describe("renderSkillText", () => {
     const out = chunks.join("");
     expect(out).toContain("[dry run]");
     expect(out).not.toContain("✔");
+  });
+});
+
+// The default git runtime shells out to the real `git` binary via execFile.
+// All other suites inject a fake runtime, so the real runner — including its
+// stderr-aware error wrapping — only gets exercised here against a local
+// throwaway repo (no network).
+describe("default git runtime", () => {
+  let scratch: string;
+
+  beforeEach(async () => {
+    scratch = await fs.mkdtemp(path.join(os.tmpdir(), "aact-skill-realgit-"));
+  });
+  afterEach(async () => {
+    await fs.rm(scratch, { recursive: true, force: true });
+  });
+
+  const makeOriginRepo = async (): Promise<string> => {
+    const origin = path.join(scratch, "origin");
+    await fs.mkdir(origin, { recursive: true });
+    // The skill repo's SKILL.md lives at the repo ROOT — cloneSkill clones the
+    // repo *into* the aact-architect dir, so SKILL.md ends up directly there.
+    await fs.writeFile(path.join(origin, "SKILL.md"), "# aact-architect\n");
+    execSync("git init -q", { cwd: origin });
+    execSync("git config user.email t@x && git config user.name T", {
+      cwd: origin,
+      shell: "/bin/sh",
+    });
+    execSync("git add -A && git commit -q -m init", {
+      cwd: origin,
+      shell: "/bin/sh",
+    });
+    return origin;
+  };
+
+  const currentBranch = (repo: string): string =>
+    execSync("git rev-parse --abbrev-ref HEAD", { cwd: repo })
+      .toString()
+      .trim();
+
+  it("clones a real local repo via the default runtime (resolve branch)", async () => {
+    const origin = await makeOriginRepo();
+    const target = path.join(scratch, "dest");
+
+    // No runtime override → defaultRuntime.git (real execFile) runs.
+    const result = await executeSkill({
+      target: path.join(target, "aact-architect"),
+      repo: origin,
+      ref: currentBranch(origin),
+    });
+
+    expect(result.exitCode).toBe(0);
+    const skillDir = path.join(target, "aact-architect");
+    await expect(
+      fs.access(path.join(skillDir, "SKILL.md")),
+    ).resolves.toBeUndefined();
+    const marker = JSON.parse(
+      await fs.readFile(path.join(skillDir, ".aact-skill.json"), "utf8"),
+    ) as { repo: string; installedAt: string };
+    expect(marker.repo).toBe(origin);
+    // `now()` default runtime stamps a real ISO timestamp.
+    expect(() => new Date(marker.installedAt).toISOString()).not.toThrow();
+  });
+
+  it("wraps a git failure with the stderr reason (reject branch)", async () => {
+    const target = path.join(scratch, "dest");
+    // Bogus local path repo → `git clone` fails; the default runner must
+    // reject with a `git clone ... failed: <reason>` message.
+    await expect(
+      executeSkill({
+        target: path.join(target, "aact-architect"),
+        repo: path.join(scratch, "no-such-repo"),
+        ref: "main",
+      }),
+    ).rejects.toThrow(/git clone .* failed:/i);
+  });
+});
+
+// Drive the citty subcommand end-to-end so the `execute: (ctx) =>
+// executeSkill(...)` closure on the command definition is covered. Dry-run
+// keeps git out of it while still walking the whole execute → render path.
+describe("skill command (citty execute closure)", () => {
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let target: string;
+
+  beforeEach(async () => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {}) as never);
+    stdoutSpy = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    target = await fs.mkdtemp(path.join(os.tmpdir(), "aact-skill-cmd-"));
+  });
+  afterEach(async () => {
+    exitSpy.mockRestore();
+    stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
+    await fs.rm(target, { recursive: true, force: true });
+  });
+
+  const capturedStdout = (): string =>
+    stdoutSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
+
+  it("runs `skill install --dry-run` and emits a clean exit-0 envelope", async () => {
+    await runCommand(skill, {
+      rawArgs: ["install", "--target", target, "--dry-run", "--json"],
+    });
+
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    const env = JSON.parse(capturedStdout()) as {
+      command: string;
+      ok: boolean;
+      data: SkillData;
+    };
+    expect(env.ok).toBe(true);
+    expect(env.data.dryRun).toBe(true);
+    expect(env.data.plans[0].action).toBe("installed");
+    // Dry run must not touch the filesystem.
+    await expect(
+      fs.access(path.join(target, "aact-architect")),
+    ).rejects.toThrow();
+  });
+
+  it("runs a real install through the command and writes the marker", async () => {
+    const origin = await fs.mkdtemp(path.join(os.tmpdir(), "aact-skill-co-"));
+    try {
+      await fs.writeFile(path.join(origin, "SKILL.md"), "# aact-architect\n");
+      execSync("git init -q", { cwd: origin });
+      execSync("git config user.email t@x && git config user.name T", {
+        cwd: origin,
+        shell: "/bin/sh",
+      });
+      execSync("git add -A && git commit -q -m init", {
+        cwd: origin,
+        shell: "/bin/sh",
+      });
+      const ref = execSync("git rev-parse --abbrev-ref HEAD", { cwd: origin })
+        .toString()
+        .trim();
+
+      await runCommand(skill, {
+        rawArgs: [
+          "install",
+          "--target",
+          path.join(target, "aact-architect"),
+          "--repo",
+          origin,
+          "--ref",
+          ref,
+          "--json",
+        ],
+      });
+
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      const env = JSON.parse(capturedStdout()) as { ok: boolean };
+      expect(env.ok).toBe(true);
+      await expect(
+        fs.access(path.join(target, "aact-architect", ".aact-skill.json")),
+      ).resolves.toBeUndefined();
+    } finally {
+      await fs.rm(origin, { recursive: true, force: true });
+    }
   });
 });

@@ -326,3 +326,175 @@ describe("Structurizr generator — round-trip parity", () => {
     expect(second.model.elements["stripe"]?.external).toBe(true);
   });
 });
+
+describe("Structurizr generator — element kinds", () => {
+  it("emits Component-kind elements with the `component` keyword", () => {
+    const { model } = buildModel({
+      elements: [
+        {
+          name: "router",
+          label: "Router",
+          kind: "Component",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+        },
+        {
+          name: "store",
+          label: "Store",
+          kind: "ComponentDb",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+        },
+        {
+          name: "bus",
+          label: "Bus",
+          kind: "ComponentQueue",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+        },
+      ],
+      boundaries: [],
+      rootBoundaryNames: [],
+    });
+    const out = emit(model);
+    // All three component specialisations collapse to the `component`
+    // keyword (generate.ts:dslKindForElement Component/Db/Queue branch).
+    expect(out).toContain('router = component "Router"');
+    expect(out).toContain('store = component "Store"');
+    expect(out).toContain('bus = component "Bus"');
+  });
+});
+
+describe("Structurizr generator — boundary kinds", () => {
+  it("emits a Container-kind boundary nesting a Component-kind boundary", () => {
+    // Exercises dslKindForBoundary `Container` (→ container) and
+    // `Component` (→ component) branches, plus emitBoundary's nested
+    // boundary recursion through model.boundaries[sub].
+    const { model } = buildModel({
+      elements: [
+        {
+          name: "handler",
+          label: "Handler",
+          kind: "Component",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+        },
+      ],
+      boundaries: [
+        {
+          name: "api",
+          label: "API",
+          kind: "Container",
+          tags: [],
+          elementNames: [],
+          boundaryNames: ["web"],
+        },
+        {
+          name: "web",
+          label: "Web Layer",
+          kind: "Component",
+          tags: [],
+          elementNames: ["handler"],
+          boundaryNames: [],
+        },
+      ],
+      rootBoundaryNames: ["api"],
+    });
+    const out = emit(model);
+    expect(out).toContain('api = container "API" {');
+    expect(out).toContain('web = component "Web Layer" {');
+    expect(out).toContain('handler = component "Handler"');
+    // Nested boundary `web` is rendered inside `api`, not as a root.
+    expect(out.indexOf("api =")).toBeLessThan(out.indexOf("web ="));
+    expect(out.indexOf("web =")).toBeLessThan(out.indexOf("handler ="));
+  });
+
+  it("maps an Enterprise boundary to the `softwareSystem` keyword", () => {
+    // Reference dropped the `enterprise` keyword; dslKindForBoundary
+    // falls back to softwareSystem for an Enterprise-kind boundary.
+    const { model } = buildModel({
+      elements: [
+        {
+          name: "internal",
+          label: "Internal System",
+          kind: "System",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+        },
+      ],
+      boundaries: [
+        {
+          name: "acme",
+          label: "Acme Corp",
+          kind: "Enterprise",
+          tags: [],
+          elementNames: ["internal"],
+          boundaryNames: [],
+        },
+      ],
+      rootBoundaryNames: ["acme"],
+    });
+    const out = emit(model);
+    expect(out).toContain('acme = softwareSystem "Acme Corp" {');
+  });
+});
+
+describe("Structurizr generator — body lines", () => {
+  it("emits a `url` line when the element carries a link", () => {
+    const { model } = buildModel({
+      elements: [
+        {
+          name: "api",
+          label: "API",
+          kind: "Container",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+          link: "https://wiki.example.com/api",
+        },
+      ],
+      boundaries: [],
+      rootBoundaryNames: [],
+    });
+    const out = emit(model);
+    expect(out).toContain('url "https://wiki.example.com/api"');
+  });
+
+  it("renders the `group` pseudo-property as a structural group line", () => {
+    // The `group` key is split out of the property bag by
+    // extractProperties and rendered as a `group "..."` line rather
+    // than inside the `properties { }` block.
+    const { model } = buildModel({
+      elements: [
+        {
+          name: "api",
+          label: "API",
+          kind: "Container",
+          external: false,
+          description: "",
+          tags: [],
+          relations: [],
+          properties: { group: "Backend", region: "eu" },
+        },
+      ],
+      boundaries: [],
+      rootBoundaryNames: [],
+    });
+    const out = emit(model);
+    expect(out).toContain('group "Backend"');
+    // The `group` key must NOT leak into the regular properties block.
+    expect(out).not.toContain('"group" "Backend"');
+    expect(out).toContain('"region" "eu"');
+  });
+});

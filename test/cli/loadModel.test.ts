@@ -154,12 +154,64 @@ describe("loadModel", () => {
       issue: { kind: "unknown-kind", element: "x", raw: "Mystery" },
       kind: "model.unknownKind",
     },
+    {
+      issue: {
+        kind: "loader-warning",
+        source: "compose",
+        code: "version-obsolete",
+        message: "version key is obsolete",
+      },
+      kind: "model.loaderWarning",
+    },
   ])("maps $issue.kind to $kind diagnostic", ({ issue, kind }) => {
     const diag = issueToDiagnostic(issue);
     expect(diag.kind).toBe(kind);
     expect(diag.severity).toBe("warning");
     expect(diag.message.length).toBeGreaterThan(0);
     expect(diag.context).toBeDefined();
+  });
+
+  // loader-warning has format-specific shape (source/code/message + optional
+  // element) — the diagnostic message and context must carry all of them so
+  // agents reading the envelope can attribute the warning to a format + code.
+  it("renders loader-warning message with [source:code] prefix and message body", () => {
+    const diag = issueToDiagnostic({
+      kind: "loader-warning",
+      source: "kubernetes",
+      code: "kustomize-skipped",
+      message: "kustomization patch ignored",
+    });
+    expect(diag.kind).toBe("model.loaderWarning");
+    expect(diag.message).toBe(
+      "[kubernetes:kustomize-skipped] kustomization patch ignored",
+    );
+  });
+
+  it("includes element in loader-warning context only when present", () => {
+    const withElement = issueToDiagnostic({
+      kind: "loader-warning",
+      source: "compose",
+      code: "extends-unsupported",
+      message: "extends is not supported",
+      element: "orders",
+    });
+    expect(withElement.context).toEqual({
+      source: "compose",
+      code: "extends-unsupported",
+      element: "orders",
+    });
+
+    const withoutElement = issueToDiagnostic({
+      kind: "loader-warning",
+      source: "compose",
+      code: "version-obsolete",
+      message: "version key is obsolete",
+    });
+    expect(withoutElement.context).toEqual({
+      source: "compose",
+      code: "version-obsolete",
+    });
+    expect(withoutElement.context).not.toHaveProperty("element");
   });
 
   it("wraps any non-ToolError, non-ENOENT throw as model.parseError", async () => {

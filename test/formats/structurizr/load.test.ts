@@ -1202,3 +1202,114 @@ describe("structurizrDslSyntax helpers", () => {
     ).toBe('a -> b "" "REST"');
   });
 });
+
+describe("structurizr load — component kind inference", () => {
+  it("infers ComponentQueue from a queue technology on a component", async () => {
+    // componentKindFromTechnology maps an inferred ContainerQueue to
+    // ComponentQueue (load.ts:133-134) when the parent is a container
+    // boundary (i.e. the system holds containers that hold components).
+    const model = await loadWorkspace({
+      model: {
+        softwareSystems: [
+          {
+            id: "1",
+            name: "Sys",
+            containers: [
+              {
+                id: "a",
+                name: "A",
+                components: [
+                  {
+                    id: "queue_comp",
+                    name: "Event Bus",
+                    technology: "Kafka",
+                    relationships: [],
+                  },
+                ],
+                relationships: [],
+              },
+            ],
+          },
+        ],
+        people: [],
+      },
+    });
+    expect(getElement(model, "queue_comp")?.kind).toBe("ComponentQueue");
+  });
+
+  it("defaults a component with a plain technology to kind Component", async () => {
+    // Neither DB nor queue technology, and the name does not trigger
+    // the name-based heuristic — componentKindFromTechnology falls
+    // through to the plain Component default (load.ts:134).
+    const model = await loadWorkspace({
+      model: {
+        softwareSystems: [
+          {
+            id: "1",
+            name: "Sys",
+            containers: [
+              {
+                id: "a",
+                name: "A",
+                components: [
+                  {
+                    id: "plain_comp",
+                    name: "Router",
+                    technology: "Java",
+                    relationships: [],
+                  },
+                ],
+                relationships: [],
+              },
+            ],
+          },
+        ],
+        people: [],
+      },
+    });
+    expect(getElement(model, "plain_comp")?.kind).toBe("Component");
+  });
+});
+
+describe("structurizr load — boundary-target relationship", () => {
+  it("warns and drops a Container relationship whose target maps to a Boundary", async () => {
+    // sys_a is decomposed (→ Boundary) and its container `api` points
+    // at sys_b, which is also decomposed (→ Boundary). The source `api`
+    // is a real Container, but the target sys_b is a Boundary, so the
+    // edge can't be represented: load.ts:454-461 warns + continues.
+    const result = await loadWorkspaceResult({
+      model: {
+        softwareSystems: [
+          {
+            id: "sys_a",
+            name: "Sys A",
+            containers: [
+              {
+                id: "api",
+                name: "API",
+                relationships: [{ destinationId: "sys_b" }],
+              },
+            ],
+          },
+          {
+            id: "sys_b",
+            name: "Sys B",
+            containers: [{ id: "worker", name: "Worker", relationships: [] }],
+          },
+        ],
+        people: [],
+      },
+    });
+
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        kind: "loader-warning",
+        source: "structurizr",
+        code: "boundary-target-relationship-not-represented",
+        element: "api",
+      }),
+    );
+    // The dropped relationship must NOT survive on the source element.
+    expect(getElement(result.model, "api")?.relations).toEqual([]);
+  });
+});
