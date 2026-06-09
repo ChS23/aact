@@ -169,6 +169,8 @@ const ordersService = model.elements["orders"];
 
 ## Документация
 
+- [Гайды](docs/guides/) — практические сценарии: моделирование, CI, custom rules, diff
+- [Справочник](docs/reference/) — правила, команды, форматы (генерится из кода)
 - [Справочник паттернов](patterns.md) — принципы и паттерны с примерами тестов
 - [ADR](ADRs/) — Architecture Decision Records
 - [Roadmap](roadmap.md) — планы развития

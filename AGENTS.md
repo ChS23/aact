@@ -61,6 +61,10 @@ reasoning agents do about elements, boundaries, or relations stays
 consistent with what `aact check` would flag. Prefer it over
 re-parsing `.puml` / `.dsl` source by hand.
 
+The rule / command / format reference under `docs/reference/` is
+**generated** from the registries by `pnpm docs:gen` (CI guards drift
+with `pnpm docs:check`) — read it instead of grepping `src/rules/`.
+
 Exit codes are part of the contract: **`0`** clean, **`1`** violations
 found, **`2`** tool error (config invalid, source missing, parse failed).
 Agents must branch on these — do not collapse them. The envelope shape
@@ -169,7 +173,9 @@ Do not create `rules/<name>/` subdirectories. Do not split `check.ts` /
 re-export from `src/rules/index.ts`, add the option schema to
 `src/config.ts` (both the valibot entry and the `BuiltinRulesConfig`
 interface). Add tests in `test/rules/<name>.test.ts` and an ADR in
-`ADRs/` if the rule encodes a non-trivial pattern.
+`ADRs/` if the rule encodes a non-trivial pattern. Run `pnpm docs:gen` —
+the rule reference under `docs/reference/` is generated, and `docs:check`
+fails CI if it's left stale.
 
 See `src/rules/types.ts` for the contract and `src/rules/crud.ts` for
 the canonical example (check + fix + options + naming-pattern matching).
