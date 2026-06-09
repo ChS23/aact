@@ -49,6 +49,8 @@
     "build:core": "unbuild",
     "schema:gen": "node --experimental-strip-types scripts/generate-schema.ts",
     "schema:check": "node --experimental-strip-types scripts/generate-schema.ts && git diff --exit-code schemas/",
+    "docs:gen": "node --experimental-strip-types scripts/generate-rule-docs.ts",
+    "docs:check": "node --experimental-strip-types scripts/generate-rule-docs.ts && git diff --exit-code docs/reference/",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",

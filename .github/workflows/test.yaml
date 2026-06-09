@@ -24,6 +24,8 @@ jobs:
         run: bash scripts/fetch-parser-refs.sh
       - name: Schema in sync with TS types
         run: pnpm schema:check
+      - name: Rule reference in sync with registry
+        run: pnpm docs:check
       - name: Lint
         run: pnpm lint
       - name: Build packages
