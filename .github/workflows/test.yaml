@@ -26,10 +26,12 @@ jobs:
         run: pnpm schema:check
       - name: Rule reference in sync with registry
         run: pnpm docs:check
-      - name: Lint
-        run: pnpm lint
+      # Build before Lint: `pnpm lint` typechecks @aact/view, which imports
+      # `aact` — its declarations must exist first.
       - name: Build packages
         run: pnpm build
+      - name: Lint
+        run: pnpm lint
       - name: Pack smoke
         run: pnpm pack:smoke
       - name: Tests with coverage (unit + integration + e2e)
