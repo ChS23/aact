@@ -1,18 +1,35 @@
-# Гайды
+# Гайды aact
 
-Практические сценарии. [Справочник](../reference/) (правила, команды, форматы —
-генерируется из реестров), паттерны и «почему» — [patterns.md](../../patterns.md) и
-[ADRs/](../../ADRs).
+Практические разборы: как описать архитектуру, запустить проверки, настроить
+правила, читать метрики и diff, встроить aact в CI. Каждый гайд самодостаточен —
+команды, реальный вывод, ничего лишнего.
 
-`✅` готов · `🟩` в работе · `⌛` запланирован
+Справочник команд, правил и форматов — в [`../reference/`](../reference/)
+(генерируется из кода). Принципы и «почему» за правилами — в
+[patterns.md](../../patterns.md) и [ADRs/](../../ADRs).
 
-✅ [Моделирование под aact](./modeling.md) — теги `acl`/`repo`/`relay`, boundaries, sync/async<br/>
-✅ [Запуск проверки (check)](./check.md) — анатомия нарушения, `--fix`/`--dry-run`, режимы вывода, exit-коды<br/>
-✅ [Настройка правил в конфиге](./configuring-rules.md) — opt-in, опции правил, `analyze`<br/>
-✅ [Метрики архитектуры (analyze)](./analyze.md) — cohesion/coupling, sync/async, hotspots, циклы<br/>
-✅ [CI: SARIF → GitHub Code Scanning](./ci-github-code-scanning.md)<br/>
-✅ [Свои правила (custom rules)](./custom-rules.md) — поверх [examples/custom-rules](../../examples/custom-rules)<br/>
-✅ [Review diff в PR](./review-diff.md) — `aact diff` / `aact view --diff`<br/>
-✅ [Разобраться в архитектуре (view)](./explore-view.md) — режимы Drill/Expand/Flat под задачу
+## С чего начать
 
-Каждый гайд — `.md` + VHS `.tape` рядом (образец — [docs/demo/demo.tape](../demo/demo.tape)).
+- [**Моделирование под aact**](./modeling.md) — теги `acl` / `repo` / `relay`,
+  boundaries и sync/async-связи: как описать архитектуру, чтобы правила
+  срабатывали верно.
+- [**Запуск проверки (`check`)**](./check.md) — анатомия нарушения, автофикс
+  (`--fix` / `--dry-run`), три режима вывода, exit-коды.
+- [**Настройка правил в конфиге**](./configuring-rules.md) — opt-in модель,
+  опции правил, блок `analyze`.
+
+## Смотреть и мерить
+
+- [**Метрики архитектуры (`analyze`)**](./analyze.md) — cohesion против coupling,
+  sync/async, fan-in/out hotspot'ы, циклы.
+- [**Разобраться в архитектуре (`view`)**](./explore-view.md) — интерактивная
+  C4-карта, режимы Drill / Expand / Flat под задачу.
+- [**Review diff в PR**](./review-diff.md) — `aact diff` и `aact view --diff`:
+  что изменилось между двумя версиями модели.
+
+## В команде
+
+- [**CI: SARIF → GitHub Code Scanning**](./ci-github-code-scanning.md) — aact как
+  gate на PR, нарушения как алерты в Security-вкладке.
+- [**Свои правила (custom rules)**](./custom-rules.md) — кодируем паттерны
+  команды поверх встроенных правил.
