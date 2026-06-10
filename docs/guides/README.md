@@ -12,6 +12,7 @@
 ✅ [Метрики архитектуры (analyze)](./analyze.md) — cohesion/coupling, sync/async, hotspots, циклы<br/>
 ✅ [CI: SARIF → GitHub Code Scanning](./ci-github-code-scanning.md)<br/>
 ✅ [Свои правила (custom rules)](./custom-rules.md) — поверх [examples/custom-rules](../../examples/custom-rules)<br/>
-✅ [Review diff в PR](./review-diff.md) — `aact diff` / `aact view --diff`
+✅ [Review diff в PR](./review-diff.md) — `aact diff` / `aact view --diff`<br/>
+🟩 [Разобраться в архитектуре (view)](./explore-view.md) — режимы Drill/Expand/Flat под задачу _(ждёт скрин workbench)_
 
 Каждый гайд — `.md` + VHS `.tape` рядом (образец — [docs/demo/demo.tape](../demo/demo.tape)).
