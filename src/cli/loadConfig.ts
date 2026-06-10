@@ -1,5 +1,6 @@
 import { loadConfig } from "c12";
-import { basename, dirname, isAbsolute, resolve } from "pathe";
+import { createJiti } from "jiti";
+import { basename, dirname, isAbsolute, join, resolve } from "pathe";
 import * as v from "valibot";
 
 import type { AactConfig } from "../config";
@@ -122,8 +123,21 @@ const loadRawConfig = async (
   configPath: string | undefined,
 ): Promise<RawConfigResult> => {
   try {
+    // c12 v4 tries a bare native `import()` of the config before falling
+    // back to jiti. On Node ≥22.18 that native attempt on a .ts file in a
+    // project without `"type": "module"` makes Node print a "Failed to
+    // load the ES module" warning to stderr on *every* command, even
+    // though the jiti fallback then loads the config fine. Supplying a
+    // jiti-backed `import` up front skips the noisy native attempt (jiti
+    // keeps `tryNative` off by default) and makes config loading
+    // identical across Node versions. Options mirror c12's own fallback.
+    const jiti = createJiti(join(process.cwd(), configPath ?? "/"), {
+      interopDefault: true,
+      moduleCache: false,
+    });
     const result = await loadConfig({
       name: "aact",
+      import: (id) => jiti.import(id),
       ...(configPath ? { configFile: configPath } : {}),
     });
     return {
