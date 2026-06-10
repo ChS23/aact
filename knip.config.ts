@@ -26,7 +26,6 @@ export default <KnipConfig>{
       entry: ["ui/index.html"],
       project: ["src/**/*.ts"],
       ignoreDependencies: [
-        "@tsconfig/svelte",
         "pathe",
         // Consumed inside .svelte files.
         "@xyflow/svelte",
