@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+## v3.0.0-beta.29 — 2026-06-10
+
+> Opt-in rules, a full documentation layer (eight guides plus a generated
+> reference), and a round of CLI / CI hardening on the way to v3.0.0 GA.
+
 ### Changed
 
 - **BREAKING: built-in rules are now opt-in.** `aact check` runs only the
@@ -18,6 +23,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   want. Custom rules registered via `customRules` stay auto-enabled, and
   `<name>: false` remains an explicit opt-out. Inspect the effective set
   with `aact rule list`.
+
+### Added
+
+- **Generated reference** under `docs/reference/` — per-rule pages (rationale,
+  good/bad examples, fix and ADR links), a command list, and a
+  format-capability table, all built from aact's own registries by
+  `pnpm docs:gen` and drift-guarded in CI (`pnpm docs:check`).
+- **Eight usage guides** under `docs/guides/` — modeling for aact, running
+  `check`, configuring rules, `analyze` metrics, CI via SARIF / GitHub Code
+  Scanning, custom rules, reviewing architecture diffs, and exploring an
+  architecture with `view`.
+
+### Fixed
+
+- Name-convention rule options are accepted in `config.rules` again:
+  `acl.namePatterns`, `apiGateway.aclNamePatterns`, `crud.repoNamePatterns`
+  and `dbPerService.ownerNamePatterns` were read by the rules but rejected by
+  the config schema.
+- `generate --output` treats a trailing slash or an existing directory as a
+  directory sink.
+- Config loading stays silent in a project without `package.json` — no more
+  Node ESM warning on stderr (the config is loaded via jiti).
+- Non-TTY / redirected output on Windows no longer emits ANSI escape codes.
+- Hardened C4 PlantUML parser compatibility and the `@aact/view` release path.
+
+### Internal
+
+- CI builds before linting (so `@aact/view`'s typecheck resolves `aact`), runs
+  the first-time-user smoke walkthrough on Windows as well with stricter
+  stderr / k8s-output assertions, and drops the obsolete PlantUML auto-render
+  workflow. Unit coverage restored to the 95 / 85 / 95 / 95 floor.
 
 ## v3.0.0-beta.28 — 2026-05-23
 
