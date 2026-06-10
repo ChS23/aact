@@ -18,7 +18,7 @@
 - [**Настройка правил в конфиге**](./configuring-rules.md) — opt-in модель,
   опции правил, блок `analyze`.
 
-## Смотреть и мерить
+## Обзор и анализ
 
 - [**Метрики архитектуры (`analyze`)**](./analyze.md) — cohesion против coupling,
   sync/async, fan-in/out hotspot'ы, циклы.
