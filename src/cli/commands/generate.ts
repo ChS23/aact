@@ -43,14 +43,36 @@ type Sink =
 
 const STDOUT_SENTINEL = "-";
 
-const resolveSink = (
+const looksLikeDirectory = (p: string): boolean =>
+  p.endsWith("/") || p.endsWith("\\");
+
+const isExistingDirectory = async (p: string): Promise<boolean> => {
+  try {
+    return (await fs.stat(p)).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+const resolveSink = async (
   args: { output?: string },
   config: AactConfig,
   fileCount: number,
-): Sink => {
+): Promise<Sink> => {
   if (fileCount === 1) {
     if (args.output === STDOUT_SENTINEL) return { kind: "stdout" };
-    if (args.output) return { kind: "file", path: args.output };
+    if (args.output) {
+      // A trailing slash or an existing directory means "put the artefact
+      // *inside*" — `--output ./k8s/` must not flip between file and
+      // directory semantics depending on how many files the model
+      // happens to produce.
+      if (
+        looksLikeDirectory(args.output) ||
+        (await isExistingDirectory(args.output))
+      )
+        return { kind: "directory", path: args.output };
+      return { kind: "file", path: args.output };
+    }
     // No --output for a single-file artefact: stream to stdout (UNIX default).
     return { kind: "stdout" };
   }
@@ -128,7 +150,7 @@ export const executeGenerate = async (
     };
   }
 
-  const sink = resolveSink(args, config, output.files.length);
+  const sink = await resolveSink(args, config, output.files.length);
 
   // JSON mode owns stdout for the envelope; artefact cannot live there.
   if (args.json === true && sink.kind === "stdout") {
@@ -242,7 +264,7 @@ export const generate = cliCommandWithConfig({
     output: {
       type: "string",
       description:
-        "Output path: file for single-file artefacts, directory for multi-file, '-' for stdout",
+        "Output path: file or directory (trailing '/' or an existing dir), '-' for stdout",
     },
     format: {
       type: "string",

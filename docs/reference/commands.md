@@ -92,7 +92,7 @@ Generate architecture artifacts
 | --- | --- | --- |
 | `--config` | string | Path to aact config file (defaults to c12 auto-discovery from cwd) |
 | `--json` | boolean | Emit JSON envelope on stdout (machine-readable for CI / agents) |
-| `--output` | string | Output path: file for single-file artefacts, directory for multi-file, '-' for stdout |
+| `--output` | string | Output path: file or directory (trailing '/' or an existing dir), '-' for stdout |
 | `--format` | string | Target format name (plantuml, kubernetes, ...) |
 
 ## `aact rule`

@@ -24,6 +24,7 @@ vi.mock("node:fs/promises", () => ({
   default: {
     writeFile: vi.fn(),
     mkdir: vi.fn(),
+    stat: vi.fn(),
   },
 }));
 
@@ -31,6 +32,9 @@ const mockLoadModel = vi.mocked(loadModel);
 const mockWriteFile = vi.mocked(fs.writeFile);
 const mockMkdir = vi.mocked(fs.mkdir) as unknown as MockedFunction<
   () => Promise<void>
+>;
+const mockStat = vi.mocked(fs.stat) as unknown as MockedFunction<
+  () => Promise<{ isDirectory: () => boolean }>
 >;
 
 const baseConfig: AactConfig = {
@@ -106,6 +110,45 @@ describe("executeGenerate — plantuml (single-file)", () => {
     expect(filePath).toBe("out.puml");
     expect(content as string).toContain("@startuml");
     expect(result.stdoutClaimed).toBeUndefined();
+  });
+
+  it("writes into the directory when --output has a trailing slash", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+    mockMkdir.mockResolvedValue();
+    mockWriteFile.mockResolvedValue();
+
+    const result = await executeGenerate(baseConfig, { output: "./k8s/" });
+
+    expect(result.data.outputSink).toBe("directory");
+    expect(result.data.outputPath).toBe("./k8s/");
+    expect(mockWriteFile).toHaveBeenCalledOnce();
+    const [filePath] = mockWriteFile.mock.calls[0];
+    expect(filePath).toBe("k8s/architecture.puml");
+  });
+
+  it("writes into the directory when --output is an existing directory", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    mockStat.mockResolvedValue({ isDirectory: () => true });
+    mockMkdir.mockResolvedValue();
+    mockWriteFile.mockResolvedValue();
+
+    const result = await executeGenerate(baseConfig, { output: "out" });
+
+    expect(result.data.outputSink).toBe("directory");
+    const [filePath] = mockWriteFile.mock.calls[0];
+    expect(filePath).toBe("out/architecture.puml");
+  });
+
+  it("keeps file sink when --output is a non-existing plain path", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    mockStat.mockRejectedValue(new Error("ENOENT"));
+    mockWriteFile.mockResolvedValue();
+
+    const result = await executeGenerate(baseConfig, { output: "out.puml" });
+
+    expect(result.data.outputSink).toBe("file");
+    expect(result.data.outputPath).toBe("out.puml");
   });
 
   it("errors when --json + stdout sink would collide", async () => {
