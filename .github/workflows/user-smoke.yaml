@@ -17,7 +17,11 @@ on:
 
 jobs:
   user-smoke:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -34,6 +38,9 @@ jobs:
         run: pnpm build
 
       - name: Smoke — full user walkthrough on a scratch project
+        # Explicit bash so the same script runs on the windows runner
+        # (default shell there is pwsh).
+        shell: bash
         env:
           # Drop AACT_FILE_OPENER so hyperlink builder picks its
           # CI-safe default — runner has no TTY, anyway.
@@ -91,9 +98,10 @@ jobs:
           jq -e '.exitCode == 1' check.json > /dev/null
           jq -e '.data.violations | length > 0' check.json > /dev/null
           jq -e '.data.rules | length > 0' check.json > /dev/null
-          jq -e '.meta.source | startswith("/")' check.json > /dev/null \
+          # Absolute = leading "/" on POSIX, "C:/" (pathe-normalised) on Windows.
+          jq -e '.meta.source | startswith("/") or test("^[A-Za-z]:/")' check.json > /dev/null \
             || { echo "::error::meta.source not absolute"; jq .meta check.json; exit 1; }
-          jq -e '.meta.configPath | startswith("/")' check.json > /dev/null
+          jq -e '.meta.configPath | startswith("/") or test("^[A-Za-z]:/")' check.json > /dev/null
           echo "::endgroup::"
 
           echo "::group::aact model --json — envelope shape"
