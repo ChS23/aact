@@ -1,10 +1,9 @@
-import { colors } from "consola/utils";
-
 import type { AnalysisReport, BoundaryAnalysis } from "../../analyze";
 import { analyzeArchitecture } from "../../analyze";
 import type { AactConfig } from "../../config";
 import { issueToDiagnostic, loadModel } from "../loadModel";
 import type { Renderer } from "../output";
+import { colors } from "../output/colors";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg } from "../sharedArgs";

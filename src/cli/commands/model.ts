@@ -1,5 +1,3 @@
-import { colors } from "consola/utils";
-
 import type { AactConfig } from "../../config";
 import type {
   Boundary,
@@ -11,6 +9,7 @@ import type {
 import { allBoundaries, allElements } from "../../model";
 import { issueToDiagnostic, loadModel } from "../loadModel";
 import type { Renderer } from "../output";
+import { colors } from "../output/colors";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg, sarifArg } from "../sharedArgs";

@@ -1,5 +1,4 @@
-import { colors } from "consola/utils";
-
+import { colors } from "./colors";
 import type {
   CliEnvelope,
   CommandResult,

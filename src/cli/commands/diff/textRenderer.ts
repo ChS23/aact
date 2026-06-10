@@ -1,5 +1,3 @@
-import { colors } from "consola/utils";
-
 import type {
   BoundaryChange,
   Change,
@@ -10,6 +8,7 @@ import type {
   WorkspaceChange,
 } from "../../../diff";
 import type { Renderer } from "../../output";
+import { colors } from "../../output/colors";
 import { formatDisplayPath } from "../../output/hyperlinks";
 
 /**

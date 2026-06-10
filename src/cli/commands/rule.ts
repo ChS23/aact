@@ -1,5 +1,4 @@
 import { defineCommand } from "citty";
-import { colors } from "consola/utils";
 
 import type { AactConfig } from "../../config";
 import { ruleRegistry } from "../../rules/registry";
@@ -7,6 +6,7 @@ import type { RuleDefinition } from "../../rules/types";
 import { loadAndValidateConfig } from "../loadConfig";
 import type { Renderer } from "../output";
 import { ToolError } from "../output";
+import { colors } from "../output/colors";
 import type { ExecuteResult } from "../run";
 import { cliCommand } from "../run";
 import { configArg, jsonArg } from "../sharedArgs";

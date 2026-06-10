@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 
-import { box, colors } from "consola/utils";
+import { box } from "consola/utils";
 import path from "pathe";
 
 import type { AactConfig } from "../../config";
@@ -20,6 +20,7 @@ import type {
 } from "../../rules/types";
 import { issueToDiagnostic, loadModel } from "../loadModel";
 import type { Diagnostic, ExitCode, Renderer } from "../output";
+import { colors } from "../output/colors";
 import {
   formatDisplayPath,
   formatLocationDisplay,
