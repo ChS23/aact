@@ -75,8 +75,17 @@ jobs:
 
           echo "::group::aact check --json — envelope shape"
           set +e
-          node "$AACT" check --json > check.json
+          node "$AACT" check --json > check.json 2> check-json.err
           set -e
+          # The smoke dir has no package.json, so a bare native import of
+          # aact.config.ts makes Node grumble "Failed to load the ES
+          # module" on stderr — exactly what a fresh `npm init -y` user
+          # sees. Config loading must stay silent.
+          if [ -s check-json.err ]; then
+            echo "::error::check --json wrote to stderr:"
+            cat check-json.err
+            exit 1
+          fi
           jq -e '.schemaVersion == 1' check.json > /dev/null
           jq -e '.command == "check"' check.json > /dev/null
           jq -e '.exitCode == 1' check.json > /dev/null
@@ -124,6 +133,14 @@ jobs:
           # just emitted, exit cleanly and report no structural diff.
           node "$AACT" diff ./snapshot.aact.json ./snapshot.aact.json > snap-diff.txt
           grep -qi "no .*changes" snap-diff.txt
+          echo "::endgroup::"
+
+          echo "::group::aact generate --format kubernetes --output ./k8s/ — directory sink"
+          # AGENTS.md documents the trailing-slash directory form; it must
+          # work regardless of how many manifests the model produces.
+          node "$AACT" generate --format kubernetes --output ./k8s/
+          test -d k8s || { echo "::error::generate did not create ./k8s/"; exit 1; }
+          ls k8s/*.yml > /dev/null || { echo "::error::no manifests written to ./k8s/"; exit 1; }
           echo "::endgroup::"
 
           echo "::group::aact rule list / explain"
