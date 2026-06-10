@@ -144,7 +144,7 @@ jobs:
           node "$AACT" check --fix > fix.txt
           set -e
           cat fix.txt
-          grep -q "Applied" fix.txt || { echo "::error::check --fix did not apply edits"; exit 1; }
+          grep -qi "applied" fix.txt || { echo "::error::check --fix did not apply edits"; exit 1; }
           set +e
           node "$AACT" check > recheck.txt
           rc=$?
