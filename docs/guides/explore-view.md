@@ -14,7 +14,11 @@ npx -p aact@beta -p @aact/view@beta aact view
 тянули фронтенд) — отсюда запуск через `npx -p`. Поставите локально
 (`pnpm add -D aact@beta @aact/view@beta`) — тогда просто `npx aact view`.
 
-<!-- TODO(asset): скрин workbench в режиме Drill/Flat на реальной модели -->
+![Workbench в режиме Expand: Billing раскрыт, Orders и Catalog свёрнуты, справа — детали boundary](assets/explore-view/workbench.png)
+
+Выше — режим **Expand**: `Billing` раскрыт до контейнеров (`Billing Service`,
+`Billing DB`), `Orders` и `Catalog` свёрнуты, а правая панель показывает детали
+выбранного boundary со ссылкой прямо на строку источника (`architecture.puml:9`).
 
 ## Под задачу — режим
 
