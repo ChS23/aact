@@ -15,9 +15,9 @@ cd examples/custom-rules
 npx aact@beta check
 ```
 
-Expected output: four violations — the two custom rules below, plus two
-built-in `crud` ones (both `*_svc` reach their DB directly). Custom rules run
-alongside the built-ins, in one pass.
+Expected output: two violations — both from the custom rules. The config
+opts into the built-ins `acl` and `acyclic` (no violations there); built-ins
+are off unless named, so `crud` stays quiet.
 
 - `bcIsolation` fires on `orders_svc → inventory_svc` (direct cross-BC call,
   bypasses `inventory_api`).

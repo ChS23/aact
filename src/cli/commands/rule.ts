@@ -79,8 +79,18 @@ const ADR_BASE_URL = "https://github.com/Byndyusoft/aact/blob/main/";
 const adrHelpUri = (adrPath: string): string =>
   ADR_BASE_URL + adrPath.split("/").map(encodeURIComponent).join("/");
 
-const isEnabled = (rules: AactConfig["rules"], name: string): boolean =>
-  rules?.[name] !== false;
+// Mirror of `isRuleActive` in check.ts: built-in rules are opt-in (run
+// only when named in config.rules), custom rules are auto-enabled by
+// registration; either opts out with `<name>: false`.
+const isEnabled = (
+  rules: AactConfig["rules"],
+  name: string,
+  isBuiltin: boolean,
+): boolean => {
+  const value = rules?.[name];
+  if (value === false) return false;
+  return isBuiltin ? value !== undefined : true;
+};
 
 const collectRules = (config: AactConfig | null): RuleInfo[] => {
   const out: RuleInfo[] = [];
@@ -89,7 +99,7 @@ const collectRules = (config: AactConfig | null): RuleInfo[] => {
       name: rule.name,
       description: rule.description,
       source: "built-in",
-      enabled: isEnabled(config?.rules, rule.name),
+      enabled: isEnabled(config?.rules, rule.name, true),
       hasFix: typeof rule.fix === "function",
     });
   }
@@ -98,7 +108,7 @@ const collectRules = (config: AactConfig | null): RuleInfo[] => {
       name: rule.name,
       description: rule.description,
       source: "custom",
-      enabled: isEnabled(config?.rules, rule.name),
+      enabled: isEnabled(config?.rules, rule.name, false),
       hasFix: typeof rule.fix === "function",
     });
   }
@@ -176,7 +186,7 @@ export const executeRuleExplain = async (
       name: rule.name,
       description: rule.description,
       source,
-      enabled: isEnabled(config?.rules, rule.name),
+      enabled: isEnabled(config?.rules, rule.name, source === "built-in"),
       hasFix: typeof rule.fix === "function",
       ...(rule.rationale ? { rationale: rule.rationale } : {}),
       ...(rule.examples && rule.examples.length > 0

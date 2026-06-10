@@ -47,8 +47,22 @@ const fakeFormat = (
   load = vi.fn(),
 ): Format => ({ name, load, fix: { syntax: fixSyntax } });
 
+// Built-in rules are opt-in (off unless named in config.rules), so tests
+// that expect violations enable them explicitly.
+const ALL_ON = {
+  acl: true,
+  acyclic: true,
+  apiGateway: true,
+  crud: true,
+  dbPerService: true,
+  cohesion: true,
+  stableDependencies: true,
+  commonReuse: true,
+} as const;
+
 const plantumlConfig: AactConfig = {
   source: { type: "plantuml", path: "test.puml" },
+  rules: ALL_ON,
 };
 
 const cleanModel = (): Model =>
@@ -224,7 +238,7 @@ describe("executeCheck — exit code matrix", () => {
   it("exitCode 1 when violations exist but no auto-fix is available", async () => {
     mockLoadModel.mockResolvedValue({ model: cyclicModel(), issues: [] });
     const result = await executeCheck(
-      { ...plantumlConfig, rules: { acl: false } },
+      { ...plantumlConfig, rules: { ...ALL_ON, acl: false } },
       {},
     );
     expect(result.exitCode).toBe(1);
@@ -270,6 +284,7 @@ describe("executeCheck — diagnostics", () => {
     mockLoadModel.mockResolvedValue({ model: violatingModel(), issues: [] });
     const config: AactConfig = {
       source: { type: "structurizr", path: "workspace.json" },
+      rules: ALL_ON,
     };
     const result = await executeCheck(config, {});
     expect(
@@ -285,6 +300,7 @@ describe("executeCheck — diagnostics", () => {
     mockLoadModel.mockResolvedValue({ model: violatingModel(), issues: [] });
     const config: AactConfig = {
       source: { type: "structurizr", path: "./workspace.dsl" },
+      rules: ALL_ON,
     };
     const result = await executeCheck(config, {});
     expect(
@@ -307,6 +323,7 @@ describe("executeCheck — diagnostics", () => {
 
     const config: AactConfig = {
       source: { type: "structurizr", path: "./workspace.dsl" },
+      rules: ALL_ON,
     };
     const result = await executeCheck(config, { fix: true });
 
@@ -326,7 +343,7 @@ describe("executeCheck — disabled rules respected", () => {
   it("rule disabled via rules.<name>: false does not produce violations", async () => {
     mockLoadModel.mockResolvedValue({ model: violatingModel(), issues: [] });
     const result = await executeCheck(
-      { ...plantumlConfig, rules: { acl: false } },
+      { ...plantumlConfig, rules: { ...ALL_ON, acl: false } },
       {},
     );
     expect(result.data.violations.every((v) => v.rule !== "acl")).toBe(true);

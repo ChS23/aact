@@ -30,15 +30,29 @@ describe("executeRuleList", () => {
     vi.clearAllMocks();
   });
 
-  it("returns all built-ins as enabled when no config", async () => {
+  it("returns all built-ins as disabled (opt-in) when no config", async () => {
     mockNoConfig();
     const result = await executeRuleList({});
 
     expect(result.exitCode).toBe(0);
     expect(result.data.rules.length).toBeGreaterThan(0);
     expect(result.data.rules.every((r) => r.source === "built-in")).toBe(true);
-    expect(result.data.rules.every((r) => r.enabled)).toBe(true);
-    expect(result.data.summary.enabled).toBe(result.data.summary.total);
+    // Built-in rules are opt-in: silent until named in config.rules.
+    expect(result.data.rules.every((r) => !r.enabled)).toBe(true);
+    expect(result.data.summary.enabled).toBe(0);
+  });
+
+  it("marks a built-in enabled when config opts it in", async () => {
+    mockConfig({
+      source: { type: "plantuml", path: "x.puml" },
+      rules: { crud: true, acl: { tag: "acl" } },
+    });
+    const result = await executeRuleList({});
+    const byName = (n: string) => result.data.rules.find((r) => r.name === n);
+    // `true` and an options object both opt a built-in in; unmentioned stays off.
+    expect(byName("crud")?.enabled).toBe(true);
+    expect(byName("acl")?.enabled).toBe(true);
+    expect(byName("cohesion")?.enabled).toBe(false);
   });
 
   it("includes custom rules from config alongside built-ins", async () => {
@@ -193,7 +207,9 @@ describe("executeRuleExplain", () => {
     expect(result.exitCode).toBe(0);
     expect(result.data.name).toBe("crud");
     expect(result.data.source).toBe("built-in");
-    expect(result.data.enabled).toBe(true);
+    // Built-in rules are opt-in — with no config crud is disabled, but
+    // `rule explain` still surfaces its rationale/examples/ADR.
+    expect(result.data.enabled).toBe(false);
     expect(result.data.hasFix).toBe(true);
     expect(result.data.rationale).toMatch(/repo/i);
     expect(result.data.examples?.length).toBeGreaterThanOrEqual(2);

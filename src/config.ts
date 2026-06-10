@@ -36,6 +36,12 @@ const ruleOption = <T extends v.ObjectEntries>(entries: T) =>
  * type narrowing внутри `check()` / `fix()`. Per-rule options schema
  * на `RuleDefinition` — open extension point, не реализован.
  *
+ * Built-in rules — **opt-in**: правило бежит только если перечислено здесь
+ * (`<name>: true` / options-объект). Пустой/отсутствующий `rules` → ни одно
+ * built-in не активно — конфиг единственный источник правды о том, что
+ * энфорсится. `<name>: false` — явный opt-out. Активация решается в
+ * `check.ts` (`isRuleActive`); `aact rule list` показывает итоговое состояние.
+ *
  * CustomRules — array of RuleDefinition. Auto-enabled при load'е (не нужно
  * писать `rules: { myRule: true }`). Чтобы выключить — `rules.<name>: false`.
  */

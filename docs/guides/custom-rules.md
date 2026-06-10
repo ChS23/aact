@@ -79,23 +79,19 @@ bounded-context'ов (`orders`, `inventory`) и брокера:
 `npx aact check`:
 
 ```text
-  architecture.puml:24:1  error  crud             inventory_svc: directly accesses database inventory_db — add a repo or relay
-                          ↳ database: inventory_db: architecture.puml:16:5
-  architecture.puml:23:1  error  crud             orders_svc: directly accesses database orders_db — add a repo or relay
-                          ↳ database: orders_db: architecture.puml:9:5
   architecture.puml:8:5   error  bcIsolation      orders_svc: crosses bounded contexts (orders → inventory) via "inventory_svc" — route through *_api or a broker-tagged broker
   architecture.puml:13:5  error  requireOwnerTag  inventory_svc: missing ownership tag (expected "owner:<team>")
 
- ╭───────────────✗ check──────────────────╮
- │  4 violations in 3 rules               │
- │  1 rule has auto-fix — run with --fix  │
- ╰────────────────────────────────────────╯
+ ╭─────────✗ check───────────╮
+ │  2 violations in 2 rules  │
+ ╰───────────────────────────╯
 ```
 
-Здесь видно главное: кастомные правила работают **рядом со встроенными**.
-`bcIsolation` и `requireOwnerTag` — ваши; `crud` — встроенный, он включён по
-умолчанию и тоже сработал на прямом доступе `*_svc → *_db`. Один прогон, один
-формат вывода, один SARIF.
+Здесь видно главное: кастомные правила работают **в одном прогоне со встроенными**.
+Конфиг примера включает `acl` и `acyclic` (нарушений на них нет) плюс два
+кастомных — `bcIsolation` и `requireOwnerTag`, которые и сработали. `crud` не в
+конфиге, поэтому молчит: built-ins **opt-in**, бегут только включённые. Один
+прогон, один формат вывода, один SARIF.
 
 ## Опциональный `fix`
 

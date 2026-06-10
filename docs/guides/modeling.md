@@ -63,6 +63,10 @@ Rel(orders, orders_db, "PostgreSQL")
 
 ![Checkout: orders и orders_repo ходят в orders_db](assets/modeling/starter.svg)
 
+Правила — **opt-in**: `aact check` запускает только те, что включены в
+`aact.config.ts`. `npx aact init` выписывает `crud`, `dbPerService` и остальные
+явно — на них и срабатывает:
+
 `npx aact check`:
 
 ```text

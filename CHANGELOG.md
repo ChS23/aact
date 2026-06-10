@@ -6,6 +6,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Changed
+
+- **BREAKING: built-in rules are now opt-in.** `aact check` runs only the
+  rules named in `config.rules` (`<name>: true` or an options object).
+  Previously every built-in ran unless explicitly disabled, so a config
+  never showed what was actually enforced. Now an empty or absent `rules`
+  block enforces nothing — the config is the single source of truth.
+  `aact init` already scaffolds the built-ins explicitly, so `init`-based
+  projects are unaffected; hand-written configs must list the rules they
+  want. Custom rules registered via `customRules` stay auto-enabled, and
+  `<name>: false` remains an explicit opt-out. Inspect the effective set
+  with `aact rule list`.
+
 ## v3.0.0-beta.28 — 2026-05-23
 
 > CLI plan-view round. `aact check --dry-run` is now a dedicated mode

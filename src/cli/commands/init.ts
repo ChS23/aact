@@ -44,7 +44,9 @@ const config: AactConfig = {
     path: "./architecture.puml",
   },
 
-  // Validation rules (true = enabled with defaults, false = disabled)
+  // Validation rules. Built-in rules are opt-in: only the ones listed
+  // here run (true = on with defaults, an object = on with options,
+  // false = off). Drop a line to silence that rule.
   rules: {
     acl: true, // Anti-Corruption Layer: only tagged containers depend on externals
     acyclic: true, // No circular dependencies

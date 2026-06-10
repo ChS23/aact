@@ -192,6 +192,23 @@ const getRuleConfigValue = (
   ruleName: string,
 ): unknown => rules?.[ruleName];
 
+/**
+ * Whether a rule runs for this config. Built-in rules are **opt-in** —
+ * silent unless named in `config.rules` — so a config is the single
+ * source of truth for what's enforced (no invisible defaults). Custom
+ * rules stay auto-enabled: registering one in `customRules` already is
+ * the explicit opt-in. Either kind opts out with `<name>: false`.
+ */
+const isRuleActive = (
+  rules: AactConfig["rules"],
+  ruleName: string,
+  isBuiltin: boolean,
+): boolean => {
+  const value = getRuleConfigValue(rules, ruleName);
+  if (value === false) return false;
+  return isBuiltin ? value !== undefined : true;
+};
+
 const runRules = (
   model: Model,
   rules: AactConfig["rules"],
@@ -199,8 +216,10 @@ const runRules = (
 ): RuleResult[] => {
   const results: RuleResult[] = [];
   for (const rule of effective) {
+    if (!isRuleActive(rules, rule.name, BUILTIN_RULE_NAMES.has(rule.name))) {
+      continue;
+    }
     const configValue = getRuleConfigValue(rules, rule.name);
-    if (configValue === false) continue;
     const options = typeof configValue === "object" ? configValue : undefined;
     results.push({ name: rule.name, violations: rule.check(model, options) });
   }
@@ -225,7 +244,7 @@ const buildRuleCatalogue = (
       name: r.name,
       description: r.description,
       source: isBuiltin ? "built-in" : "custom",
-      enabled: getRuleConfigValue(rules, r.name) !== false,
+      enabled: isRuleActive(rules, r.name, isBuiltin),
       hasFix: typeof r.fix === "function",
       // helpUri points at the rule's ADR when one exists.
       // Previously we synthesised `<readme>#${r.name}` for every
