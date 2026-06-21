@@ -37,7 +37,7 @@
     "type": "git",
     "url": "git+https://github.com/Byndyusoft/aact.git"
   },
-  "packageManager": "pnpm@11.1.1",
+  "packageManager": "pnpm@11.8.0",
   "sideEffects": false,
   "files": [
     "dist"
@@ -63,7 +63,7 @@
     "release": "changelogen --release --push",
     "knip": "knip",
     "publint": "publint",
-    "lint": "npm run lint:eslint && npm run lint:prettier && pnpm --filter @aact/view lint",
+    "lint": "pnpm run lint:eslint && pnpm run lint:prettier && pnpm --filter @aact/view lint",
     "lint:eslint": "eslint .",
     "lint:prettier": "prettier --ignore-path ./.gitignore --ignore-path ./.prettierignore --check \"./**/*.{ts,js,json,yaml,yml,md}\"",
     "pack:smoke": "mkdir -p /tmp/aact-packs && pnpm pack --pack-destination /tmp/aact-packs && pnpm --filter @aact/view pack --pack-destination /tmp/aact-packs",

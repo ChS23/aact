@@ -107,7 +107,9 @@ and jumping happens internally.
 
 ## Setup (contributors)
 
-Use **pnpm 11**, not npm or yarn. Node ≥22 (CI runs 22 and 24).
+Use **pnpm 11**, not npm or yarn. Supported Node.js lines are the
+current LTS lines tested in CI: **22** and **24**. Node 26 is allowed
+while current, but CI support starts when it becomes LTS.
 
 ```bash
 pnpm install --frozen-lockfile

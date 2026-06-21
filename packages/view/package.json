@@ -34,11 +34,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "npm run build:ui && npm run build:server",
+    "build": "pnpm run build:ui && pnpm run build:server",
     "build:server": "tsc -p tsconfig.json",
     "build:ui": "vite build",
-    "lint": "npm run typecheck",
-    "typecheck": "npm run typecheck:server && npm run typecheck:ui",
+    "lint": "pnpm run typecheck",
+    "typecheck": "pnpm run typecheck:server && pnpm run typecheck:ui",
     "typecheck:server": "tsc --noEmit -p tsconfig.json",
     "typecheck:ui": "tsc --noEmit -p ui/tsconfig.json"
   },
