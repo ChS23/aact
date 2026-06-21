@@ -25,6 +25,10 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   vocabulary), reserved as a union at v3.0.0 so configurable / per-rule
   severity can land later without a `schemaVersion` bump. Every rule still
   emits `"error"` today; SARIF `level` and text output derive from it.
+- `AnalysisReport` and its sub-types (`BoundaryAnalysis`, `CouplingRelation`,
+  `DatabasesInfo`, `ElementCoupling`, `CyclesInfo`, `RelationStyleCounts`) are
+  now fully `readonly`, matching the rest of the public type surface — the
+  analyzer accumulates via an internal mutable builder. No JSON-output change.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

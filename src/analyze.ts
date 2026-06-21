@@ -3,41 +3,58 @@ import { allElements, getBoundary, isDatabaseElement } from "./model";
 import { matchesAnyName } from "./rules/lib/namingPatterns";
 
 export interface CouplingRelation {
-  from: string;
-  to: string;
+  readonly from: string;
+  readonly to: string;
 }
 
 /** Sync/async classification for a single relation. */
 export type RelationStyle = "sync" | "async" | "unspecified";
 
 export interface BoundaryAnalysis {
-  name: string;
-  label: string;
+  readonly name: string;
+  readonly label: string;
   /** Edges that start and end inside this boundary's element set. */
-  cohesion: number;
+  readonly cohesion: number;
   /** Edges that cross this boundary's element set — going either to a
    *  sibling sub-boundary, to an unrelated element, or outside the
    *  parent's scope (attributed to the parent in that case). */
-  coupling: number;
+  readonly coupling: number;
   /** Of `coupling`, how many are classified as synchronous interactions. */
-  syncCoupling: number;
-  asyncCoupling: number;
-  unspecifiedCoupling: number;
+  readonly syncCoupling: number;
+  readonly asyncCoupling: number;
+  readonly unspecifiedCoupling: number;
   /** `cohesion / (cohesion + coupling)` — 1.0 = pure cluster, 0.0 = boundary
    *  is fiction over a chatty graph. `null` when both numerator and
    *  denominator are 0 (empty boundary). */
+  readonly ratio: number | null;
+  readonly couplingRelations: readonly CouplingRelation[];
+}
+
+/**
+ * Mutable builder for the analyzer's internal accumulation pass — the
+ * public `BoundaryAnalysis` is readonly. A finished builder is structurally
+ * assignable to `BoundaryAnalysis`, so callers hand it back unchanged.
+ */
+interface MutableBoundaryAnalysis {
+  name: string;
+  label: string;
+  cohesion: number;
+  coupling: number;
+  syncCoupling: number;
+  asyncCoupling: number;
+  unspecifiedCoupling: number;
   ratio: number | null;
   couplingRelations: CouplingRelation[];
 }
 
 export interface DatabasesInfo {
-  count: number;
-  consumes: number;
+  readonly count: number;
+  readonly consumes: number;
 }
 
 export interface ElementCoupling {
-  name: string;
-  count: number;
+  readonly name: string;
+  readonly count: number;
 }
 
 export interface CyclesInfo {
@@ -45,41 +62,41 @@ export interface CyclesInfo {
    *  (single-element cycles) are surfaced by `validateModel` as
    *  `self-relation` issues and excluded from this count to avoid
    *  double-counting. */
-  count: number;
+  readonly count: number;
   /** Element names of the smallest non-trivial cycle, in traversal order.
    *  `null` when no cycles exist. */
-  smallest: readonly string[] | null;
+  readonly smallest: readonly string[] | null;
 }
 
 export interface RelationStyleCounts {
-  sync: number;
-  async: number;
-  unspecified: number;
+  readonly sync: number;
+  readonly async: number;
+  readonly unspecified: number;
 }
 
 export interface AnalysisReport {
-  elementsCount: number;
+  readonly elementsCount: number;
   /** Per-`ElementKind` count — sanity overview ("we have 12 Containers and
    *  3 ContainerDbs"). */
-  elementsByKind: Readonly<Partial<Record<ElementKind, number>>>;
-  databases: DatabasesInfo;
+  readonly elementsByKind: Readonly<Partial<Record<ElementKind, number>>>;
+  readonly databases: DatabasesInfo;
   /** Sync / async / unspecified breakdown of all relations in the model.
    *  Classified by tag first, then by `analyze.{syncTechnologies,asyncTechnologies}`
    *  fallback if configured. */
-  relationsByStyle: RelationStyleCounts;
-  boundaries: BoundaryAnalysis[];
+  readonly relationsByStyle: RelationStyleCounts;
+  readonly boundaries: readonly BoundaryAnalysis[];
   /** Top-N elements by incoming relations (afferent coupling). Honours
    *  `analyze.exclude` to drop infrastructure noise from the ranking. */
-  fanIn: readonly ElementCoupling[];
+  readonly fanIn: readonly ElementCoupling[];
   /** Top-N elements by outgoing relations (efferent coupling). Same
    *  `exclude` rules as `fanIn`. */
-  fanOut: readonly ElementCoupling[];
-  cycles: CyclesInfo;
+  readonly fanOut: readonly ElementCoupling[];
+  readonly cycles: CyclesInfo;
 }
 
 export interface AnalyzedArchitecture {
-  model: Model;
-  report: AnalysisReport;
+  readonly model: Model;
+  readonly report: AnalysisReport;
 }
 
 interface RelationWithSource {
@@ -145,7 +162,7 @@ const allRelations = (model: Model): RelationWithSource[] =>
   );
 
 const incrementStyleBucket = (
-  boundary: BoundaryAnalysis,
+  boundary: MutableBoundaryAnalysis,
   style: RelationStyle,
 ): void => {
   if (style === "sync") boundary.syncCoupling++;
@@ -160,8 +177,8 @@ const classifyRelationForBoundary = (
   from: Element,
   relation: Relation,
   style: RelationStyle,
-  result: BoundaryAnalysis,
-  parentResult: BoundaryAnalysis | undefined,
+  result: MutableBoundaryAnalysis,
+  parentResult: MutableBoundaryAnalysis | undefined,
 ): void => {
   if (!names.has(from.name)) return;
 
@@ -241,7 +258,7 @@ const analyzeBoundaries = (
   styles: ReadonlyMap<Relation, RelationStyle>,
 ): BoundaryAnalysis[] => {
   const lookups = buildBoundaryLookups(model);
-  const results = new Map<string, BoundaryAnalysis>();
+  const results = new Map<string, MutableBoundaryAnalysis>();
   for (const boundary of Object.values(model.boundaries)) {
     results.set(boundary.name, {
       name: boundary.name,
@@ -444,7 +461,7 @@ const analyzeModel = (
       classifyStyle(relation, options),
     ]),
   );
-  const counts: RelationStyleCounts = {
+  const counts = {
     sync: 0,
     async: 0,
     unspecified: 0,
