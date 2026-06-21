@@ -30,7 +30,7 @@ interface CliEnvelope<TData = unknown> {
 | Field           | Notes                                                                                                                                                     |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `schemaVersion` | **Stable contract version**. Frozen at `1` through GA. Additions to per-command `data` shapes are non-breaking; renames or removals bump `schemaVersion`. |
-| `command`       | Name of the invoked command: `"check"`, `"analyze"`, `"diff"`, `"generate"`, `"model"`, `"rule.list"`, `"rule.explain"`, `"init"`, `"skill"`, `"view"`.   |
+| `command`       | Name of the invoked command: `"check"`, `"analyze"`, `"diff"`, `"generate"`, `"model"`, `"rule list"`, `"rule explain"`, `"init"`, `"skill"`, `"view"`.   |
 | `ok`            | `true` when nothing surfaced — clean run.                                                                                                                 |
 | `exitCode`      | `0` clean / `1` domain violations / `2` tool error. See exit-code contract below.                                                                         |
 | `data`          | Per-command shape (`CheckData`, `AnalyzeData`, `DiffData`, …). All shapes typed in `src/cli/commands/<name>.ts` and re-exported from `src/index.ts`.      |

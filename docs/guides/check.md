@@ -76,7 +76,7 @@ npx aact check --sarif    # SARIF v2.1.0 → GitHub Code Scanning
 `--json` отдаёт `CliEnvelope` (`schemaVersion: 1`): на верхнем уровне
 `command` / `ok` / `exitCode` / `data` / `diagnostics` / `meta`, а в `data` —
 `violations`, `suggestedFixes`, `summary`, `rules` (метаданные правил),
-`mergedFixes` (что схлопнулось при дедупе). Каждое нарушение несёт `rule`,
+`mergedFixes` (что схлопнулось при дедупе). Каждое нарушение несёт `ruleId`,
 `target`, `severity`, `sourceLocation`. Парсить текст не нужно. Про
 `--sarif` и Code Scanning — [CI-гайд](./ci-github-code-scanning.md). Режим
 один; `--sarif` выигрывает у `--json`, если заданы оба.
