@@ -22,6 +22,8 @@ export type GenerateOutputSink = "stdout" | "file" | "directory" | "none";
 export interface GeneratedFileInfo {
   /** Path relative to outputPath for directory sinks; basename for file sinks; "<stdout>" for stdout. */
   readonly path: string;
+  /** Size in UTF-8 bytes — what lands on disk — not JS string length
+   *  (which counts UTF-16 code units and undercounts non-ASCII content). */
   readonly bytes: number;
 }
 
@@ -169,7 +171,9 @@ export const executeGenerate = async (
         formatName,
         outputSink: "stdout",
         outputPath: null,
-        files: [{ path: "<stdout>", bytes: file.content.length }],
+        files: [
+          { path: "<stdout>", bytes: Buffer.byteLength(file.content, "utf8") },
+        ],
       },
       exitCode: 0,
       stdoutClaimed: true,
@@ -185,7 +189,9 @@ export const executeGenerate = async (
         formatName,
         outputSink: "file",
         outputPath: sink.path,
-        files: [{ path: sink.path, bytes: file.content.length }],
+        files: [
+          { path: sink.path, bytes: Buffer.byteLength(file.content, "utf8") },
+        ],
       },
       exitCode: 0,
     };
@@ -207,7 +213,7 @@ export const executeGenerate = async (
       outputPath: sink.path,
       files: output.files.map((f) => ({
         path: f.path,
-        bytes: f.content.length,
+        bytes: Buffer.byteLength(f.content, "utf8"),
       })),
     },
     exitCode: 0,

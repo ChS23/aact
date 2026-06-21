@@ -49,6 +49,9 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   collides with a built-in (or another custom) is a `config.invalidCustomRule`
   error (exit 2) in all three — previously `rule list` silently duplicated it
   and `rule explain` shadowed the custom rule with the built-in.
+- `generate --json` `files[].bytes` is now the UTF-8 byte size written to
+  disk, not the JS string length (which counts UTF-16 code units and
+  undercounts non-ASCII output).
 
 ## v3.0.0-beta.29 — 2026-06-10
 
