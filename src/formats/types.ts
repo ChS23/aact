@@ -97,12 +97,11 @@ export interface Format {
   readonly name: string;
   readonly defaultPattern?: string | readonly string[];
   /**
-   * `options` — per-Format escape hatch (annotation prefix для k8s,
-   * `composeFile` для compose и т.д.). Каждый Format типизирует
-   * свою options shape в собственном модуле и заявляет его в
-   * `AactConfig.source.options` через discriminated union. Loader'ы
-   * существующих формат-ов которым опции не нужны просто игнорируют
-   * параметр.
+   * `options` — per-Format escape hatch. Каждый Format типизирует свою
+   * options shape в собственном модуле; формат, которому опции не нужны,
+   * просто игнорирует параметр. Проводка опций разная по capability:
+   *   - `load`     ← `AactConfig.source.options` (discriminated by `source.type`)
+   *   - `generate` ← `AactConfig.generate.<format>` (соответствующий срез)
    */
   load?(path: string, options?: unknown): Promise<LoadResult>;
   generate?(model: Model, options?: unknown): FormatOutput;

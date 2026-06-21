@@ -246,6 +246,47 @@ describe("executeGenerate — kubernetes (multi-file)", () => {
   });
 });
 
+describe("executeGenerate — config.generate wiring", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Regression: the original bug was "config option accepted but dead" —
+  // these prove the per-format slice actually reaches `format.generate`.
+  it("threads config.generate.plantuml.boundaryLabel to the generator", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    const capture = captureStdout();
+    try {
+      await executeGenerate(
+        {
+          ...baseConfig,
+          generate: { plantuml: { boundaryLabel: "My System" } },
+        },
+        { output: "-" },
+      );
+      expect(capture.output()).toContain('Boundary(project, "My System")');
+    } finally {
+      capture.restore();
+    }
+  });
+
+  it("threads config.generate.structurizr.fileName to the generator", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    mockWriteFile.mockResolvedValue();
+    mockMkdir.mockResolvedValue();
+
+    const result = await executeGenerate(
+      {
+        source: { type: "structurizr", path: "ws.dsl" },
+        generate: { structurizr: { fileName: "custom.dsl" } },
+      },
+      { format: "structurizr", output: "out/" },
+    );
+
+    expect(result.data.files.some((f) => f.path === "custom.dsl")).toBe(true);
+  });
+});
+
 describe("executeGenerate — error cases", () => {
   beforeEach(() => {
     vi.clearAllMocks();

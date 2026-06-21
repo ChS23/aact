@@ -124,9 +124,12 @@ export const AactConfigSchema = v.strictObject({
   ),
   generate: v.optional(
     v.strictObject({
-      // Per-format generate options, keyed by `source.type` / registry name.
+      // Per-format generate settings, keyed by `source.type` / registry name.
       // `aact generate` passes `generate.<format>` to `format.generate(model,
-      // opts)`. Library users can also pass options directly.
+      // opts)`, so a slice may carry both generator options AND a CLI sink
+      // setting. `kubernetes.path` is the latter — the default output
+      // directory (read by the sink resolver), not a generator option; the
+      // k8s generator ignores it. Library users can also pass options directly.
       plantuml: v.optional(
         v.strictObject({
           boundaryLabel: v.optional(v.string()),

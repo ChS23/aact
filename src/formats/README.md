@@ -149,9 +149,11 @@ optional keys without breaking plugins. Future builders
 ## Per-format options
 
 `load` and `generate` accept an opaque `options?: unknown` parameter.
-Each format **types its own options shape** in its own module and
-exposes it via `AactConfig.source.options` (discriminated by
-`source.type`). Loaders that don't need options ignore the parameter.
+Each format **types its own options shape** in its own module. Wiring
+differs by capability: `load` reads `AactConfig.source.options`
+(discriminated by `source.type`); `generate` reads
+`AactConfig.generate.<format>` (the matching slice). Formats that need no
+options ignore the parameter.
 
 Example (`kubernetes`):
 
