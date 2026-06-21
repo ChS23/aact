@@ -80,6 +80,15 @@ export interface EnvelopeMeta {
   readonly aactVersion: string;
   readonly durationMs: number;
   readonly configPath: string | null;
+  /**
+   * The single entry-point source the command ran against (the file at
+   * `config.source.path`), or null when none applies. Intentionally
+   * singular — per-node provenance already lives on each Model node's
+   * `SourceLocation.file`. If multi-file models (e.g. Structurizr
+   * `workspace extends`) ever need first-class provenance, add a
+   * `sources: readonly string[]` field: that is purely additive and needs
+   * no `schemaVersion` bump.
+   */
   readonly source: string | null;
 }
 

@@ -94,6 +94,14 @@ const issueMessage = (issue: ModelIssue): string => {
   }
 };
 
+/**
+ * Lossy projection of a structured `ModelIssue` onto the generic
+ * `Diagnostic` envelope shape: the typed union collapses to a flat
+ * message + string `context`, and severity is flattened to "warning"
+ * (the CLI decides fatal-vs-warn separately). The structured original is
+ * preserved on `aact model`'s `data.issues` — read that when you need the
+ * typed fields. See `ModelData` for the canon/view split.
+ */
 export const issueToDiagnostic = (issue: ModelIssue): Diagnostic => ({
   kind: issueKindMap[issue.kind],
   message: issueMessage(issue),

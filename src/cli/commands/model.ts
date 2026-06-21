@@ -25,6 +25,14 @@ import { modelSarifAdapter } from "./modelSarif";
  * and reasons about a stable, frozen, validated graph. Same Model
  * shape the rule engine sees, so any agent decision is consistent
  * with what `aact check` would say.
+ *
+ * `issues` is the canonical, **structured** view of loader problems
+ * (the typed `ModelIssue` union — `{ kind, from, to }`, `{ kind, path }`,
+ * …) and is what agents should read. The same problems also surface in
+ * `envelope.diagnostics`, but that is a deliberately **lossy** projection
+ * (flat message + string context, severity collapsed to "warning") for
+ * humans and SARIF — NOT a duplicate to dedupe away. Structured consumers
+ * read `data.issues`; display consumers read `diagnostics`.
  */
 export interface ModelData {
   readonly model: Model;
