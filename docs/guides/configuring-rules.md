@@ -1,8 +1,8 @@
 # Настройка правил в конфиге
 
-Built-in правила — **opt-in**: `aact check` запускает только те, что вы явно
+Встроенные правила — **opt-in**: `aact check` запускает только те, что вы явно
 перечислили в `aact.config.ts`. Пустой или отсутствующий `rules` — ничего не
-проверяется. Так конфиг всегда показывает, что именно энфорсится, без невидимых
+проверяется. Так конфиг всегда показывает, что именно применяется, без невидимых
 дефолтов.
 
 ## Включить, выключить, посмотреть
@@ -42,7 +42,7 @@ Built-in
 3/8 rules enabled · ● enabled · ○ disabled
 ```
 
-`npx aact init` сразу выписывает все built-ins явно — так что после `init`
+`npx aact init` сразу выписывает все встроенные правила явно — так что после `init`
 конфиг уже самодокументирован, останется убрать ненужное.
 
 ## Опции правил
@@ -50,13 +50,13 @@ Built-in
 Часть правил настраивается — передайте объект вместо `true`. Что значат теги и
 имена — в гайде [Моделирование под aact](./modeling.md).
 
-| Правило                                                    | Опции (дефолт)                                                         |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `crud`                                                     | `repoTags` (`["repo","relay"]`), `repoNamePatterns`                    |
-| `acl`                                                      | `tag` (`"acl"`), `namePatterns`                                        |
-| `apiGateway`                                               | `aclTag` (`"acl"`), `gatewayPattern` (`/gateway/i`), `aclNamePatterns` |
-| `dbPerService`                                             | `ownerTags` (`["repo","relay"]`), `ownerNamePatterns`                  |
-| `acyclic`, `cohesion`, `stableDependencies`, `commonReuse` | без опций                                                              |
+| Правило                                                    | Опции (дефолт)                                                                                                               |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `crud`                                                     | `repoTags` (`["repo","relay"]`), `repoNamePatterns` (по умолчанию ловит `*Repository`/`*Storage`/`*DAO`/`*Store` — см. ниже) |
+| `acl`                                                      | `tag` (`"acl"`), `namePatterns` (по умолчанию `*Adapter`/`*Wrapper`/`*Client`/… — см. ниже)                                  |
+| `apiGateway`                                               | `aclTag` (`"acl"`), `gatewayPattern` (`/gateway/i`), `aclNamePatterns` (дефолты как у `acl`)                                 |
+| `dbPerService`                                             | `ownerTags` (`["repo","relay"]`), `ownerNamePatterns` (дефолты как у `crud`)                                                 |
+| `acyclic`, `cohesion`, `stableDependencies`, `commonReuse` | без опций                                                                                                                    |
 
 ```ts
 rules: {
@@ -71,6 +71,34 @@ rules: {
 `defineConfig` дженерик: TypeScript подсказывает имена правил и форму их опций
 прямо в `rules: { crud: { ←tab } }`. Подробности по конкретному правилу —
 `npx aact rule explain crud` или [справочник правил](../reference/rules/).
+
+### Определение роли по имени
+
+`crud` / `dbPerService` / `acl` / `apiGateway` определяют роль контейнера
+(репозиторий, ACL, gateway) двумя путями — срабатывает **любой**:
+
+1. **тег** (`repoTags` / `acl.tag` / `ownerTags`), либо
+2. **имя** контейнера (его alias, не label) по `*NamePatterns`.
+
+Имя-паттерны — это **picomatch-globs с brace-expansion**, матч
+**регистронезависимый**:
+
+- `*_{repo,repository,dao,store}` → `user_repo`, `order_repository`
+- `*{Repository,Storage,DAO}` → `UserRepository`, `OrderStorage`
+
+**Дефолты уже включены** — даже без тегов и без конфига `crud` / `dbPerService`
+распознают `*Repository` / `*Storage` / `*DAO` / `*Store` (и snake_case-варианты),
+а `acl` / `apiGateway` — `*Adapter` / `*Wrapper` / `*Client` / `*Connector` /
+`*Integration`. Так роли видны в legacy- и AI-сгенерённых диаграммах без явной
+разметки тегами.
+
+Под свои конвенции — **переопределите** (значение **заменяет дефолт целиком**,
+не дополняет; включите нужные паттерны явно):
+
+```ts
+crud: { repoNamePatterns: ["*_{store,gateway}", "*Repo"] },
+acl:  { namePatterns: ["*_ext", "*{Acl,Facade}"] },
+```
 
 ## Свои правила
 
@@ -97,4 +125,4 @@ analyze: {
 ## Дальше
 
 - Что значат теги/имена, которые читают правила — [Моделирование под aact](./modeling.md).
-- Полный список правил с rationale и примерами — [справочник](../reference/rules/).
+- Полный список правил с обоснованием и примерами — [справочник](../reference/rules/).

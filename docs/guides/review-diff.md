@@ -1,4 +1,4 @@
-# Review архитектуры в PR
+# Ревью архитектуры в PR
 
 Когда PR меняет архитектуру, `git diff` по `.puml` показывает правки текста.
 `aact diff` показывает, что изменилось **в модели**: добавленные и убранные
@@ -49,11 +49,11 @@ MySQL»:
 npx -p aact@beta -p @aact/view@beta aact view --diff main:architecture.puml
 ```
 
-Открывается workbench: текущая модель с цветным overlay поверх — добавленное
+Открывается workbench: текущая модель с цветным наложением поверх — добавленное
 зелёным, изменённое янтарным, убранное красным — и боковая панель с группами и
 списком изменений.
 
-![aact view --diff: overlay + панель изменений](assets/review-diff/view-diff.png)
+![aact view --diff: наложение + панель изменений](assets/review-diff/view-diff.png)
 
 `aact view` живёт в отдельном пакете `@aact/view` (чтобы CI и `aact check` не
 тянули фронтенд). Поэтому запуск — через `npx -p aact@beta -p @aact/view@beta`,

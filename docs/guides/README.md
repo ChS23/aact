@@ -24,12 +24,12 @@
   sync/async, fan-in/out hotspot'ы, циклы.
 - [**Разобраться в архитектуре (`view`)**](./explore-view.md) — интерактивная
   C4-карта, режимы Drill / Expand / Flat под задачу.
-- [**Review diff в PR**](./review-diff.md) — `aact diff` и `aact view --diff`:
+- [**Ревью diff в PR**](./review-diff.md) — `aact diff` и `aact view --diff`:
   что изменилось между двумя версиями модели.
 
 ## В команде
 
 - [**CI: SARIF → GitHub Code Scanning**](./ci-github-code-scanning.md) — aact как
-  gate на PR, нарушения как алерты в Security-вкладке.
+  гейт на PR, нарушения как алерты в Security-вкладке.
 - [**Свои правила (custom rules)**](./custom-rules.md) — кодируем паттерны
   команды поверх встроенных правил.
