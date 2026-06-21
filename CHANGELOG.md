@@ -35,6 +35,15 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   name is reported together; this matches the other `config.*` errors and
   ESLint's treatment of unknown rules. Register the name via `customRules`
   or remove it; `aact rule list` shows what's available.
+- `Diagnostic.severity` gains `error` (was `warning | info`). A `ToolError`
+  now surfaces as an `error`-severity diagnostic, so the JSON / SARIF severity
+  matches the `exit 2` it produced (e.g. the new `config.unknownRule`) instead
+  of misreporting a fatal as `warning`.
+- SARIF rule passports now match the JSON ones: `check --sarif` uses the same
+  ADR-based `helpUri` as `RuleMetadata` (the dead `#<name>` README anchor is
+  gone, omitted when a rule has no ADR), and `model --sarif` rule ids / result
+  `ruleId`s use the camelCase `DiagnosticKind` (`model.danglingRelation`) —
+  the same vocabulary as `model --json` diagnostics, not kebab-case.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

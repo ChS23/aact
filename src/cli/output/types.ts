@@ -55,7 +55,13 @@ export type DiagnosticKind =
 export interface Diagnostic {
   readonly kind: DiagnosticKind;
   readonly message: string;
-  readonly severity: "warning" | "info";
+  /**
+   * `error` — a fatal tool problem that drove `exitCode: 2` (config rot,
+   * missing source, parse failure; every `ToolError` lands here). `warning`
+   * / `info` — non-fatal loader / operational notes that don't change the
+   * exit code. One severity axis the JSON envelope, SARIF, and CI agree on.
+   */
+  readonly severity: "error" | "warning" | "info";
   readonly context?: Readonly<Record<string, string>>;
 }
 

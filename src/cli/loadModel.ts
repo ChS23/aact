@@ -8,7 +8,7 @@ import type { ModelIssue } from "../model";
 import type { Diagnostic, DiagnosticKind } from "./output";
 import { ToolError } from "./output";
 
-const issueKindMap: Record<ModelIssue["kind"], DiagnosticKind> = {
+export const issueKindMap: Record<ModelIssue["kind"], DiagnosticKind> = {
   "dangling-relation": "model.danglingRelation",
   "element-in-boundary-not-in-model": "model.elementInBoundaryNotInModel",
   "boundary-not-in-model": "model.boundaryNotInModel",

@@ -7,6 +7,7 @@ import { loadAndValidateConfig } from "../loadConfig";
 import type { Renderer, RuleMetadata } from "../output";
 import { ToolError } from "../output";
 import { colors } from "../output/colors";
+import { adrHelpUri } from "../ruleHelpUri";
 import type { ExecuteResult } from "../run";
 import { cliCommand } from "../run";
 import { configArg, jsonArg } from "../sharedArgs";
@@ -55,15 +56,6 @@ export interface RuleExplainArgs {
   readonly config?: string;
   readonly _: readonly string[];
 }
-
-// Build the GitHub blob URL for a rule's ADR. We anchor on the
-// `main` branch so the link survives rule renames and is stable
-// from npm-installed builds (where the local `ADRs/` directory
-// isn't shipped). Path segments are URL-encoded individually so
-// spaces survive: `Anti-corruption Layer.md` → `Anti-corruption%20Layer.md`.
-const ADR_BASE_URL = "https://github.com/Byndyusoft/aact/blob/main/";
-const adrHelpUri = (adrPath: string): string =>
-  ADR_BASE_URL + adrPath.split("/").map(encodeURIComponent).join("/");
 
 // Mirror of `isRuleActive` in check.ts: built-in rules are opt-in (run
 // only when named in config.rules), custom rules are auto-enabled by

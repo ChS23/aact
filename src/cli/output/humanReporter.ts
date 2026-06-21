@@ -48,8 +48,19 @@ export class HumanReporter<TData = unknown> implements Reporter<TData> {
   }
 }
 
-const severityIcon = (severity: Diagnostic["severity"]): string =>
-  severity === "warning" ? colors.yellow("⚠") : colors.cyan("ℹ");
+const severityIcon = (severity: Diagnostic["severity"]): string => {
+  switch (severity) {
+    case "error": {
+      return colors.red("✖");
+    }
+    case "warning": {
+      return colors.yellow("⚠");
+    }
+    default: {
+      return colors.cyan("ℹ");
+    }
+  }
+};
 
 const renderDiagnostics = (
   diagnostics: readonly Diagnostic[],

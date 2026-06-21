@@ -27,6 +27,7 @@ import {
   formatLocationDisplay,
   linkSourceLocation,
 } from "../output/hyperlinks";
+import { adrHelpUri } from "../ruleHelpUri";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg, sarifArg } from "../sharedArgs";
@@ -225,14 +226,6 @@ const runRules = (
   }
   return results;
 };
-
-// GitHub blob URL for the rule's ADR. Anchored on `main` so it
-// keeps resolving from an npm-installed build (where the local
-// `ADRs/` directory isn't shipped). Each path segment is encoded
-// individually so spaces in filenames survive.
-const ADR_BASE_URL = "https://github.com/Byndyusoft/aact/blob/main/";
-const adrHelpUri = (adrPath: string): string =>
-  ADR_BASE_URL + adrPath.split("/").map(encodeURIComponent).join("/");
 
 const buildRuleCatalogue = (
   rules: AactConfig["rules"],

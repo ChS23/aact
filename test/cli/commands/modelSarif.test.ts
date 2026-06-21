@@ -67,7 +67,7 @@ describe("modelSarifAdapter — rule catalogue", () => {
       ]),
     );
     const ruleIds = (log.runs[0].tool.driver.rules ?? []).map((r) => r.id);
-    expect(ruleIds).toEqual(["model.dangling-relation", "model.self-relation"]);
+    expect(ruleIds).toEqual(["model.danglingRelation", "model.selfRelation"]);
   });
 
   it("each rule entry carries a non-empty description and a model-validation helpUri", () => {
@@ -75,7 +75,7 @@ describe("modelSarifAdapter — rule catalogue", () => {
       envelopeWith([{ kind: "boundary-cycle", path: ["a", "b", "a"] }]),
     );
     const [rule] = log.runs[0].tool.driver.rules ?? [];
-    expect(rule.id).toBe("model.boundary-cycle");
+    expect(rule.id).toBe("model.boundaryCycle");
     expect(rule.shortDescription?.text.length ?? 0).toBeGreaterThan(0);
     expect(rule.helpUri).toContain("#model-validation");
   });
@@ -89,8 +89,8 @@ describe("modelSarifAdapter — results mapping", () => {
     ];
     const log = modelSarifAdapter(envelopeWith(issues));
     expect(log.runs[0].results).toHaveLength(2);
-    expect(log.runs[0].results[0].ruleId).toBe("model.dangling-relation");
-    expect(log.runs[0].results[1].ruleId).toBe("model.duplicate-element-name");
+    expect(log.runs[0].results[0].ruleId).toBe("model.danglingRelation");
+    expect(log.runs[0].results[1].ruleId).toBe("model.duplicateElementName");
   });
 
   it("emits warning-level results (loader issues are warnings, not errors)", () => {

@@ -21,10 +21,13 @@ export class ToolError extends Error {
   }
 
   toDiagnostic(): Diagnostic {
+    // A ToolError is always fatal (exit 2), so its diagnostic carries
+    // `error` severity — not `warning`. Keeps the JSON/SARIF severity
+    // consistent with the exit code it produced.
     return {
       kind: this.kind,
       message: this.message,
-      severity: "warning",
+      severity: "error",
       ...(this.context ? { context: this.context } : {}),
     };
   }

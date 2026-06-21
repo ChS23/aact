@@ -160,7 +160,7 @@ const errorSarifLog = (
           executionSuccessful: false,
           exitCode: envelope.exitCode,
           toolExecutionNotifications: envelope.diagnostics.map((d) => ({
-            level: d.severity === "warning" ? "error" : "note",
+            level: d.severity === "info" ? "note" : "error",
             descriptor: { id: d.kind },
             message: { text: d.message },
           })),

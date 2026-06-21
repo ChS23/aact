@@ -54,14 +54,22 @@ describe("checkSarifAdapter — top-level shape", () => {
     expect(driver.informationUri).toContain("github.com/Byndyusoft/aact");
   });
 
-  it("lists every built-in rule in tool.driver.rules with description + helpUri", () => {
+  it("lists every built-in rule with description and an ADR-based helpUri", () => {
     const log = checkSarifAdapter(envelopeWith([]));
     const rules = log.runs[0].tool.driver.rules ?? [];
     expect(rules).toHaveLength(ruleRegistry.length);
     const acl = rules.find((r) => r.id === "acl");
     expect(acl?.name).toBe("acl");
     expect(acl?.shortDescription?.text).toMatch(/ACL/);
-    expect(acl?.helpUri).toContain("#acl");
+    // helpUri is the same ADR blob URL as RuleMetadata.helpUri — never the
+    // old dead `#<name>` README anchor; omitted for rules without an ADR.
+    const crud = rules.find((r) => r.id === "crud");
+    expect(crud?.helpUri).toContain("/blob/main/ADRs/");
+    for (const r of rules) {
+      if (r.helpUri !== undefined) {
+        expect(r.helpUri).toContain("/blob/main/ADRs/");
+      }
+    }
   });
 });
 

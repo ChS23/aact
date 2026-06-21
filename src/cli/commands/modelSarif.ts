@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import type { ModelIssue } from "../../model";
+import { issueKindMap } from "../loadModel";
 import type { SarifAdapter, SarifLog, SarifResult } from "../output";
 import type { ModelData } from "./model";
 
@@ -79,7 +80,9 @@ const issueMessage = (i: ModelIssue): string => {
 };
 
 const issueToResult = (i: ModelIssue, sourceUri: string): SarifResult => ({
-  ruleId: `model.${i.kind}`,
+  // Same id as `aact model --json`'s `diagnostics[].kind` (the camelCase
+  // `DiagnosticKind`), so agents key on one vocabulary across JSON and SARIF.
+  ruleId: issueKindMap[i.kind],
   level: "warning",
   message: { text: issueMessage(i) },
   locations: [
@@ -98,8 +101,8 @@ export const modelSarifAdapter: SarifAdapter<ModelData> = (envelope) => {
   const rules = [...seenKinds]
     .toSorted((a, b) => a.localeCompare(b))
     .map((kind) => ({
-      id: `model.${kind}`,
-      name: `model.${kind}`,
+      id: issueKindMap[kind],
+      name: issueKindMap[kind],
       shortDescription: { text: ISSUE_DESCRIPTIONS[kind] },
       helpUri: `${AACT_INFO_URI}#model-validation`,
     }));

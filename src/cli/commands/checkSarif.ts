@@ -14,6 +14,7 @@ import type {
   SarifReportingDescriptor,
   SarifResult,
 } from "../output";
+import { adrHelpUri } from "../ruleHelpUri";
 import type { CheckData, CheckViolation } from "./check";
 
 const SARIF_SCHEMA =
@@ -89,7 +90,10 @@ const buildRuleCatalogue = (
     id: r.name,
     name: r.name,
     shortDescription: { text: r.description },
-    helpUri: `${AACT_INFO_URI}#${r.name}`,
+    // Same ADR-based passport as `RuleMetadata.helpUri` (check --json /
+    // rule explain). Omitted when the rule has no ADR — the old
+    // `#${name}` README anchor was a dead link.
+    ...(r.adrPath ? { helpUri: adrHelpUri(r.adrPath) } : {}),
   }));
 
 const ruleIndexMap = (
