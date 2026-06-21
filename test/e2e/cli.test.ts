@@ -126,7 +126,7 @@ describe("aact check", () => {
   }
 
   interface JsonFix {
-    readonly rule: string;
+    readonly ruleId: string;
     readonly edits: readonly JsonEdit[];
   }
 
@@ -197,7 +197,7 @@ describe("aact check", () => {
     const editKeys = edits.map(editKey);
 
     expect(fixes).toHaveLength(1);
-    expect(fixes[0]?.rule).toBe("crud");
+    expect(fixes[0]?.ruleId).toBe("crud");
     expect(new Set(editKeys).size).toBe(editKeys.length);
   });
 
@@ -617,7 +617,7 @@ export default {
     const data = envelope.data as Record<string, unknown>;
     const rules = data.rules as Array<Record<string, unknown>>;
     expect(Array.isArray(rules)).toBe(true);
-    expect(rules[0]).toHaveProperty("name");
+    expect(rules[0]).toHaveProperty("ruleId");
     expect(rules[0]).toHaveProperty("source");
     expect(rules[0]).toHaveProperty("enabled");
     expect(rules[0]).toHaveProperty("hasFix");

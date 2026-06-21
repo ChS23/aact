@@ -30,7 +30,7 @@ const envelopeWith = (
 });
 
 const baseViolation: CheckViolation = {
-  rule: "crud",
+  ruleId: "crud",
   target: "orders",
   targetKind: "element",
   message: "directly accesses database orders_db",
@@ -98,7 +98,7 @@ describe("checkSarifAdapter — results mapping", () => {
 
   it("falls back to startLine=1 / uri='unknown' when violation has no sourceLocation", () => {
     const withoutLoc: CheckViolation = {
-      rule: "acl",
+      ruleId: "acl",
       target: "svc",
       targetKind: "element",
       message: "no location",
@@ -117,7 +117,7 @@ describe("checkSarifAdapter — results mapping", () => {
   it("carries targetKind into properties for boundary-level violations", () => {
     const boundaryViolation: CheckViolation = {
       ...baseViolation,
-      rule: "cohesion",
+      ruleId: "cohesion",
       target: "checkout",
       targetKind: "boundary",
       message: "boundary coupling > cohesion",
@@ -131,7 +131,7 @@ describe("checkSarifAdapter — results mapping", () => {
   it("omits ruleIndex for unknown (custom-rule) ids but keeps ruleId", () => {
     const customViolation: CheckViolation = {
       ...baseViolation,
-      rule: "acmeBcIsolation",
+      ruleId: "acmeBcIsolation",
     };
     const log = checkSarifAdapter(envelopeWith([customViolation]));
     const [result] = log.runs[0].results;

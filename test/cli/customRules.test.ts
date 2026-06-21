@@ -94,7 +94,7 @@ const noLegacyWithFixRule = defineRule({
   },
   fix({ violations }) {
     return violations.map((v) => ({
-      rule: "noLegacyFix",
+      ruleId: "noLegacyFix",
       description: `Remove legacy tag from ${v.target}`,
       edits: [],
     }));
@@ -205,7 +205,9 @@ describe("executeCheck — customRules integration", () => {
     );
 
     expect(result.exitCode).toBe(1);
-    const noLegacy = result.data.violations.find((v) => v.rule === "noLegacy");
+    const noLegacy = result.data.violations.find(
+      (v) => v.ruleId === "noLegacy",
+    );
     expect(noLegacy).toBeDefined();
     expect(noLegacy?.target).toBe("svc_a");
   });
@@ -218,7 +220,7 @@ describe("executeCheck — customRules integration", () => {
       {},
     );
 
-    expect(result.data.violations.some((v) => v.rule === "noLegacy")).toBe(
+    expect(result.data.violations.some((v) => v.ruleId === "noLegacy")).toBe(
       true,
     );
   });
@@ -234,7 +236,7 @@ describe("executeCheck — customRules integration", () => {
       {},
     );
 
-    expect(result.data.violations.some((v) => v.rule === "noLegacy")).toBe(
+    expect(result.data.violations.some((v) => v.ruleId === "noLegacy")).toBe(
       false,
     );
   });
@@ -329,7 +331,7 @@ describe("executeCheck — customRules integration", () => {
     );
 
     expect(
-      result.data.suggestedFixes.some((f) => f.rule === "noLegacyFix"),
+      result.data.suggestedFixes.some((f) => f.ruleId === "noLegacyFix"),
     ).toBe(true);
     expect(result.data.mode).toBe("dry-run");
   });

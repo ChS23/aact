@@ -48,7 +48,7 @@ describe("executeRuleList", () => {
       rules: { crud: true, acl: { tag: "acl" } },
     });
     const result = await executeRuleList({});
-    const byName = (n: string) => result.data.rules.find((r) => r.name === n);
+    const byName = (n: string) => result.data.rules.find((r) => r.ruleId === n);
     // `true` and an options object both opt a built-in in; unmentioned stays off.
     expect(byName("crud")?.enabled).toBe(true);
     expect(byName("acl")?.enabled).toBe(true);
@@ -68,7 +68,7 @@ describe("executeRuleList", () => {
 
     const result = await executeRuleList({});
 
-    const noLegacy = result.data.rules.find((r) => r.name === "noLegacy");
+    const noLegacy = result.data.rules.find((r) => r.ruleId === "noLegacy");
     expect(noLegacy).toBeDefined();
     expect(noLegacy?.source).toBe("custom");
     expect(noLegacy?.enabled).toBe(true);
@@ -83,14 +83,14 @@ describe("executeRuleList", () => {
 
     const result = await executeRuleList({});
 
-    const acl = result.data.rules.find((r) => r.name === "acl");
+    const acl = result.data.rules.find((r) => r.ruleId === "acl");
     expect(acl?.enabled).toBe(false);
   });
 
   it("marks rule with fix capability as hasFix: true", async () => {
     mockNoConfig();
     const result = await executeRuleList({});
-    const acl = result.data.rules.find((r) => r.name === "acl");
+    const acl = result.data.rules.find((r) => r.ruleId === "acl");
     expect(acl?.hasFix).toBe(true);
   });
 
@@ -138,14 +138,14 @@ describe("renderRuleListText", () => {
         data: {
           rules: [
             {
-              name: "acl",
+              ruleId: "acl",
               description: "ACL",
               source: "built-in",
               enabled: true,
               hasFix: true,
             },
             {
-              name: "noLegacy",
+              ruleId: "noLegacy",
               description: "no legacy",
               source: "custom",
               enabled: true,
@@ -176,7 +176,7 @@ describe("renderRuleListText", () => {
         data: {
           rules: [
             {
-              name: "acl",
+              ruleId: "acl",
               description: "ACL",
               source: "built-in",
               enabled: true,
@@ -205,7 +205,7 @@ describe("executeRuleExplain", () => {
     mockNoConfig();
     const result = await executeRuleExplain({ _: ["crud"] });
     expect(result.exitCode).toBe(0);
-    expect(result.data.name).toBe("crud");
+    expect(result.data.ruleId).toBe("crud");
     expect(result.data.source).toBe("built-in");
     // Built-in rules are opt-in — with no config crud is disabled, but
     // `rule explain` still surfaces its rationale/examples/ADR.
@@ -329,7 +329,7 @@ describe("renderRuleExplainText", () => {
         command: "rule explain",
         exitCode: 0,
         data: {
-          name: "crud",
+          ruleId: "crud",
           description: "DB only through repo",
           source: "built-in",
           enabled: true,
@@ -366,7 +366,7 @@ describe("renderRuleExplainText", () => {
         command: "rule explain",
         exitCode: 0,
         data: {
-          name: "minimal",
+          ruleId: "minimal",
           description: "no extras",
           source: "custom",
           enabled: true,
@@ -396,7 +396,7 @@ describe("renderRuleExplainText", () => {
         command: "rule explain",
         exitCode: 0,
         data: {
-          name: "wrappy",
+          ruleId: "wrappy",
           description: "wraps",
           source: "built-in",
           enabled: true,
@@ -428,7 +428,7 @@ describe("renderRuleExplainText", () => {
         command: "rule explain",
         exitCode: 0,
         data: {
-          name: "notey",
+          ruleId: "notey",
           description: "notes",
           source: "built-in",
           enabled: true,

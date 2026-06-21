@@ -59,6 +59,23 @@ export interface Diagnostic {
   readonly context?: Readonly<Record<string, string>>;
 }
 
+/**
+ * Stable metadata describing a single rule. One shared shape across
+ * `aact check --json` (`rules[]`), `aact rule list`, and the base of
+ * `aact rule explain`. `ruleId` is the same key carried by every
+ * `CheckViolation` and SARIF `result`, so consumers join findings to
+ * rule metadata on one field instead of guessing `rule` vs `name`.
+ */
+export interface RuleMetadata {
+  readonly ruleId: string;
+  readonly description: string;
+  readonly source: "built-in" | "custom";
+  readonly enabled: boolean;
+  readonly hasFix: boolean;
+  /** Doc/ADR link for the rule when one exists. Maps to SARIF `helpUri`. */
+  readonly helpUri?: string;
+}
+
 export interface EnvelopeMeta {
   readonly aactVersion: string;
   readonly durationMs: number;

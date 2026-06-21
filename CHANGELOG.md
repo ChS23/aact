@@ -6,6 +6,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Changed
+
+- **BREAKING: a rule is identified by `ruleId` everywhere in the JSON
+  contract.** `CheckViolation` and `FixResult` now carry `ruleId` (was
+  `rule`), matching SARIF `result.ruleId`, so consumers join
+  `violations[]`, `suggestedFixes[]`, and `rules[]` on a single key. `aact
+rule list` and the `rules[]` array of `aact check --json` share one
+  `RuleMetadata` shape (`ruleId, description, source, enabled, hasFix,
+helpUri?`), and `rule list` now carries `helpUri`. The public
+  `CheckRuleMetadata` and `RuleInfo` types are removed in favour of
+  `RuleMetadata`; `RuleDefinition.name` (the authoring field) is unchanged.
+
 ## v3.0.0-beta.29 — 2026-06-10
 
 > Opt-in rules, a full documentation layer (eight guides plus a generated

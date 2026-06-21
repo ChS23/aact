@@ -57,6 +57,7 @@ export type {
   OutputMode,
   Renderer,
   Reporter,
+  RuleMetadata,
 } from "./cli/output";
 
 // SARIF v2.1.0 surface — for consumers integrating `aact <command>
@@ -87,7 +88,6 @@ export type {
   CheckData,
   CheckFixesApplied,
   CheckMode,
-  CheckRuleMetadata,
   CheckSummary,
   CheckViolation,
 } from "./cli/commands/check";
@@ -111,7 +111,6 @@ export type { ModelData } from "./cli/commands/model";
 export type {
   RuleExampleInfo,
   RuleExplainData,
-  RuleInfo,
   RuleListData,
   RuleListSummary,
 } from "./cli/commands/rule";

@@ -146,7 +146,7 @@ describe("aclRule.fix (plantuml syntax)", () => {
     const { fixes, content } = await pumlFix(singleExternalPuml, "my_service");
 
     expect(fixes).toHaveLength(1);
-    expect(fixes[0].rule).toBe("acl");
+    expect(fixes[0].ruleId).toBe("acl");
     expect(content).toContain("Container(my_service_acl,");
     expect(content).toContain('$tags="acl"');
     expect(content).toContain("Rel(my_service, my_service_acl");

@@ -119,7 +119,7 @@ describe("executeCheck — exit code matrix", () => {
     expect(result.exitCode).toBe(1);
     expect(result.data.violations.length).toBeGreaterThan(0);
     expect(result.data.violations[0].severity).toBe("error");
-    expect(result.data.violations[0].rule).toBe("acl");
+    expect(result.data.violations[0].ruleId).toBe("acl");
   });
 
   it("exitCode 1 on --dry-run with violations (Codex P1 — was 0)", async () => {
@@ -164,7 +164,7 @@ describe("executeCheck — exit code matrix", () => {
         return range
           ? [
               {
-                rule: "rewriteA",
+                ruleId: "rewriteA",
                 description: "rewrite svc as A",
                 edits: [
                   { kind: "replace", range, content: "Container(svc_a)" },
@@ -185,7 +185,7 @@ describe("executeCheck — exit code matrix", () => {
         return range
           ? [
               {
-                rule: "rewriteB",
+                ruleId: "rewriteB",
                 description: "rewrite svc as B",
                 edits: [
                   { kind: "replace", range, content: "Container(svc_b)" },
@@ -346,7 +346,7 @@ describe("executeCheck — disabled rules respected", () => {
       { ...plantumlConfig, rules: { ...ALL_ON, acl: false } },
       {},
     );
-    expect(result.data.violations.every((v) => v.rule !== "acl")).toBe(true);
+    expect(result.data.violations.every((v) => v.ruleId !== "acl")).toBe(true);
   });
 });
 
@@ -410,7 +410,7 @@ describe("renderCheckText", () => {
           mode: "check",
           violations: [
             {
-              rule: "acl",
+              ruleId: "acl",
               target: "my_service",
               targetKind: "element" as const,
               message: "calls external system",
@@ -441,7 +441,7 @@ describe("renderCheckText", () => {
           mode: "check",
           violations: [
             {
-              rule: "dbPerService",
+              ruleId: "dbPerService",
               target: "orders_db",
               targetKind: "element" as const,
               message: "shared between A, B",
@@ -494,7 +494,7 @@ describe("renderCheckText", () => {
           mode: "check",
           violations: [
             {
-              rule: "acyclic",
+              ruleId: "acyclic",
               target: "svc_a",
               targetKind: "element" as const,
               message: "participates in cycle",
@@ -537,7 +537,7 @@ describe("renderCheckText", () => {
             mode: "dry-run",
             violations: [
               {
-                rule: "acl",
+                ruleId: "acl",
                 target: "my_service",
                 targetKind: "element" as const,
                 message: "msg",
@@ -546,7 +546,7 @@ describe("renderCheckText", () => {
             ],
             suggestedFixes: [
               {
-                rule: "acl",
+                ruleId: "acl",
                 description: "add anti-corruption layer",
                 edits: [
                   {
@@ -581,7 +581,7 @@ describe("renderCheckText", () => {
             mode: "check",
             violations: [
               {
-                rule: "acl",
+                ruleId: "acl",
                 target: "my_service",
                 targetKind: "element" as const,
                 message: "msg",
@@ -590,7 +590,7 @@ describe("renderCheckText", () => {
             ],
             suggestedFixes: [
               {
-                rule: "acl",
+                ruleId: "acl",
                 description: "add anti-corruption layer",
                 edits: [
                   {
@@ -634,7 +634,7 @@ describe("renderCheckText", () => {
           mode: "check",
           violations: [
             {
-              rule: "acl",
+              ruleId: "acl",
               target: "my_service",
               targetKind: "element" as const,
               message: "calls external",
@@ -662,7 +662,7 @@ describe("renderCheckText", () => {
           mode: "check",
           violations: [
             {
-              rule: "acl",
+              ruleId: "acl",
               target: "my_service",
               targetKind: "element" as const,
               message: "calls external",
@@ -733,7 +733,7 @@ describe("renderCheckText", () => {
         mode: "check" as const,
         violations: [
           {
-            rule: "acl",
+            ruleId: "acl",
             target: "svc",
             targetKind: "element" as const,
             message: "msg",

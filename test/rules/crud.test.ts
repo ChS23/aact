@@ -273,7 +273,7 @@ describe("crudRule.fix — non-repo accesses DB", () => {
     ].join("\n");
     const { fixes } = await pumlFix(puml, "orders");
     expect(fixes).toHaveLength(1);
-    expect(fixes[0].rule).toBe("crud");
+    expect(fixes[0].ruleId).toBe("crud");
     expect(fixes[0].description).toContain("orders");
     expect(fixes[0].description).toContain("orders_db");
   });
@@ -351,7 +351,7 @@ describe("crudRule.fix — repo with non-DB deps", () => {
     ].join("\n");
     const { fixes } = await pumlFix(puml, "orders_repo");
     expect(fixes).toHaveLength(1);
-    expect(fixes[0].rule).toBe("crud");
+    expect(fixes[0].ruleId).toBe("crud");
     expect(fixes[0].description).toMatch(/orders_repo/);
   });
 });

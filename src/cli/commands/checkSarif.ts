@@ -119,7 +119,7 @@ const ruleIndexMap = (
  */
 const fingerprint = (v: CheckViolation): string =>
   createHash("sha256")
-    .update(`${v.rule}\0${v.target}\0${v.message}`)
+    .update(`${v.ruleId}\0${v.target}\0${v.message}`)
     .digest("hex")
     .slice(0, 16);
 
@@ -157,8 +157,8 @@ const violationToResult = (
     buildSarifLocation(r.sourceLocation, repoRoot, r.message),
   );
   return {
-    ruleId: v.rule,
-    ...(ruleIndex.has(v.rule) ? { ruleIndex: ruleIndex.get(v.rule) } : {}),
+    ruleId: v.ruleId,
+    ...(ruleIndex.has(v.ruleId) ? { ruleIndex: ruleIndex.get(v.ruleId) } : {}),
     level: "error",
     message: { text: `${v.target}: ${v.message}` },
     locations: [buildSarifLocation(v.sourceLocation, repoRoot)],

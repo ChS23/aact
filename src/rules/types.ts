@@ -86,7 +86,9 @@ export type SourceEdit =
     };
 
 export interface FixResult {
-  readonly rule: string;
+  /** Id of the rule that produced this fix — same value as the rule's
+   *  `RuleDefinition.name` and the `ruleId` on its violations. */
+  readonly ruleId: string;
   readonly description: string;
   readonly edits: readonly SourceEdit[];
 }

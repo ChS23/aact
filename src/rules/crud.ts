@@ -219,7 +219,7 @@ const fixNonRepoAccessesDb = (
   if (edits.length === 0) return undefined;
 
   return {
-    rule: "crud",
+    ruleId: "crud",
     description: `Add repo intermediary for ${accessor.name} → ${dbRels.map((r) => r.to).join(", ")}`,
     edits,
   };
@@ -240,7 +240,7 @@ const fixRepoWithNonDbDeps = (
   if (edits.length === 0) return undefined;
 
   return {
-    rule: "crud",
+    ruleId: "crud",
     description: `Remove non-database dependencies from repo ${repo.name}`,
     edits,
   };

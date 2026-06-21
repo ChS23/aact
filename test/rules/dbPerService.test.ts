@@ -175,7 +175,7 @@ describe("dbPerServiceRule.fix", () => {
     ].join("\n");
     const { fixes, content } = await pumlFix(puml, "orders_db");
     expect(fixes).toHaveLength(1);
-    expect(fixes[0].rule).toBe("dbPerService");
+    expect(fixes[0].ruleId).toBe("dbPerService");
     expect(content).toContain("Rel(payments, orders_repo");
     expect(content).not.toMatch(/Rel\(payments, orders_db,\s*""\)/);
     // Owner's edge stays untouched

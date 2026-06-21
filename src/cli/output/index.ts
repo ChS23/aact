@@ -37,4 +37,5 @@ export type {
   OutputMode,
   Renderer,
   Reporter,
+  RuleMetadata,
 } from "./types";

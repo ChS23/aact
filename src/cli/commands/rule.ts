@@ -4,7 +4,7 @@ import type { AactConfig } from "../../config";
 import { ruleRegistry } from "../../rules/registry";
 import type { RuleDefinition } from "../../rules/types";
 import { loadAndValidateConfig } from "../loadConfig";
-import type { Renderer } from "../output";
+import type { Renderer, RuleMetadata } from "../output";
 import { ToolError } from "../output";
 import { colors } from "../output/colors";
 import type { ExecuteResult } from "../run";
@@ -15,21 +15,13 @@ import { configArg, jsonArg } from "../sharedArgs";
 // Public data shape (envelope.data for `aact rule list`)
 // -----------------------------------------------------------------------------
 
-export interface RuleInfo {
-  readonly name: string;
-  readonly description: string;
-  readonly source: "built-in" | "custom";
-  readonly enabled: boolean;
-  readonly hasFix: boolean;
-}
-
 export interface RuleListSummary {
   readonly enabled: number;
   readonly total: number;
 }
 
 export interface RuleListData {
-  readonly rules: readonly RuleInfo[];
+  readonly rules: readonly RuleMetadata[];
   readonly summary: RuleListSummary;
 }
 
@@ -39,16 +31,10 @@ export interface RuleListData {
  * agents reading the JSON envelope have everything they need to
  * understand and act on a violation without a second round-trip.
  */
-export interface RuleExplainData {
-  readonly name: string;
-  readonly description: string;
-  readonly source: "built-in" | "custom";
-  readonly enabled: boolean;
-  readonly hasFix: boolean;
+export interface RuleExplainData extends RuleMetadata {
   readonly rationale?: string;
   readonly examples?: readonly RuleExampleInfo[];
   readonly adrPath?: string;
-  readonly helpUri?: string;
 }
 
 export interface RuleExampleInfo {
@@ -92,24 +78,26 @@ const isEnabled = (
   return isBuiltin ? value !== undefined : true;
 };
 
-const collectRules = (config: AactConfig | null): RuleInfo[] => {
-  const out: RuleInfo[] = [];
+const collectRules = (config: AactConfig | null): RuleMetadata[] => {
+  const out: RuleMetadata[] = [];
   for (const rule of ruleRegistry) {
     out.push({
-      name: rule.name,
+      ruleId: rule.name,
       description: rule.description,
       source: "built-in",
       enabled: isEnabled(config?.rules, rule.name, true),
       hasFix: typeof rule.fix === "function",
+      ...(rule.adrPath ? { helpUri: adrHelpUri(rule.adrPath) } : {}),
     });
   }
   for (const rule of config?.customRules ?? []) {
     out.push({
-      name: rule.name,
+      ruleId: rule.name,
       description: rule.description,
       source: "custom",
       enabled: isEnabled(config?.rules, rule.name, false),
       hasFix: typeof rule.fix === "function",
+      ...(rule.adrPath ? { helpUri: adrHelpUri(rule.adrPath) } : {}),
     });
   }
   return out;
@@ -183,7 +171,7 @@ export const executeRuleExplain = async (
   const { rule, source } = found;
   return {
     data: {
-      name: rule.name,
+      ruleId: rule.name,
       description: rule.description,
       source,
       enabled: isEnabled(config?.rules, rule.name, source === "built-in"),
@@ -209,18 +197,18 @@ export const executeRuleExplain = async (
 
 const renderGroup = (
   label: string,
-  items: readonly RuleInfo[],
+  items: readonly RuleMetadata[],
   sink: NodeJS.WritableStream,
 ): void => {
   if (items.length === 0) return;
   sink.write(colors.bold(label) + "\n");
-  const maxName = Math.max(...items.map((i) => i.name.length));
+  const maxName = Math.max(...items.map((i) => i.ruleId.length));
   for (const rule of items) {
     const status = rule.enabled ? colors.green("●") : colors.dim("○");
     const fix = rule.hasFix ? colors.dim(" [fix]") : "";
     const name = rule.enabled
-      ? colors.bold(rule.name.padEnd(maxName))
-      : colors.dim(rule.name.padEnd(maxName));
+      ? colors.bold(rule.ruleId.padEnd(maxName))
+      : colors.dim(rule.ruleId.padEnd(maxName));
     sink.write(`  ${status}  ${name}  ${colors.dim(rule.description)}${fix}\n`);
   }
   sink.write("\n");
@@ -251,7 +239,7 @@ export const renderRuleExplainText: Renderer<RuleExplainData> = (
   sink,
 ) => {
   const { data } = envelope;
-  sink.write(colors.bold(`${data.name}\n`));
+  sink.write(colors.bold(`${data.ruleId}\n`));
   sink.write(colors.dim(`  ${data.description}\n\n`));
 
   const meta: string[] = [

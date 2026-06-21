@@ -170,7 +170,7 @@ Rel(payment_acl, payment_provider, "POST", "HTTPS")`,
       if (edits.length === 0) continue;
 
       results.push({
-        rule: "acl",
+        ruleId: "acl",
         description: `Add ACL layer for ${element.name}`,
         edits,
       });

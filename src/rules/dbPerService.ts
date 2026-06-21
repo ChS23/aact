@@ -221,7 +221,7 @@ Rel(orders_repo, orders_db, "SQL")`,
       if (edits.length === 0) continue;
 
       results.push({
-        rule: "dbPerService",
+        ruleId: "dbPerService",
         description: `Redirect access to ${db.name} through ${owner.name}`,
         edits,
       });

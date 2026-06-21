@@ -19,7 +19,7 @@ import type {
   Violation,
 } from "../../rules/types";
 import { issueToDiagnostic, loadModel } from "../loadModel";
-import type { Diagnostic, ExitCode, Renderer } from "../output";
+import type { Diagnostic, ExitCode, Renderer, RuleMetadata } from "../output";
 import { colors } from "../output/colors";
 import {
   formatDisplayPath,
@@ -44,7 +44,7 @@ const BUILTIN_RULE_NAMES: ReadonlySet<string> = new Set(
 // -----------------------------------------------------------------------------
 
 export interface CheckViolation {
-  readonly rule: string;
+  readonly ruleId: string;
   /** Name of the offending node — points into `model.elements` or
    *  `model.boundaries` depending on `targetKind`. */
   readonly target: string;
@@ -100,31 +100,17 @@ export interface CheckFixesApplied {
 
 export type CheckMode = "check" | "dry-run" | "fix";
 
-/**
- * Per-rule metadata bundled into every `check --json` envelope so
- * agents and other consumers don't need a separate `aact rule list`
- * call to know what each `ruleId` in `violations[]` means or
- * whether it offers an auto-fix.
- *
- * `source` distinguishes built-in rules (shipped with aact) from
- * `customRules` registered via `aact.config.ts`. `enabled` reflects
- * the effective config (false when `rules.<name>: false`).
- */
-export interface CheckRuleMetadata {
-  readonly name: string;
-  readonly description: string;
-  readonly source: "built-in" | "custom";
-  readonly enabled: boolean;
-  readonly hasFix: boolean;
-  readonly helpUri?: string;
-}
+// Rule metadata in `check --json` envelopes uses the shared
+// `RuleMetadata` shape (src/cli/output/types.ts) — the same shape as
+// `aact rule list`, so consumers join `violations[].ruleId` to
+// `rules[].ruleId` on one key without a second `rule list` call.
 
 export interface CheckData {
   readonly mode: CheckMode;
   readonly violations: readonly CheckViolation[];
   readonly suggestedFixes: readonly FixResult[];
   readonly summary: CheckSummary;
-  readonly rules: readonly CheckRuleMetadata[];
+  readonly rules: readonly RuleMetadata[];
   /**
    * Rules whose byte-identical fix edits were absorbed by another
    * rule's kept edit during dedup, keyed by the rule that retained the
@@ -238,11 +224,11 @@ const adrHelpUri = (adrPath: string): string =>
 const buildRuleCatalogue = (
   rules: AactConfig["rules"],
   effective: readonly RuleDefinition[],
-): readonly CheckRuleMetadata[] =>
+): readonly RuleMetadata[] =>
   effective.map((r) => {
     const isBuiltin = BUILTIN_RULE_NAMES.has(r.name);
     return {
-      name: r.name,
+      ruleId: r.name,
       description: r.description,
       source: isBuiltin ? "built-in" : "custom",
       enabled: isRuleActive(rules, r.name, isBuiltin),
@@ -380,14 +366,14 @@ const deduplicateIdenticalFixEdits = (
       const key = editIdentity(edit);
       const owner = editKeyToOwner.get(key);
       if (owner !== undefined) {
-        if (owner !== fix.rule) {
+        if (owner !== fix.ruleId) {
           const set = merged.get(owner) ?? new Set<string>();
-          set.add(fix.rule);
+          set.add(fix.ruleId);
           merged.set(owner, set);
         }
         return false;
       }
-      editKeyToOwner.set(key, fix.rule);
+      editKeyToOwner.set(key, fix.ruleId);
       return true;
     });
     // Drop fixes whose every edit was deduped away (no work left). Fixes
@@ -422,7 +408,7 @@ const flattenViolations = (
           : model.boundaries[v.target]?.sourceLocation;
       const sourceLocation = v.sourceLocation ?? fallbackLoc;
       out.push({
-        rule: result.name,
+        ruleId: result.name,
         target: v.target,
         targetKind: v.targetKind,
         message: v.message,
@@ -642,7 +628,7 @@ const renderGithubAnnotations = (
       ? `file=${loc.file},line=${loc.start.line},col=${loc.start.col},`
       : "";
     sink.write(
-      `::error ${locAttrs}title=${v.rule}::${v.target}: ${v.message}\n`,
+      `::error ${locAttrs}title=${v.ruleId}::${v.target}: ${v.message}\n`,
     );
   }
 };
@@ -674,7 +660,7 @@ const renderViolationsTable = (
     return {
       locText,
       sourceLocation: loc,
-      rule: v.rule,
+      ruleId: v.ruleId,
       target: v.target,
       message: v.message,
       relatedLocations: v.relatedLocations,
@@ -682,7 +668,7 @@ const renderViolationsTable = (
   });
 
   const locWidth = Math.max(...rows.map((r) => r.locText.length), 1);
-  const ruleWidth = Math.max(...rows.map((r) => r.rule.length));
+  const ruleWidth = Math.max(...rows.map((r) => r.ruleId.length));
 
   for (const r of rows) {
     // Order: pad → link → color (OSC 8 escapes would skew .length).
@@ -693,7 +679,7 @@ const renderViolationsTable = (
     const linked = linkSourceLocation(paddedLoc, r.sourceLocation);
     const locCell = colors.dim(linked);
     const severity = colors.red("error");
-    const ruleCell = colors.yellow(r.rule.padEnd(ruleWidth));
+    const ruleCell = colors.yellow(r.ruleId.padEnd(ruleWidth));
     const subject = colors.bold(r.target);
     sink.write(
       `  ${locCell}  ${severity}  ${ruleCell}  ${subject}: ${r.message}\n`,
@@ -798,7 +784,7 @@ export const renderCheckText = (
 
   renderViolationsTable(data, sink);
 
-  const fixableRules = new Set(data.suggestedFixes.map((f) => f.rule)).size;
+  const fixableRules = new Set(data.suggestedFixes.map((f) => f.ruleId)).size;
   renderBoxSummary(data, fixableRules, sink);
 };
 
@@ -829,9 +815,9 @@ const renderDryRunPlan = (
   // Group fixes by rule so each violation can pull the matching plan.
   const fixesByRule = new Map<string, FixResult[]>();
   for (const fix of data.suggestedFixes) {
-    const list = fixesByRule.get(fix.rule) ?? [];
+    const list = fixesByRule.get(fix.ruleId) ?? [];
     list.push(fix);
-    fixesByRule.set(fix.rule, list);
+    fixesByRule.set(fix.ruleId, list);
   }
   // Rules whose fixes were absorbed by a sibling — used to label
   // "resolved together with X" when this rule's violations have no
@@ -848,18 +834,20 @@ const renderDryRunPlan = (
   let fixableCount = 0;
   for (const v of data.violations) {
     renderViolationRow(v, sink);
-    const ownFixes = fixesByRule.get(v.rule);
+    const ownFixes = fixesByRule.get(v.ruleId);
     if (ownFixes && ownFixes.length > 0) {
       fixableCount += 1;
-      if (seenFixForRule.has(v.rule)) {
-        sink.write(colors.dim(`     → covered by the ${v.rule} fix above\n\n`));
+      if (seenFixForRule.has(v.ruleId)) {
+        sink.write(
+          colors.dim(`     → covered by the ${v.ruleId} fix above\n\n`),
+        );
       } else {
-        seenFixForRule.add(v.rule);
+        seenFixForRule.add(v.ruleId);
         for (const fix of ownFixes) renderDryRunFix(fix, sink);
       }
       continue;
     }
-    const subsumedBy = resolvedByOtherRule.get(v.rule);
+    const subsumedBy = resolvedByOtherRule.get(v.ruleId);
     if (subsumedBy) {
       fixableCount += 1;
       sink.write(
@@ -883,7 +871,7 @@ const renderViolationRow = (
   const paddedLoc = locText.padEnd(Math.max(locText.length, 1));
   const linked = linkSourceLocation(paddedLoc, v.sourceLocation);
   const severity = colors.red("error");
-  const ruleCell = colors.yellow(v.rule);
+  const ruleCell = colors.yellow(v.ruleId);
   const subject = colors.bold(v.target);
   sink.write(
     `  ${colors.dim(linked)}  ${severity}  ${ruleCell}  ${subject}: ${v.message}\n`,
@@ -977,13 +965,13 @@ const renderAppliedFixLine = (
   mergedRules: Readonly<Record<string, readonly string[]>>,
   sink: NodeJS.WritableStream,
 ): void => {
-  const subsumed = mergedRules[fix.rule] ?? [];
+  const subsumed = mergedRules[fix.ruleId] ?? [];
   const annotation =
     subsumed.length > 0
       ? "  " + colors.dim(`(also resolves: ${subsumed.join(", ")})`)
       : "";
   sink.write(
-    `  ${colors.green("✓")}  ${colors.yellow(fix.rule)}  ${fix.description}${annotation}\n`,
+    `  ${colors.green("✓")}  ${colors.yellow(fix.ruleId)}  ${fix.description}${annotation}\n`,
   );
 };
 
@@ -997,7 +985,7 @@ const renderRemainingViolations = (
       ? colors.dim(formatLocationDisplay(v.sourceLocation)) + "  "
       : "";
     sink.write(
-      `  ${colors.yellow("⚠")}  ${loc}${colors.yellow(v.rule)}  ${colors.bold(v.target)}: ${v.message}\n`,
+      `  ${colors.yellow("⚠")}  ${loc}${colors.yellow(v.ruleId)}  ${colors.bold(v.target)}: ${v.message}\n`,
     );
   }
   sink.write("\n");
@@ -1053,7 +1041,7 @@ const renderFixOutcome = (
   // diagnose layout so the user still sees what stayed.
   if (!applied || applied.count === 0) {
     renderViolationsTable(data, sink);
-    const fixableRules = new Set(data.suggestedFixes.map((f) => f.rule)).size;
+    const fixableRules = new Set(data.suggestedFixes.map((f) => f.ruleId)).size;
     renderBoxSummary(data, fixableRules, sink);
     return;
   }
