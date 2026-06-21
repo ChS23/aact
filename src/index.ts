@@ -26,6 +26,15 @@ export {
   type WorkspaceChange,
 } from "./diff";
 export { knownFormatNames, loadFormat } from "./formats/registry";
+// Format objects, exported directly for library users and examples — the
+// same shape `loadFormat` resolves dynamically. Mirrors the rules surface
+// (`aclRule`, `crudRule`, …): `loadFormat` for registry / dynamic use,
+// direct objects for static imports.
+export { composeFormat } from "./formats/compose";
+export { kubernetesFormat } from "./formats/kubernetes";
+export { modelJsonFormat } from "./formats/model-json";
+export { plantumlFormat } from "./formats/plantuml";
+export { structurizrFormat } from "./formats/structurizr";
 export {
   canFix,
   canGenerate,

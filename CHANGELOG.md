@@ -53,6 +53,22 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   disk, not the JS string length (which counts UTF-16 code units and
   undercounts non-ASCII output).
 
+### Added
+
+- Format objects are exported from the package root — `plantumlFormat`,
+  `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
+  `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).
+  `loadFormat` stays for registry / dynamic use; the objects are for static
+  imports and library examples.
+
+### Schema
+
+- The model-json JSON Schema (`aact-model-v1.json`) no longer pins
+  `additionalProperties: false`, so additive Model fields under
+  `schemaVersion: 1` don't make files written by a newer aact fail
+  validation against the published v1 schema. Breaking shape changes still
+  move to `aact-model-v2.json`.
+
 ## v3.0.0-beta.29 — 2026-06-10
 
 > Opt-in rules, a full documentation layer (eight guides plus a generated

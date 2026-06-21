@@ -42,10 +42,13 @@ const config: Config = {
   topRef: false,
   expose: "export",
   jsDoc: "extended",
-  // Draft-07 is what SchemaStore and the JSON Schema VSCode extension
-  // implement most completely; aact emits nothing that requires a
-  // newer dialect.
-  additionalProperties: false,
+  // Allow unknown properties. The model surface evolves additively under
+  // `schemaVersion: 1` — new optional fields must not make files written by
+  // a newer aact fail validation against the published `-v1` schema. With
+  // `additionalProperties: false` the schema URL would become a hidden
+  // version gate (every field add forces `-v2`), contradicting the additive
+  // contract. Breaking shape changes still move to `aact-model-v2.json`.
+  additionalProperties: true,
 };
 
 const schema = createGenerator(config).createSchema(config.type);
