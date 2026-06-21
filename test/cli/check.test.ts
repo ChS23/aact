@@ -686,9 +686,9 @@ describe("renderCheckText", () => {
     );
   });
 
-  // severity is reserved as "error" | "warning" | "note" — every rule emits
+  // severity is reserved as "error" | "warning" | "info" — every rule emits
   // "error" today, but the renderers must already map all three levels.
-  it("maps severity to github annotation level (warning → ::warning, note → ::notice)", () => {
+  it("maps severity to github annotation level (warning → ::warning, info → ::notice)", () => {
     const { sink, output } = captureSink();
     renderGha(
       buildEnvelope({
@@ -709,7 +709,7 @@ describe("renderCheckText", () => {
               target: "svc_b",
               targetKind: "element" as const,
               message: "consider renaming",
-              severity: "note",
+              severity: "info",
             },
           ],
           suggestedFixes: [],
@@ -746,7 +746,7 @@ describe("renderCheckText", () => {
               target: "svc_b",
               targetKind: "element" as const,
               message: "consider renaming",
-              severity: "note",
+              severity: "info",
             },
           ],
           suggestedFixes: [],
@@ -759,7 +759,7 @@ describe("renderCheckText", () => {
     );
     const text = output();
     expect(text).toContain("warning");
-    expect(text).toContain("note");
+    expect(text).toContain("info");
   });
 
   it("renders fixesApplied summary when present", () => {

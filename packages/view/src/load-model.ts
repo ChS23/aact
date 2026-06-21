@@ -24,7 +24,7 @@ export const loadModelFromConfig = async (
 ): Promise<ModelLoadResult> => {
   const source =
     typeof config.source === "string"
-      ? { type: undefined, path: config.source }
+      ? { type: undefined, path: config.source, options: undefined }
       : config.source;
 
   if (!source.type) {
@@ -40,5 +40,7 @@ export const loadModelFromConfig = async (
     );
   }
 
-  return format.load(source.path);
+  // Pass source.options so compose/kubernetes load the same Model the core
+  // CLI (`aact check` / `model` / `diff`) sees — not a default-options variant.
+  return format.load(source.path, source.options);
 };

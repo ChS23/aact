@@ -7,7 +7,7 @@ import { loadFormat } from "../../formats/registry";
 import { canGenerate } from "../../formats/types";
 import { loadModel } from "../loadModel";
 import type { Diagnostic, Renderer } from "../output";
-import { ToolError } from "../output";
+import { resolveOutputMode, ToolError } from "../output";
 import { formatDisplayPath } from "../output/hyperlinks";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
@@ -154,11 +154,15 @@ export const executeGenerate = async (
 
   const sink = await resolveSink(args, config, output.files.length);
 
-  // JSON mode owns stdout for the envelope; artefact cannot live there.
-  if (args.json === true && sink.kind === "stdout") {
+  // Any machine-readable mode owns stdout for the envelope — JSON or SARIF,
+  // whether set via `--json` or `config.output.mode`. The artefact can't
+  // share it. (Text mode is fine: the confirmation goes to stderr via
+  // `stdoutClaimed`.)
+  const outputMode = resolveOutputMode({ cliJson: args.json, config });
+  if (outputMode !== "text" && sink.kind === "stdout") {
     throw new ToolError(
       "config.outputCollidesWithJson",
-      `generate --json requires --output <path> — stdout is reserved for the JSON envelope (single-file artefact would otherwise stream there).`,
+      `generate in ${outputMode} mode requires --output <path> — stdout is reserved for the ${outputMode} envelope, so the artefact would corrupt it.`,
       { format: formatName },
     );
   }

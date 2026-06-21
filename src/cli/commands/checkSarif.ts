@@ -163,7 +163,9 @@ const violationToResult = (
   return {
     ruleId: v.ruleId,
     ...(ruleIndex.has(v.ruleId) ? { ruleIndex: ruleIndex.get(v.ruleId) } : {}),
-    level: v.severity,
+    // SARIF level vocabulary is error|warning|note|none — map the JSON
+    // contract's `info` onto SARIF `note`.
+    level: v.severity === "info" ? "note" : v.severity,
     message: { text: `${v.target}: ${v.message}` },
     locations: [buildSarifLocation(v.sourceLocation, repoRoot)],
     ...(relatedLocations && relatedLocations.length > 0

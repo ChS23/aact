@@ -690,6 +690,20 @@ describe("aact generate", () => {
     const diag = (envelope.diagnostics as Array<Record<string, unknown>>)[0];
     expect(diag.kind).toBe("config.outputCollidesWithJson");
   });
+
+  it("config output.mode json without --output exits 2 (stdout collision)", async () => {
+    await runCli(["init"]);
+    await fs.writeFile(
+      path.join(workDir, "aact.config.ts"),
+      'export default { source: "./architecture.puml", output: { mode: "json" } };\n',
+    );
+    // No --json flag — the collision must be caught from config.output.mode.
+    const result = await runCli(["generate"]);
+    expect(result.exitCode).toBe(2);
+    const envelope = JSON.parse(result.stdout) as Record<string, unknown>;
+    const diag = (envelope.diagnostics as Array<Record<string, unknown>>)[0];
+    expect(diag.kind).toBe("config.outputCollidesWithJson");
+  });
 });
 
 describe("aact skill", () => {

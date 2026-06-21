@@ -49,11 +49,13 @@ export interface CheckViolation {
   readonly targetKind: "element" | "boundary";
   readonly message: string;
   /**
-   * Severity level (SARIF vocabulary). Reserved as a three-value union at
-   * v3.0.0 so per-rule / configurable severity can land later without a
-   * `schemaVersion` bump; today every rule emits `"error"` until that ships.
+   * Severity level — same JSON vocabulary as `Diagnostic.severity`. Reserved
+   * as a three-value union at v3.0.0 so per-rule / configurable severity can
+   * land later without a `schemaVersion` bump; today every rule emits
+   * `"error"`. SARIF maps `info` → `note`, GitHub annotations `info` →
+   * `notice` at the boundary.
    */
-  readonly severity: "error" | "warning" | "note";
+  readonly severity: "error" | "warning" | "info";
   /**
    * Optional location of the offending construct in source. Populated
    * either from `Violation.sourceLocation` if the rule set it
@@ -558,8 +560,8 @@ const severityCell = (severity: CheckViolation["severity"]): string => {
     case "warning": {
       return colors.yellow("warning");
     }
-    case "note": {
-      return colors.cyan("note");
+    case "info": {
+      return colors.cyan("info");
     }
     default: {
       return colors.red("error");
@@ -572,7 +574,7 @@ const githubLevel = (severity: CheckViolation["severity"]): string => {
     case "warning": {
       return "warning";
     }
-    case "note": {
+    case "info": {
       return "notice";
     }
     default: {

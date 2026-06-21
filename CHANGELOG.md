@@ -21,10 +21,11 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   `passed` and `failed` count rules (`passed + failed` = rules evaluated);
   `violations` counts findings. The old `total` was a finding count, so it
   conflated the two axes (`total !== passed + failed`).
-- **`CheckViolation.severity` is now `"error" | "warning" | "note"`** (SARIF
-  vocabulary), reserved as a union at v3.0.0 so configurable / per-rule
-  severity can land later without a `schemaVersion` bump. Every rule still
-  emits `"error"` today; SARIF `level` and text output derive from it.
+- **`CheckViolation.severity` is now `"error" | "warning" | "info"`** — the
+  same JSON vocabulary as `Diagnostic.severity` — reserved as a union at
+  v3.0.0 so configurable / per-rule severity can land later without a
+  `schemaVersion` bump. Every rule still emits `"error"` today; SARIF maps
+  `info` → `note`, GitHub annotations `info` → `notice`.
 - `AnalysisReport` and its sub-types (`BoundaryAnalysis`, `CouplingRelation`,
   `DatabasesInfo`, `ElementCoupling`, `CyclesInfo`, `RelationStyleCounts`) are
   now fully `readonly`, matching the rest of the public type surface — the
@@ -68,6 +69,14 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   `schemaVersion: 1` don't make files written by a newer aact fail
   validation against the published v1 schema. Breaking shape changes still
   move to `aact-model-v2.json`.
+
+### Fixed
+
+- `aact generate` no longer corrupts the machine-readable envelope: a stdout
+  artefact sink is now refused in **any** non-text output mode (`--json`,
+  `--sarif`, or `config.output.mode`), not just the CLI `--json` flag.
+  Previously `config.output.mode: "json"` without `--output` wrote the
+  artefact and the JSON envelope to the same stdout.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

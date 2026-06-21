@@ -8,6 +8,11 @@ export default <KnipConfig>{
       // Core aact package. Tests / examples / mutation config drive
       // the entry surface; src/ is the project scope.
       entry: [
+        // Package surface: public API (`main`/`exports`) + the CLI bin.
+        // Without these, knip treats the CLI entry and command exports as
+        // unused and reports false positives.
+        "src/index.ts",
+        "src/cli/index.ts",
         "test/**/*.test.ts",
         "examples/**/*.test.ts",
         "examples/**/aact.config.ts",
