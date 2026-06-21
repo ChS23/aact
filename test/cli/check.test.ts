@@ -252,15 +252,14 @@ describe("executeCheck — diagnostics", () => {
     mockLoadFormat.mockResolvedValue(fakeFormat("plantuml"));
   });
 
-  it("emits config.unknownRule for unknown rule names in config", async () => {
+  it("rejects unknown rule names in config (hard config error)", async () => {
     mockLoadModel.mockResolvedValue({ model: cleanModel(), issues: [] });
-    const result = await executeCheck(
-      { ...plantumlConfig, rules: { totallyMadeUpRule: true } },
-      {},
-    );
-    expect(
-      result.diagnostics?.some((d) => d.kind === "config.unknownRule"),
-    ).toBe(true);
+    await expect(
+      executeCheck(
+        { ...plantumlConfig, rules: { totallyMadeUpRule: true } },
+        {},
+      ),
+    ).rejects.toMatchObject({ kind: "config.unknownRule" });
   });
 
   it("emits model.* diagnostics from loader issues", async () => {

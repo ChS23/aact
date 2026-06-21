@@ -29,6 +29,12 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   `DatabasesInfo`, `ElementCoupling`, `CyclesInfo`, `RelationStyleCounts`) are
   now fully `readonly`, matching the rest of the public type surface — the
   analyzer accumulates via an internal mutable builder. No JSON-output change.
+- **BREAKING: an unknown name in `config.rules` is now a hard error
+  (exit 2)** instead of a non-fatal warning. A typo previously disabled
+  enforcement silently — exactly the failure CI must catch. Every unknown
+  name is reported together; this matches the other `config.*` errors and
+  ESLint's treatment of unknown rules. Register the name via `customRules`
+  or remove it; `aact rule list` shows what's available.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

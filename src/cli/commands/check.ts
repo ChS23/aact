@@ -20,6 +20,7 @@ import type {
 } from "../../rules/types";
 import { issueToDiagnostic, loadModel } from "../loadModel";
 import type { Diagnostic, ExitCode, Renderer, RuleMetadata } from "../output";
+import { ToolError } from "../output";
 import { colors } from "../output/colors";
 import {
   formatDisplayPath,
@@ -161,24 +162,29 @@ const buildEffectiveRules = (
   return merged;
 };
 
-const collectUnknownRuleDiagnostics = (
+// An unknown name in `config.rules` is almost always a typo — and a typo
+// silently disables enforcement, which is exactly the failure CI must catch.
+// So it's a hard config error (exit 2), consistent with the other `config.*`
+// kinds and with ESLint's treatment of unknown rules. Every unknown name is
+// collected so the user fixes all typos in one pass.
+const assertNoUnknownRules = (
   rules: AactConfig["rules"],
   effective: readonly RuleDefinition[],
-): Diagnostic[] => {
-  if (!rules) return [];
+): void => {
+  if (!rules) return;
   const known = new Set(effective.map((r) => r.name));
-  const out: Diagnostic[] = [];
-  for (const key of Object.keys(rules)) {
-    if (!known.has(key)) {
-      out.push({
-        kind: "config.unknownRule",
-        message: `Unknown rule "${key}" in config.rules — ignored. Did you forget to add it to customRules?`,
-        severity: "warning",
-        context: { rule: key },
-      });
-    }
-  }
-  return out;
+  const unknown = Object.keys(rules).filter((key) => !known.has(key));
+  if (unknown.length === 0) return;
+  const names = unknown.map((n) => `"${n}"`).join(", ");
+  const plural = unknown.length > 1;
+  throw new ToolError(
+    "config.unknownRule",
+    `Unknown rule${plural ? "s" : ""} in config.rules: ${names}. ` +
+      `A typo here silently disables enforcement, so this is a hard error. ` +
+      `Remove the ${plural ? "entries" : "entry"}, or register ${plural ? "them" : "it"} via customRules. ` +
+      "Run `aact rule list` to see available rules.",
+    { rules: unknown.join(", ") },
+  );
 };
 
 const getRuleConfigValue = (
@@ -546,7 +552,7 @@ export const executeCheck = async (
 ): Promise<ExecuteResult<CheckData>> => {
   const diagnostics: Diagnostic[] = [];
   const effective = buildEffectiveRules(config.customRules);
-  diagnostics.push(...collectUnknownRuleDiagnostics(config.rules, effective));
+  assertNoUnknownRules(config.rules, effective);
 
   const { model, issues } = await loadModel(config);
   for (const issue of issues) diagnostics.push(issueToDiagnostic(issue));

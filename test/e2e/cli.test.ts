@@ -553,7 +553,7 @@ export default {
     expect(output).toMatch(/conflicts with existing built-in/i);
   });
 
-  it("warns on unknown rule name in config.rules", async () => {
+  it("rejects an unknown rule name in config.rules (exit 2)", async () => {
     const configWithTypo = `
 export default {
   source: "./architecture.puml",
@@ -568,7 +568,8 @@ export default {
 
     const result = await runCli(["check"]);
     const output = result.stdout + result.stderr;
-    expect(output).toMatch(/Unknown rule "typoRule"/i);
+    expect(result.exitCode).toBe(2);
+    expect(output).toContain("typoRule");
   });
 });
 

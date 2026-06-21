@@ -287,39 +287,29 @@ describe("executeCheck — customRules integration", () => {
     ).rejects.toThrow(/conflicts with existing custom/);
   });
 
-  it("emits config.unknownRule diagnostic for unknown rule names", async () => {
+  it("rejects an unknown rule name in config with a hard config error", async () => {
     mockLoadModel.mockResolvedValue({ model: cleanModel(), issues: [] });
 
-    const result = await executeCheck(
-      buildConfig({ rules: { typoRule: true } }),
-      {},
-    );
-
-    expect(
-      result.diagnostics?.some(
-        (d) =>
-          d.kind === "config.unknownRule" && d.message.includes('"typoRule"'),
-      ),
-    ).toBe(true);
+    await expect(
+      executeCheck(buildConfig({ rules: { typoRule: true } }), {}),
+    ).rejects.toMatchObject({
+      kind: "config.unknownRule",
+      message: expect.stringContaining('"typoRule"'),
+    });
   });
 
-  it("does not emit unknownRule diagnostic when entry IS a customRule", async () => {
+  it("does not flag a name that IS a registered customRule", async () => {
     mockLoadModel.mockResolvedValue({ model: cleanModel(), issues: [] });
 
-    const result = await executeCheck(
-      buildConfig({
-        customRules: [noLegacyRule],
-        rules: { noLegacy: { tag: "legacy" } },
-      }),
-      {},
-    );
-
-    expect(
-      result.diagnostics?.some(
-        (d) =>
-          d.kind === "config.unknownRule" && d.message.includes('"noLegacy"'),
+    await expect(
+      executeCheck(
+        buildConfig({
+          customRules: [noLegacyRule],
+          rules: { noLegacy: { tag: "legacy" } },
+        }),
+        {},
       ),
-    ).toBe(false);
+    ).resolves.toBeDefined();
   });
 
   it("collects fixes from custom rule with fix capability in dry-run", async () => {
