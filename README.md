@@ -161,11 +161,12 @@ const ordersService = model.elements["orders"];
 Запускаемые из коробки (склонируй репо, `cd examples/<name>`, `npx aact check`):
 
 - [`examples/ecommerce-structurizr/`](examples/ecommerce-structurizr/) — Structurizr-источник с `workspace.json` + `workspace.dsl`, полный цикл правил и auto-fix.
+- [`examples/custom-rules/`](examples/custom-rules/) — PlantUML-источник + два своих правила (`bcIsolation`, `requireOwnerTag`) через `defineConfig` / `defineRule` — как писать и подключать кастомные правила.
 - [`examples/violations-demo/`](examples/violations-demo/) — мини-набор умышленных нарушений по каждому правилу — чтобы посмотреть, как выглядит вывод и какие правки предлагает `--fix`.
 
 Тестовые сценарии (для разработчиков пакета, запускаются через `vitest`):
 
-- [`examples/banking-plantuml/`](examples/banking-plantuml/) и [`examples/microservices-structurizr/`](examples/microservices-structurizr/) — интеграционные тесты архитектуры из `fixtures/`.
+- [`examples/banking-plantuml/`](examples/banking-plantuml/), [`examples/common-reuse-plantuml/`](examples/common-reuse-plantuml/) и [`examples/microservices-structurizr/`](examples/microservices-structurizr/) — интеграционные тесты архитектур из `fixtures/`.
 
 ## Документация
 

@@ -155,11 +155,12 @@ Full API surface: [`Model`](./src/model/types.ts), [`Format`](./src/formats/type
 Runnable out of the box (clone the repo, `cd examples/<name>`, `npx aact check`):
 
 - [`examples/ecommerce-structurizr/`](examples/ecommerce-structurizr/) — Structurizr source with `workspace.json` + `workspace.dsl`, full rule cycle and auto-fix.
+- [`examples/custom-rules/`](examples/custom-rules/) — PlantUML source + two project rules (`bcIsolation`, `requireOwnerTag`) via `defineConfig` / `defineRule` — how to write and wire your own rules.
 - [`examples/violations-demo/`](examples/violations-demo/) — a small set of deliberate violations across every rule, useful to see the output and the fixes `--fix` proposes.
 
 Integration test scenarios (for package developers, run via `vitest`):
 
-- [`examples/banking-plantuml/`](examples/banking-plantuml/) and [`examples/microservices-structurizr/`](examples/microservices-structurizr/) — integration tests on real architectures from `fixtures/`.
+- [`examples/banking-plantuml/`](examples/banking-plantuml/), [`examples/common-reuse-plantuml/`](examples/common-reuse-plantuml/) and [`examples/microservices-structurizr/`](examples/microservices-structurizr/) — integration tests on real architectures from `fixtures/`.
 
 ## Documentation
 
