@@ -1,6 +1,6 @@
 {
   "name": "aact",
-  "version": "3.0.0-beta.29",
+  "version": "3.0.0",
   "type": "module",
   "description": "Architecture analysis and compliance tool",
   "keywords": [

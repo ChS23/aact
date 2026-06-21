@@ -4,7 +4,13 @@ All notable changes to `aact` are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## v3.0.0 — 2026-06-21
+
+> First stable v3. `schemaVersion: 1` is now frozen as the public contract.
+> The headline work: hand-written chevrotain parsers (C4-PUML + Structurizr
+> DSL) with source ranges, the capability-based Model / Format API, and the
+> unified `--json` / `--sarif` envelope for CI and AI agents. The
+> `3.0.0-beta.X` entries below are the incremental history.
 
 ### Changed
 
