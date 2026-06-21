@@ -686,6 +686,82 @@ describe("renderCheckText", () => {
     );
   });
 
+  // severity is reserved as "error" | "warning" | "note" — every rule emits
+  // "error" today, but the renderers must already map all three levels.
+  it("maps severity to github annotation level (warning → ::warning, note → ::notice)", () => {
+    const { sink, output } = captureSink();
+    renderGha(
+      buildEnvelope({
+        command: "check",
+        exitCode: 1,
+        data: {
+          mode: "check",
+          violations: [
+            {
+              ruleId: "naming",
+              target: "svc_a",
+              targetKind: "element" as const,
+              message: "identifier breaks convention",
+              severity: "warning",
+            },
+            {
+              ruleId: "hint",
+              target: "svc_b",
+              targetKind: "element" as const,
+              message: "consider renaming",
+              severity: "note",
+            },
+          ],
+          suggestedFixes: [],
+          summary: { failed: 2, passed: 0, violations: 2 },
+          rules: [],
+        },
+        meta: { durationMs: 1, configPath: null, source: null },
+      }),
+      sink,
+    );
+    const text = output();
+    expect(text).toMatch(/^::warning title=naming::svc_a:/m);
+    expect(text).toMatch(/^::notice title=hint::svc_b:/m);
+  });
+
+  it("renders the per-level severity label in the violations table", () => {
+    const { sink, output } = captureSink();
+    renderHuman(
+      buildEnvelope({
+        command: "check",
+        exitCode: 1,
+        data: {
+          mode: "check",
+          violations: [
+            {
+              ruleId: "naming",
+              target: "svc_a",
+              targetKind: "element" as const,
+              message: "identifier breaks convention",
+              severity: "warning",
+            },
+            {
+              ruleId: "hint",
+              target: "svc_b",
+              targetKind: "element" as const,
+              message: "consider renaming",
+              severity: "note",
+            },
+          ],
+          suggestedFixes: [],
+          summary: { failed: 2, passed: 0, violations: 2 },
+          rules: [],
+        },
+        meta: { durationMs: 1, configPath: null, source: null },
+      }),
+      sink,
+    );
+    const text = output();
+    expect(text).toContain("warning");
+    expect(text).toContain("note");
+  });
+
   it("renders fixesApplied summary when present", () => {
     const { sink, output } = captureSink();
     renderHuman(
