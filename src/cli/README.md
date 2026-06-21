@@ -65,10 +65,14 @@ major version of aact.
 interface Diagnostic {
   readonly kind: DiagnosticKind;
   readonly message: string;
-  readonly severity: "warning" | "info";
+  readonly severity: "error" | "warning" | "info";
   readonly context?: Readonly<Record<string, string>>;
 }
 ```
+
+`severity` is `error` for fatal tool problems — the ones that drove
+`exitCode: 2` (every `ToolError` lands here) — and `warning` / `info` for
+non-fatal loader / operational notes.
 
 `DiagnosticKind` is a closed string-literal union — every diagnostic
 the CLI surfaces has a typed key. The taxonomy is grouped by source
