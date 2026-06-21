@@ -10,7 +10,6 @@ import { canFix } from "../../formats/types";
 import type { Model, SourceLocation } from "../../model";
 import { formatLocation } from "../../model";
 import { applyEdits, editLocation } from "../../rules/lib/applyEdits";
-import { ruleRegistry } from "../../rules/registry";
 import type {
   FixResult,
   RelatedLocation,
@@ -20,7 +19,6 @@ import type {
 } from "../../rules/types";
 import { issueToDiagnostic, loadModel } from "../loadModel";
 import type { Diagnostic, ExitCode, Renderer, RuleMetadata } from "../output";
-import { ToolError } from "../output";
 import { colors } from "../output/colors";
 import {
   formatDisplayPath,
@@ -28,18 +26,16 @@ import {
   linkSourceLocation,
 } from "../output/hyperlinks";
 import { adrHelpUri } from "../ruleHelpUri";
+import {
+  assertNoUnknownRules,
+  buildEffectiveRules,
+  isBuiltinRule,
+  isRuleEnabled,
+} from "../ruleResolution";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg, sarifArg } from "../sharedArgs";
 import { checkSarifAdapter } from "./checkSarif";
-
-/** Built-in rule names, indexed once — used by `buildRuleCatalogue`
- *  to tag each effective rule as `"built-in"` or `"custom"` without
- *  rebuilding the Set per call. `ruleRegistry` is static so the
- *  Set is safe at module scope. */
-const BUILTIN_RULE_NAMES: ReadonlySet<string> = new Set(
-  ruleRegistry.map((r) => r.name),
-);
 
 // -----------------------------------------------------------------------------
 // Public data shape (envelope.data for `aact check`)
@@ -140,75 +136,10 @@ interface RuleResult {
   readonly violations: readonly Violation[];
 }
 
-const buildEffectiveRules = (
-  customRules?: readonly RuleDefinition[],
-): readonly RuleDefinition[] => {
-  if (!customRules || customRules.length === 0) return ruleRegistry;
-
-  const seen = new Map<string, "built-in" | "custom">();
-  for (const r of ruleRegistry) seen.set(r.name, "built-in");
-
-  const merged: RuleDefinition[] = [...ruleRegistry];
-  for (const r of customRules) {
-    const existing = seen.get(r.name);
-    if (existing) {
-      throw new Error(
-        `customRules: rule "${r.name}" conflicts with existing ${existing} rule. ` +
-          `Rename your custom rule (e.g. prefix with your project name).`,
-      );
-    }
-    seen.set(r.name, "custom");
-    merged.push(r);
-  }
-  return merged;
-};
-
-// An unknown name in `config.rules` is almost always a typo — and a typo
-// silently disables enforcement, which is exactly the failure CI must catch.
-// So it's a hard config error (exit 2), consistent with the other `config.*`
-// kinds and with ESLint's treatment of unknown rules. Every unknown name is
-// collected so the user fixes all typos in one pass.
-const assertNoUnknownRules = (
-  rules: AactConfig["rules"],
-  effective: readonly RuleDefinition[],
-): void => {
-  if (!rules) return;
-  const known = new Set(effective.map((r) => r.name));
-  const unknown = Object.keys(rules).filter((key) => !known.has(key));
-  if (unknown.length === 0) return;
-  const names = unknown.map((n) => `"${n}"`).join(", ");
-  const plural = unknown.length > 1;
-  throw new ToolError(
-    "config.unknownRule",
-    `Unknown rule${plural ? "s" : ""} in config.rules: ${names}. ` +
-      `A typo here silently disables enforcement, so this is a hard error. ` +
-      `Remove the ${plural ? "entries" : "entry"}, or register ${plural ? "them" : "it"} via customRules. ` +
-      "Run `aact rule list` to see available rules.",
-    { rules: unknown.join(", ") },
-  );
-};
-
 const getRuleConfigValue = (
   rules: AactConfig["rules"],
   ruleName: string,
 ): unknown => rules?.[ruleName];
-
-/**
- * Whether a rule runs for this config. Built-in rules are **opt-in** —
- * silent unless named in `config.rules` — so a config is the single
- * source of truth for what's enforced (no invisible defaults). Custom
- * rules stay auto-enabled: registering one in `customRules` already is
- * the explicit opt-in. Either kind opts out with `<name>: false`.
- */
-const isRuleActive = (
-  rules: AactConfig["rules"],
-  ruleName: string,
-  isBuiltin: boolean,
-): boolean => {
-  const value = getRuleConfigValue(rules, ruleName);
-  if (value === false) return false;
-  return isBuiltin ? value !== undefined : true;
-};
 
 const runRules = (
   model: Model,
@@ -217,7 +148,7 @@ const runRules = (
 ): RuleResult[] => {
   const results: RuleResult[] = [];
   for (const rule of effective) {
-    if (!isRuleActive(rules, rule.name, BUILTIN_RULE_NAMES.has(rule.name))) {
+    if (!isRuleEnabled(rules, rule.name, isBuiltinRule(rule.name))) {
       continue;
     }
     const configValue = getRuleConfigValue(rules, rule.name);
@@ -232,12 +163,12 @@ const buildRuleCatalogue = (
   effective: readonly RuleDefinition[],
 ): readonly RuleMetadata[] =>
   effective.map((r) => {
-    const isBuiltin = BUILTIN_RULE_NAMES.has(r.name);
+    const isBuiltin = isBuiltinRule(r.name);
     return {
       ruleId: r.name,
       description: r.description,
       source: isBuiltin ? "built-in" : "custom",
-      enabled: isRuleActive(rules, r.name, isBuiltin),
+      enabled: isRuleEnabled(rules, r.name, isBuiltin),
       hasFix: typeof r.fix === "function",
       // helpUri points at the rule's ADR when one exists.
       // Previously we synthesised `<readme>#${r.name}` for every

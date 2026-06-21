@@ -58,7 +58,8 @@ export const buildErrorEnvelope = (
             input.error instanceof Error
               ? input.error.message
               : String(input.error),
-          severity: "warning",
+          // exit 2 is fatal — surface it as `error`, not `warning`.
+          severity: "error",
         };
 
   return buildEnvelope({

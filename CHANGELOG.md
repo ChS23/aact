@@ -44,6 +44,11 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   gone, omitted when a rule has no ADR), and `model --sarif` rule ids / result
   `ruleId`s use the camelCase `DiagnosticKind` (`model.danglingRelation`) —
   the same vocabulary as `model --json` diagnostics, not kebab-case.
+- `check`, `rule list`, and `rule explain` now resolve rules through one
+  shared resolver, so they agree on the rule set: a `customRules` name that
+  collides with a built-in (or another custom) is a `config.invalidCustomRule`
+  error (exit 2) in all three — previously `rule list` silently duplicated it
+  and `rule explain` shadowed the custom rule with the built-in.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

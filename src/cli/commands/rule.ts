@@ -1,13 +1,17 @@
 import { defineCommand } from "citty";
 
 import type { AactConfig } from "../../config";
-import { ruleRegistry } from "../../rules/registry";
 import type { RuleDefinition } from "../../rules/types";
 import { loadAndValidateConfig } from "../loadConfig";
 import type { Renderer, RuleMetadata } from "../output";
 import { ToolError } from "../output";
 import { colors } from "../output/colors";
 import { adrHelpUri } from "../ruleHelpUri";
+import {
+  buildEffectiveRules,
+  isBuiltinRule,
+  isRuleEnabled,
+} from "../ruleResolution";
 import type { ExecuteResult } from "../run";
 import { cliCommand } from "../run";
 import { configArg, jsonArg } from "../sharedArgs";
@@ -57,43 +61,18 @@ export interface RuleExplainArgs {
   readonly _: readonly string[];
 }
 
-// Mirror of `isRuleActive` in check.ts: built-in rules are opt-in (run
-// only when named in config.rules), custom rules are auto-enabled by
-// registration; either opts out with `<name>: false`.
-const isEnabled = (
-  rules: AactConfig["rules"],
-  name: string,
-  isBuiltin: boolean,
-): boolean => {
-  const value = rules?.[name];
-  if (value === false) return false;
-  return isBuiltin ? value !== undefined : true;
-};
-
-const collectRules = (config: AactConfig | null): RuleMetadata[] => {
-  const out: RuleMetadata[] = [];
-  for (const rule of ruleRegistry) {
-    out.push({
+const collectRules = (config: AactConfig | null): RuleMetadata[] =>
+  buildEffectiveRules(config?.customRules).map((rule) => {
+    const builtin = isBuiltinRule(rule.name);
+    return {
       ruleId: rule.name,
       description: rule.description,
-      source: "built-in",
-      enabled: isEnabled(config?.rules, rule.name, true),
+      source: builtin ? "built-in" : "custom",
+      enabled: isRuleEnabled(config?.rules, rule.name, builtin),
       hasFix: typeof rule.fix === "function",
       ...(rule.adrPath ? { helpUri: adrHelpUri(rule.adrPath) } : {}),
-    });
-  }
-  for (const rule of config?.customRules ?? []) {
-    out.push({
-      ruleId: rule.name,
-      description: rule.description,
-      source: "custom",
-      enabled: isEnabled(config?.rules, rule.name, false),
-      hasFix: typeof rule.fix === "function",
-      ...(rule.adrPath ? { helpUri: adrHelpUri(rule.adrPath) } : {}),
-    });
-  }
-  return out;
-};
+    };
+  });
 
 /**
  * Loads config if present, ignores `config.missingSource` (built-ins-only
@@ -130,11 +109,11 @@ const findRule = (
   name: string,
   config: AactConfig | null,
 ): { rule: RuleDefinition; source: "built-in" | "custom" } | undefined => {
-  const builtIn = ruleRegistry.find((r) => r.name === name);
-  if (builtIn) return { rule: builtIn, source: "built-in" };
-  const custom = (config?.customRules ?? []).find((r) => r.name === name);
-  if (custom) return { rule: custom, source: "custom" };
-  return undefined;
+  const rule = buildEffectiveRules(config?.customRules).find(
+    (r) => r.name === name,
+  );
+  if (!rule) return undefined;
+  return { rule, source: isBuiltinRule(name) ? "built-in" : "custom" };
 };
 
 export const executeRuleExplain = async (
@@ -150,10 +129,9 @@ export const executeRuleExplain = async (
   const config = await loadConfigOptional(args.config);
   const found = findRule(ruleName, config);
   if (!found) {
-    const known = [
-      ...ruleRegistry.map((r) => r.name),
-      ...(config?.customRules ?? []).map((r) => r.name),
-    ].join(", ");
+    const known = buildEffectiveRules(config?.customRules)
+      .map((r) => r.name)
+      .join(", ");
     throw new ToolError(
       "config.unknownRule",
       `Unknown rule "${ruleName}". Known rules: ${known}`,
@@ -166,7 +144,7 @@ export const executeRuleExplain = async (
       ruleId: rule.name,
       description: rule.description,
       source,
-      enabled: isEnabled(config?.rules, rule.name, source === "built-in"),
+      enabled: isRuleEnabled(config?.rules, rule.name, source === "built-in"),
       hasFix: typeof rule.fix === "function",
       ...(rule.rationale ? { rationale: rule.rationale } : {}),
       ...(rule.examples && rule.examples.length > 0
