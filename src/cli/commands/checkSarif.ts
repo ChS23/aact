@@ -159,7 +159,7 @@ const violationToResult = (
   return {
     ruleId: v.ruleId,
     ...(ruleIndex.has(v.ruleId) ? { ruleIndex: ruleIndex.get(v.ruleId) } : {}),
-    level: "error",
+    level: v.severity,
     message: { text: `${v.target}: ${v.message}` },
     locations: [buildSarifLocation(v.sourceLocation, repoRoot)],
     ...(relatedLocations && relatedLocations.length > 0

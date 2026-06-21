@@ -50,8 +50,12 @@ export interface CheckViolation {
   readonly target: string;
   readonly targetKind: "element" | "boundary";
   readonly message: string;
-  /** v1: always "error". Per-rule severity will be additive in a future bump. */
-  readonly severity: "error";
+  /**
+   * Severity level (SARIF vocabulary). Reserved as a three-value union at
+   * v3.0.0 so per-rule / configurable severity can land later without a
+   * `schemaVersion` bump; today every rule emits `"error"` until that ships.
+   */
+  readonly severity: "error" | "warning" | "note";
   /**
    * Optional location of the offending construct in source. Populated
    * either from `Violation.sourceLocation` if the rule set it
@@ -76,9 +80,12 @@ export interface CheckViolation {
 }
 
 export interface CheckSummary {
+  /** Rules that produced at least one violation. */
   readonly failed: number;
+  /** Rules that produced no violations. `passed + failed` = rules evaluated. */
   readonly passed: number;
-  readonly total: number;
+  /** Total violations across all failed rules — findings, not rules. */
+  readonly violations: number;
 }
 
 export interface CheckFixesApplied {
@@ -426,15 +433,15 @@ const flattenViolations = (
 const buildSummary = (results: readonly RuleResult[]): CheckSummary => {
   let failed = 0;
   let passed = 0;
-  let total = 0;
+  let violations = 0;
   for (const r of results) {
     if (r.violations.length === 0) passed += 1;
     else {
       failed += 1;
-      total += r.violations.length;
+      violations += r.violations.length;
     }
   }
-  return { failed, passed, total };
+  return { failed, passed, violations };
 };
 
 interface ApplyFixesResult {
@@ -613,6 +620,37 @@ export const executeCheck = async (
 // Text rendering
 // -----------------------------------------------------------------------------
 
+// Severity → coloured cell / annotation level. Today every violation is
+// "error"; the switches are in place so warning/note render correctly the
+// moment configurable severity ships — no renderer change needed then.
+const severityCell = (severity: CheckViolation["severity"]): string => {
+  switch (severity) {
+    case "warning": {
+      return colors.yellow("warning");
+    }
+    case "note": {
+      return colors.cyan("note");
+    }
+    default: {
+      return colors.red("error");
+    }
+  }
+};
+
+const githubLevel = (severity: CheckViolation["severity"]): string => {
+  switch (severity) {
+    case "warning": {
+      return "warning";
+    }
+    case "note": {
+      return "notice";
+    }
+    default: {
+      return "error";
+    }
+  }
+};
+
 const renderGithubAnnotations = (
   data: CheckData,
   sink: NodeJS.WritableStream,
@@ -628,7 +666,7 @@ const renderGithubAnnotations = (
       ? `file=${loc.file},line=${loc.start.line},col=${loc.start.col},`
       : "";
     sink.write(
-      `::error ${locAttrs}title=${v.ruleId}::${v.target}: ${v.message}\n`,
+      `::${githubLevel(v.severity)} ${locAttrs}title=${v.ruleId}::${v.target}: ${v.message}\n`,
     );
   }
 };
@@ -661,6 +699,7 @@ const renderViolationsTable = (
       locText,
       sourceLocation: loc,
       ruleId: v.ruleId,
+      severity: v.severity,
       target: v.target,
       message: v.message,
       relatedLocations: v.relatedLocations,
@@ -678,7 +717,7 @@ const renderViolationsTable = (
     const paddedLoc = r.locText.padEnd(locWidth);
     const linked = linkSourceLocation(paddedLoc, r.sourceLocation);
     const locCell = colors.dim(linked);
-    const severity = colors.red("error");
+    const severity = severityCell(r.severity);
     const ruleCell = colors.yellow(r.ruleId.padEnd(ruleWidth));
     const subject = colors.bold(r.target);
     sink.write(
@@ -709,7 +748,7 @@ const renderBoxSummary = (
   fixableCount: number,
   sink: NodeJS.WritableStream,
 ): void => {
-  if (data.summary.total === 0) {
+  if (data.summary.violations === 0) {
     sink.write(
       box(colors.green("No violations found."), {
         title: colors.green("✓ check"),
@@ -719,7 +758,8 @@ const renderBoxSummary = (
     return;
   }
 
-  const violationsLabel = data.summary.total === 1 ? "violation" : "violations";
+  const violationsLabel =
+    data.summary.violations === 1 ? "violation" : "violations";
   const rulesLabel = data.summary.failed === 1 ? "rule" : "rules";
   const fixableHas =
     fixableCount === 1 ? "rule has auto-fix" : "rules have auto-fix";
@@ -728,7 +768,7 @@ const renderBoxSummary = (
       ? "\n" + colors.dim(`${fixableCount} ${fixableHas} — run with --fix`)
       : "";
   const headline =
-    colors.red(`${data.summary.total} ${violationsLabel}`) +
+    colors.red(`${data.summary.violations} ${violationsLabel}`) +
     " " +
     colors.dim("in") +
     " " +
@@ -870,7 +910,7 @@ const renderViolationRow = (
     : "";
   const paddedLoc = locText.padEnd(Math.max(locText.length, 1));
   const linked = linkSourceLocation(paddedLoc, v.sourceLocation);
-  const severity = colors.red("error");
+  const severity = severityCell(v.severity);
   const ruleCell = colors.yellow(v.ruleId);
   const subject = colors.bold(v.target);
   sink.write(

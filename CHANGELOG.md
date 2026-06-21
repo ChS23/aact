@@ -17,6 +17,14 @@ rule list` and the `rules[]` array of `aact check --json` share one
 helpUri?`), and `rule list` now carries `helpUri`. The public
   `CheckRuleMetadata` and `RuleInfo` types are removed in favour of
   `RuleMetadata`; `RuleDefinition.name` (the authoring field) is unchanged.
+- **BREAKING: `CheckSummary` drops `total` in favour of `violations`.**
+  `passed` and `failed` count rules (`passed + failed` = rules evaluated);
+  `violations` counts findings. The old `total` was a finding count, so it
+  conflated the two axes (`total !== passed + failed`).
+- **`CheckViolation.severity` is now `"error" | "warning" | "note"`** (SARIF
+  vocabulary), reserved as a union at v3.0.0 so configurable / per-rule
+  severity can land later without a `schemaVersion` bump. Every rule still
+  emits `"error"` today; SARIF `level` and text output derive from it.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

@@ -209,13 +209,13 @@ describe("aact check", () => {
     const data = envelope.data as Record<string, unknown>;
     expect(data.mode).toBe("fix");
     expect(data.violations).toEqual([]);
-    expect(data.summary).toMatchObject({ failed: 0, total: 0 });
+    expect(data.summary).toMatchObject({ failed: 0, violations: 0 });
     const fixesApplied = data.fixesApplied as Record<string, unknown>;
     expect(fixesApplied).toBeDefined();
     expect(fixesApplied.remaining).toBe(0);
     expect(fixesApplied.count).toBe(1);
     expect(fixesApplied.before).toMatchObject({
-      summary: { failed: 2, total: 2 },
+      summary: { failed: 2, violations: 2 },
     });
     const diagnostics = envelope.diagnostics as
       | readonly { readonly kind: string }[]
