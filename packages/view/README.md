@@ -83,6 +83,20 @@ last good model stays on screen and the status pill flips to
 "error" with the parser message — restoring the file recovers via
 the next successful broadcast.
 
+## Protocol vs CLI `ViewData`
+
+Two "view" shapes exist — keep them separate:
+
+- **`aact view`'s `ViewData`** (the core `aact` package) is the `--json`
+  envelope _result_ of running the CLI command — a one-shot summary (port,
+  URL, whether this companion was found).
+- **`@aact/view`'s `ModelEnvelope`** is this package's **live workbench
+  protocol** — the payload served at `/api/model` and pushed over `/api/ws`
+  on every reload. It carries the normalized Model itself.
+
+They are not interchangeable: the CLI envelope describes _the command run_,
+the workbench envelope _streams the model_. Don't conflate them.
+
 ## Security
 
 `aact view` listens on `localhost` only. Each session generates a
