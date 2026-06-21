@@ -131,7 +131,12 @@ export const executeGenerate = async (
   }
 
   const { model } = await loadModel(config);
-  const output = format.generate(model);
+  // Per-format generate options from `config.generate.<formatName>`. The key
+  // cast narrows the registry name to the known format slices; unknown
+  // formats (e.g. compose) simply resolve to `undefined`.
+  const generateOptions =
+    config.generate?.[formatName as keyof NonNullable<AactConfig["generate"]>];
+  const output = format.generate(model, generateOptions);
 
   if (output.files.length === 0) {
     const diagnostic: Diagnostic = {

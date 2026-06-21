@@ -231,11 +231,15 @@ describe("AactConfigSchema — analyze / generate / output", () => {
     );
   });
 
-  it("generate.kubernetes.path + generate.boundaryLabel accept strings", () => {
+  it("per-format generate options accept the right shapes", () => {
     expect(
       parses({
         ...baseSource,
-        generate: { kubernetes: { path: "./k8s" }, boundaryLabel: "team" },
+        generate: {
+          kubernetes: { path: "./k8s" },
+          plantuml: { boundaryLabel: "team" },
+          structurizr: { fileName: "workspace.dsl" },
+        },
       }).success,
     ).toBe(true);
     expect(
@@ -247,7 +251,14 @@ describe("AactConfigSchema — analyze / generate / output", () => {
     expect(
       parses({
         ...baseSource,
-        generate: { boundaryLabel: 5 },
+        generate: { plantuml: { boundaryLabel: 5 } },
+      }).success,
+    ).toBe(false);
+    // boundaryLabel at the top level (old shape) is now rejected.
+    expect(
+      parses({
+        ...baseSource,
+        generate: { boundaryLabel: "team" },
       }).success,
     ).toBe(false);
   });

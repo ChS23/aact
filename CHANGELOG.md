@@ -53,6 +53,12 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
 - `generate --json` `files[].bytes` is now the UTF-8 byte size written to
   disk, not the JS string length (which counts UTF-16 code units and
   undercounts non-ASCII output).
+- **`config.generate` is now per-format.** Options live under
+  `generate.<format>` (`generate.plantuml.boundaryLabel`,
+  `generate.structurizr.fileName`, `generate.kubernetes.path`), and
+  `aact generate` passes the matching slice to `format.generate`. Previously
+  `generate.boundaryLabel` sat at the top level and was silently ignored by
+  the CLI.
 
 ### Added
 

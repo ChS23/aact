@@ -84,10 +84,10 @@ const config: AactConfig = {
   //   https://github.com/Byndyusoft/aact/tree/main/examples/custom-rules
   // -----------------------------------------------------------------------
 
-  // PlantUML generation from Kubernetes configs (aact generate)
+  // Per-format generate options (aact generate)
   // generate: {
+  //   plantuml: { boundaryLabel: "Our system" },
   //   kubernetes: { path: "./fixtures/kubernetes" },
-  //   boundaryLabel: "Our system",
   // },
 
   // Default output mode. CLI \`--json\` always overrides per-invocation.

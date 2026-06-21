@@ -124,12 +124,24 @@ export const AactConfigSchema = v.strictObject({
   ),
   generate: v.optional(
     v.strictObject({
+      // Per-format generate options, keyed by `source.type` / registry name.
+      // `aact generate` passes `generate.<format>` to `format.generate(model,
+      // opts)`. Library users can also pass options directly.
+      plantuml: v.optional(
+        v.strictObject({
+          boundaryLabel: v.optional(v.string()),
+        }),
+      ),
+      structurizr: v.optional(
+        v.strictObject({
+          fileName: v.optional(v.string()),
+        }),
+      ),
       kubernetes: v.optional(
         v.strictObject({
           path: v.optional(v.string()),
         }),
       ),
-      boundaryLabel: v.optional(v.string()),
     }),
   ),
   output: v.optional(
