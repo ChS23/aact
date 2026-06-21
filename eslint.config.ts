@@ -26,6 +26,10 @@ export default tseslint.config(
       // on demand by scripts/fetch-parser-refs.sh, not our code.
       ".parser-refs/",
       "stryker.config.mjs",
+      // AactLoop research bench corpus — standalone .mjs runners/scorers,
+      // not part of the shipped TS project, so the typed lint's project
+      // service can't resolve them. Research material, not core code.
+      "docs/research/",
       // Workspace packages own their own lint config + dist. The
       // root config only covers the core aact code under src/ and
       // test/; touching packages/* from here would force one

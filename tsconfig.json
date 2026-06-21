@@ -5,6 +5,7 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2023"],
     "outDir": "./dist",
+    "rootDir": ".",
     "declaration": true,
     "sourceMap": true,
     "esModuleInterop": true,
