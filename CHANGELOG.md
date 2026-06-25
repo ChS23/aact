@@ -95,7 +95,8 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   config runs every built-in rule.
 - A `kubernetes-drift` example (`examples/kubernetes-drift/`) — an intended C4
   architecture vs. a deployed cluster with planted drift — backing the new
-  [aact ↔ Kubernetes guide](docs/guides/aact-kubernetes.md).
+  [architecture-conformance guide](docs/guides/architecture-conformance.md)
+  (AaC ↔ IaC).
 - Format objects are exported from the package root — `plantumlFormat`,
   `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
   `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).

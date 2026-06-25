@@ -4,8 +4,8 @@ Architecture-as-code vs. a live cluster. The C4 model in `architecture.dsl` is
 the **intended** design of the `Shop` platform; `k8s/` is what's actually
 **deployed**. They disagree on purpose — `aact diff` surfaces the drift.
 
-See the [aact ↔ Kubernetes guide](../../docs/guides/aact-kubernetes.md) for the
-full walkthrough.
+See the [architecture-conformance guide](../../docs/guides/architecture-conformance.md)
+(AaC ↔ IaC) for the full walkthrough.
 
 ## Layout
 
