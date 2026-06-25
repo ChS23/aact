@@ -21,6 +21,7 @@ import {
   resolveOutputMode,
   SarifReporter,
 } from "./output";
+import { applyPositionalSource } from "./sourceArg";
 
 /**
  * What `execute` returns: domain payload + outcome. The wrapper assembles
@@ -207,6 +208,24 @@ export const cliCommandWithConfig = <TArgs extends ArgsDef, TData>(
         // `--config <path>` and default discovery in cwd / parents).
         resolvedConfigPath = loaded.configPath ?? explicitConfigPath ?? null;
       } catch (error) {
+        loadError = error;
+      }
+
+      // A positional `source` arg (model / check / analyze) overrides
+      // config.source, or stands in for the config entirely when none was
+      // found — so `aact model architecture.dsl` works with no config,
+      // matching `aact diff`. `applyPositionalSource` returns the same
+      // reference when no positional was given, so the missing-config
+      // error below still fires for `aact model` with neither.
+      try {
+        const withSource = await applyPositionalSource(config, ctx.args);
+        if (withSource !== config) {
+          config = withSource;
+          loadError = null;
+          resolvedConfigPath = null;
+        }
+      } catch (error) {
+        config = null;
         loadError = error;
       }
 

@@ -104,7 +104,7 @@ const COMPOSE_BASES = new Set([
   "docker-compose.yml",
 ]);
 
-const detectFormatFromPath = (
+export const detectFormatFromPath = (
   filePath: string,
   isDirectory = false,
 ): string | undefined => {

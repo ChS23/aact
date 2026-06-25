@@ -30,6 +30,7 @@ Check architecture rules
 
 | Argument | Type | Description |
 | --- | --- | --- |
+| `<source>` | positional, optional | Architecture source — file or directory. Overrides (or stands in for) aact.config.ts source; format auto-detected from the path. |
 | `--config` | string | Path to aact config file (defaults to c12 auto-discovery from cwd) |
 | `--json` | boolean | Emit JSON envelope on stdout (machine-readable for CI / agents) |
 | `--sarif` | boolean | Emit SARIF v2.1.0 on stdout (uploadable to GitHub Code Scanning, SonarQube, etc.). Outranks --json if both are set. |
@@ -42,6 +43,7 @@ Analyze architecture metrics
 
 | Argument | Type | Description |
 | --- | --- | --- |
+| `<source>` | positional, optional | Architecture source — file or directory. Overrides (or stands in for) aact.config.ts source; format auto-detected from the path. |
 | `--config` | string | Path to aact config file (defaults to c12 auto-discovery from cwd) |
 | `--json` | boolean | Emit JSON envelope on stdout (machine-readable for CI / agents) |
 
@@ -51,6 +53,7 @@ Print the normalized Model (text summary, --json for full graph, --sarif for iss
 
 | Argument | Type | Description |
 | --- | --- | --- |
+| `<source>` | positional, optional | Architecture source — file or directory. Overrides (or stands in for) aact.config.ts source; format auto-detected from the path. |
 | `--config` | string | Path to aact config file (defaults to c12 auto-discovery from cwd) |
 | `--json` | boolean | Emit JSON envelope on stdout (machine-readable for CI / agents) |
 | `--sarif` | boolean | Emit SARIF v2.1.0 on stdout (uploadable to GitHub Code Scanning, SonarQube, etc.). Outranks --json if both are set. |

@@ -7,6 +7,7 @@ import { colors } from "../output/colors";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg } from "../sharedArgs";
+import { sourceArg } from "../sourceArg";
 
 export type AnalyzeData = AnalysisReport;
 
@@ -105,7 +106,7 @@ export const renderAnalyzeText: Renderer<AnalyzeData> = (envelope, sink) => {
 export const analyze = cliCommandWithConfig({
   name: "analyze",
   meta: { name: "analyze", description: "Analyze architecture metrics" },
-  args: { ...configArg, ...jsonArg },
+  args: { ...sourceArg, ...configArg, ...jsonArg },
   renderText: renderAnalyzeText,
   execute: (_ctx, config) => executeAnalyze(config),
 });

@@ -13,6 +13,7 @@ import { colors } from "../output/colors";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg, sarifArg } from "../sharedArgs";
+import { sourceArg } from "../sourceArg";
 import { modelSarifAdapter } from "./modelSarif";
 
 /**
@@ -125,7 +126,7 @@ export const model = cliCommandWithConfig({
     description:
       "Print the normalized Model (text summary, --json for full graph, --sarif for issues)",
   },
-  args: { ...configArg, ...jsonArg, ...sarifArg },
+  args: { ...sourceArg, ...configArg, ...jsonArg, ...sarifArg },
   renderText: renderModelText,
   sarifAdapter: modelSarifAdapter,
   execute: (_ctx, config) => executeModel(config),

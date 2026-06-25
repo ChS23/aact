@@ -35,6 +35,7 @@ import {
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg, sarifArg } from "../sharedArgs";
+import { sourceArg } from "../sourceArg";
 import { checkSarifAdapter } from "./checkSarif";
 
 // -----------------------------------------------------------------------------
@@ -1039,6 +1040,7 @@ export const check = cliCommandWithConfig({
   name: "check",
   meta: { name: "check", description: "Check architecture rules" },
   args: {
+    ...sourceArg,
     ...configArg,
     ...jsonArg,
     ...sarifArg,
