@@ -12,17 +12,19 @@ const diff = (a: Model, b: Model, opts = {}) =>
   computeDiff(a, b, SIDE_BASE, SIDE_CURR, opts);
 
 describe("meaningfulTags", () => {
-  it("drops implicit Structurizr styling tags", () => {
+  it("drops implicit tags that duplicate a typed field", () => {
     expect(meaningfulTags(["Element", "Container", "repo"])).toEqual(["repo"]);
     expect(meaningfulTags(["Element", "Software System"])).toEqual([]);
+    expect(meaningfulTags(["External"])).toEqual([]);
     expect(meaningfulTags(["Relationship"])).toEqual([]);
   });
 
-  it("preserves domain tags and order", () => {
-    expect(meaningfulTags(["acl", "Element", "External"])).toEqual([
+  it("keeps domain tags (incl. async) in order", () => {
+    expect(meaningfulTags(["acl", "Element", "owner:platform"])).toEqual([
       "acl",
-      "External",
+      "owner:platform",
     ]);
+    expect(meaningfulTags(["async", "Relationship"])).toEqual(["async"]);
   });
 
   it("handles undefined", () => {

@@ -1,20 +1,22 @@
 /**
- * Implicit styling tags from the Structurizr tag vocabulary: `Element`
- * plus a kind tag (`Person` / `Software System` / `Container` /
- * `Component`) on every element, and `Relationship` on every relation.
+ * Implicit tags from the Structurizr tag vocabulary that duplicate a
+ * typed Model field: `Element` plus a kind tag (`Person` / `Software
+ * System` / `Container` / `Component`) and `External` on elements, and
+ * `Relationship` on relations.
  *
- * These duplicate the typed `kind` field — `Container` the tag carries
- * the same information as `kind: "Container"` — and carry no extra
- * architectural meaning: no rule reads them, `analyze` and the viewer
- * branch on `kind`, and the Structurizr generator re-derives them from
- * `kind` on output. The PlantUML, kubernetes and compose loaders never
- * produced them. Keeping `Model.tags` free of them makes the contract
- * uniform across formats — the same model loaded from `.dsl`, a
- * `workspace.json`, a `./k8s/` directory or a `compose.yml` carries the
- * same tag set — and keeps cross-format diffs honest.
+ * Each one mirrors a field the Model already carries — `Container` the
+ * tag === `kind: "Container"`, `External` === `external: true` — and
+ * carries no extra architectural meaning: no rule reads them (rules
+ * branch on `kind` / `external`), `analyze` and the viewer use the typed
+ * fields, and the Structurizr generator re-derives them from `kind` /
+ * `external` on output. The PlantUML, kubernetes and compose loaders set
+ * the fields without emitting the tags. Stripping them keeps `Model.tags`
+ * to user-authored, architecturally meaningful tags — uniform whether a
+ * model loads from `.dsl`, a `workspace.json`, a `./k8s/` directory or a
+ * `compose.yml` — and keeps cross-format diffs honest.
  *
- * The `external` location tag is deliberately NOT here: it maps to the
- * typed `external` flag but is also a meaningful domain tag users author.
+ * NOT stripped: `async` (the canonical encoding of an async relation —
+ * there's no typed field, and `analyze` / rules read it).
  */
 const IMPLICIT_TAGS: ReadonlySet<string> = new Set([
   "Element",
@@ -22,6 +24,7 @@ const IMPLICIT_TAGS: ReadonlySet<string> = new Set([
   "Software System",
   "Container",
   "Component",
+  "External",
   "Relationship",
 ]);
 

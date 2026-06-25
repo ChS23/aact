@@ -1,6 +1,27 @@
+import { meaningfulTags } from "./tags";
 import type { Boundary, Element, Model, WorkspaceMetadata } from "./types";
 import type { ModelIssue } from "./validate";
 import { validateModel } from "./validate";
+
+/**
+ * Strip implicit styling tags (`Element` / `Container` / `External` /
+ * `Relationship` / …) from an element and its relations. Every loader
+ * flows through here, so this is the one place that guarantees
+ * `Model.tags` holds only user-authored tags — see `./tags.ts`.
+ */
+const withMeaningfulTags = (e: Element): Element =>
+  Object.freeze({
+    ...e,
+    tags: Object.freeze(meaningfulTags(e.tags)),
+    relations: Object.freeze(
+      e.relations.map((r) =>
+        Object.freeze({ ...r, tags: Object.freeze(meaningfulTags(r.tags)) }),
+      ),
+    ),
+  });
+
+const boundaryWithMeaningfulTags = (b: Boundary): Boundary =>
+  Object.freeze({ ...b, tags: Object.freeze(meaningfulTags(b.tags)) });
 
 /**
  * Все loader'ы (PlantUML, Structurizr, Kubernetes, future Mermaid/Compose/
@@ -47,7 +68,7 @@ export const buildModel = (input: ModelBuildInput): ModelBuildResult => {
       issues.push({ kind: "duplicate-element-name", name: e.name });
       continue;
     }
-    elementMap[e.name] = e;
+    elementMap[e.name] = withMeaningfulTags(e);
   }
 
   const boundaryMap: Record<string, Boundary> = Object.create(null) as Record<
@@ -61,7 +82,7 @@ export const buildModel = (input: ModelBuildInput): ModelBuildResult => {
       issues.push({ kind: "duplicate-boundary-name", name: b.name });
       continue;
     }
-    boundaryMap[b.name] = b;
+    boundaryMap[b.name] = boundaryWithMeaningfulTags(b);
   }
 
   const model: Model = Object.freeze({

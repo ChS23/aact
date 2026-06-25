@@ -14,22 +14,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **BREAKING: `Model.tags` no longer carries Structurizr's implicit styling
-  tags.** The DSL and `workspace.json` loaders stamped `Element` plus a kind
-  tag (`Container`, `Software System`, …) on every element and `Relationship`
-  on every relation, mirroring the reference parser. Those duplicate the typed
-  `kind` field, no rule reads them, and the PlantUML / kubernetes / compose
-  loaders never produced them — so the same model now yields the same `tags`
-  whatever format it loads from. Authored tags (`repo`, `acl`, `External`, …)
-  are unchanged, and the Structurizr generator still re-derives the styling
-  tags from `kind` on output, so round-trips stay faithful.
-- **Cross-format diff is quieter.** `aact diff` ignores those styling tags
-  when comparing (a defensive net for legacy `.aact.json`), and the loaders
-  that synthesise a label from a machine name (`kubernetes`, `compose`) keep
-  well-known acronyms uppercase (`orders-api` → `Orders API`, not `Orders
-Api`). Together these let `aact diff architecture.dsl ./k8s/` report real
-  structural drift without tag or label noise. New `meaningfulTags` helper is
-  exported from the model surface.
+- **BREAKING: `Model.tags` no longer carries implicit tags that duplicate a
+  typed field.** Structurizr stamped `Element` plus a kind tag (`Container`,
+  `Software System`, …) and `External` on elements, and `Relationship` on
+  relations, mirroring the reference parser. Each mirrors a field the Model
+  already has (`kind`, `external`), no rule reads them (rules branch on the
+  typed fields), and the PlantUML / kubernetes / compose loaders set the
+  fields without emitting the tags. `buildModel` — the one constructor every
+  loader flows through — now strips them, so the same model yields the same
+  `tags` whatever format it loads from. User-authored domain tags (`repo`,
+  `acl`, `owner:team`, the `async` relation marker) are untouched, and the
+  Structurizr generator re-derives the styling tags from `kind` / `external`
+  on output, so round-trips stay faithful.
+- **Cross-format diff is quieter.** `aact diff` strips the same implicit tags
+  when comparing (a net for hand-built Models / legacy `.aact.json`), and the
+  loaders that synthesise a label from a machine name (`kubernetes`,
+  `compose`) keep well-known acronyms uppercase (`orders-api` → `Orders API`,
+  not `Orders Api`). Together these let `aact diff architecture.dsl ./k8s/`
+  report real structural drift without tag or label noise. New `meaningfulTags`
+  helper is exported from the model surface.
 - **BREAKING: a rule is identified by `ruleId` everywhere in the JSON
   contract.** `CheckViolation` and `FixResult` now carry `ruleId` (was
   `rule`), matching SARIF `result.ruleId`, so consumers join
