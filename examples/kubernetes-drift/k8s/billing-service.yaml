@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-service
+  namespace: shop
+  annotations:
+    aact.technology: "Go"
+    aact.description: "Charges and issues invoices"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: billing-service
+  template:
+    metadata:
+      labels:
+        app: billing-service
+    spec:
+      containers:
+        - name: billing-service
+          image: ghcr.io/shop/billing-service:2.1
+          ports:
+            - containerPort: 8080
+          env:
+            - name: BILLING_REPO_URL
+              value: http://billing-repo-svc:8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-svc
+  namespace: shop
+spec:
+  selector:
+    app: billing-service
+  ports:
+    - port: 8080
+      targetPort: 8080

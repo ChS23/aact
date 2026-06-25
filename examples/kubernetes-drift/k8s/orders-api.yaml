@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  namespace: shop
+  annotations:
+    aact.technology: "Node.js"
+    aact.description: "Accepts and orchestrates orders"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orders-api
+  template:
+    metadata:
+      labels:
+        app: orders-api
+    spec:
+      containers:
+        - name: orders-api
+          image: ghcr.io/shop/orders-api:1.4
+          ports:
+            - containerPort: 8080
+          env:
+            # DRIFT: the API talks to the database directly. The
+            # architecture routes order persistence through orders-repo.
+            - name: ORDERS_DB_URL
+              value: postgresql://shop:secret@orders-db-svc:5432/orders
+            - name: BILLING_URL
+              value: http://billing-svc:8080

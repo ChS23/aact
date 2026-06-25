@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+  namespace: shop
+  # DRIFT: deployed into the cluster, but absent from the architecture.
+  # No aact.* annotations — it shows up with its raw image as technology.
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+    spec:
+      containers:
+        - name: metrics-collector
+          image: ghcr.io/shop/metrics-collector:0.9
+          ports:
+            - containerPort: 9090

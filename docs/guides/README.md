@@ -31,5 +31,8 @@
 
 - [**CI: SARIF → GitHub Code Scanning**](./ci-github-code-scanning.md) — aact как
   гейт на PR, нарушения как алерты в Security-вкладке.
+- [**aact ↔ Kubernetes**](./aact-kubernetes.md) — дрейф между архитектурой и
+  задеплоенным кластером: `aact diff architecture.dsl ./k8s/`, линт манифестов,
+  гейт на дрейф в CI.
 - [**Свои правила (custom rules)**](./custom-rules.md) — кодируем паттерны
   команды поверх встроенных правил.
