@@ -106,6 +106,10 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   architecture vs. a deployed cluster with planted drift — backing the new
   [architecture-conformance guide](docs/guides/architecture-conformance.md)
   (AaC ↔ IaC).
+- A `library-api` example (`examples/library-api/`) and guide
+  ([aact as a library](docs/guides/library-api.md)) — driving aact from code:
+  `load`, built-in + `defineRule` rules, `computeDiff`, `analyzeArchitecture`,
+  `generate`, all through the public package surface.
 - Format objects are exported from the package root — `plantumlFormat`,
   `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
   `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).

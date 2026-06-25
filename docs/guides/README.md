@@ -36,3 +36,5 @@
   `aact diff architecture.dsl ./k8s/`, линт манифестов, гейт на дрейф в CI.
 - [**Свои правила (custom rules)**](./custom-rules.md) — кодируем паттерны
   команды поверх встроенных правил.
+- [**aact как библиотека**](./library-api.md) — водим aact из кода: `load`,
+  правила, `computeDiff`, `analyze`, `generate` через публичный API пакета.
