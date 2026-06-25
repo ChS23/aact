@@ -14,6 +14,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING: `Model.tags` no longer carries Structurizr's implicit styling
+  tags.** The DSL and `workspace.json` loaders stamped `Element` plus a kind
+  tag (`Container`, `Software System`, …) on every element and `Relationship`
+  on every relation, mirroring the reference parser. Those duplicate the typed
+  `kind` field, no rule reads them, and the PlantUML / kubernetes / compose
+  loaders never produced them — so the same model now yields the same `tags`
+  whatever format it loads from. Authored tags (`repo`, `acl`, `External`, …)
+  are unchanged, and the Structurizr generator still re-derives the styling
+  tags from `kind` on output, so round-trips stay faithful.
+- **Cross-format diff is quieter.** `aact diff` ignores those styling tags
+  when comparing (a defensive net for legacy `.aact.json`), and the loaders
+  that synthesise a label from a machine name (`kubernetes`, `compose`) keep
+  well-known acronyms uppercase (`orders-api` → `Orders API`, not `Orders
+Api`). Together these let `aact diff architecture.dsl ./k8s/` report real
+  structural drift without tag or label noise. New `meaningfulTags` helper is
+  exported from the model surface.
 - **BREAKING: a rule is identified by `ruleId` everywhere in the JSON
   contract.** `CheckViolation` and `FixResult` now carry `ruleId` (was
   `rule`), matching SARIF `result.ruleId`, so consumers join
@@ -68,6 +84,15 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
 
 ### Added
 
+- **`model`, `check`, and `analyze` accept a positional `source`** — a file or
+  directory path, the way `aact diff` already does. It overrides
+  `config.source`, and with no `aact.config.ts` it stands in for one
+  (`aact model architecture.dsl`, `aact check ./k8s/`); the format is
+  auto-detected from the path (directory → kubernetes). Ad-hoc `check` with no
+  config runs every built-in rule.
+- A `kubernetes-drift` example (`examples/kubernetes-drift/`) — an intended C4
+  architecture vs. a deployed cluster with planted drift — backing the new
+  [aact ↔ Kubernetes guide](docs/guides/aact-kubernetes.md).
 - Format objects are exported from the package root — `plantumlFormat`,
   `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
   `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).

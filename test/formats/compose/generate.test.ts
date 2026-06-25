@@ -227,7 +227,7 @@ describe("compose generate — labels (round-trip metadata)", () => {
     // эмитит две модели — одну с canonical label (round-trip stable),
     // другую с custom label (требует aact.label чтобы сохранить).
     const { parsed } = buildOutput([
-      { name: "api-gateway", label: "Api Gateway" }, // canonical
+      { name: "api-gateway", label: "API Gateway" }, // canonical (acronym-aware)
       { name: "auth-svc", label: "Authentication" }, // custom
     ]);
     const services = parsed.services as Record<

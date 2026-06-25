@@ -645,11 +645,13 @@ const aggregateBody = (
     element.kind === "container" || element.kind === "component"
       ? element.headerTechnology?.value
       : undefined;
-  // Seed tags with the reference parser's element-kind defaults.
-  // The Java parser stamps every element with "Element" plus a
-  // kind-specific tag (`Person`, `Software System`, `Container`,
-  // `Component`); explicit header and body tags are appended.
-  const tags: string[] = [...defaultTagsForKind(element.kind)];
+  // Only user-authored tags land in the Model. The reference parser
+  // stamps implicit styling tags ("Element" plus a kind tag) on every
+  // element, but those duplicate the typed `kind` field and no rule
+  // reads them — keeping them out makes `Model.tags` uniform with the
+  // PlantUML / kubernetes / compose loaders. The generator re-derives
+  // the DSL keyword from `kind`, so round-trips stay faithful.
+  const tags: string[] = [];
   if (element.headerTags?.value)
     tags.push(...splitTags(element.headerTags.value));
   let link: string | undefined;
@@ -972,7 +974,6 @@ const handleRelationship = (
     description: rel.headerDescription?.value,
     technology: rel.headerTechnology?.value,
     tags: dedupeTags([
-      ...DEFAULT_RELATION_TAGS,
       ...(rel.headerTags ? splitTags(rel.headerTags.value) : []),
       ...body.tags,
     ]),
@@ -1349,46 +1350,6 @@ const splitTags = (raw: string): readonly string[] =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-
-/**
- * Default tag set the reference parser stamps on every element of
- * a given DSL kind. Order matters — `Element` first, then the
- * kind-specific label (with space for `Software System`).
- */
-const defaultTagsForKind = (kind: ElementNode["kind"]): readonly string[] => {
-  switch (kind) {
-    case "person": {
-      return ["Element", "Person"];
-    }
-    case "softwareSystem": {
-      return ["Element", "Software System"];
-    }
-    case "container": {
-      return ["Element", "Container"];
-    }
-    case "component": {
-      return ["Element", "Component"];
-    }
-    case "element": {
-      // CustomElement is the escape hatch outside the five C4 types —
-      // Element is the abstract parent in C4 vocabulary, not a kind.
-      // We tag only with `"Element"` so rules that look for the
-      // canonical kinds (`Person`, `Container`, …) ignore it cleanly.
-      return ["Element"];
-    }
-    case "group": {
-      // Groups aren't C4 elements — handled elsewhere; return empty
-      // so callers that pass a group don't accidentally seed tags.
-      return [];
-    }
-  }
-};
-
-/**
- * Default tag set the reference parser stamps on every relationship.
- * Header / body tags append after this.
- */
-const DEFAULT_RELATION_TAGS: readonly string[] = ["Relationship"];
 
 // Re-export the Model type so callers don't need a separate import.
 

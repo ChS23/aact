@@ -47,9 +47,9 @@ describe("Structurizr parser — !impliedRelationships true", () => {
     }`;
     const { model, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
-    // Explicit edge keeps default + header tags
+    // Explicit edge keeps only its header tags (no implicit "Relationship")
     const explicit = model.elements["a"]?.relations[0];
-    expect(explicit?.tags).toEqual(["Relationship", "internal"]);
+    expect(explicit?.tags).toEqual(["internal"]);
     // No implied edge from "B" (no relation from B exists)
     expect(model.elements["b"]?.relations).toEqual([]);
   });

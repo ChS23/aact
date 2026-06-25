@@ -1,6 +1,7 @@
 import YAML from "yaml";
 
 import type { Element, Model } from "../../model";
+import { humanizeName } from "../_shared/humanize";
 import type { FormatOutput } from "../types";
 
 /**
@@ -220,8 +221,8 @@ const collectAiModelRefs = (el: Element, model: Model): readonly string[] => {
 const buildLabels = (el: Element, prefix: string): Record<string, string> => {
   const labels: Record<string, string> = {};
   // `aact.label` только когда отличается от auto-humanized name'а —
-  // иначе loader восстановит через `humanize(name)` без подсказки.
-  const canonicalLabel = humanize(el.name);
+  // иначе loader восстановит через `humanizeName(name)` без подсказки.
+  const canonicalLabel = humanizeName(el.name);
   if (el.label !== canonicalLabel) {
     labels[`${prefix}.label`] = el.label;
   }
@@ -264,13 +265,3 @@ const shouldEmitKindLabel = (el: Element): boolean => {
   }
   return true;
 };
-
-/* ------------------------------------------------------------------ */
-/*  Humanize (mirrors loader's humanize)                              */
-/* ------------------------------------------------------------------ */
-
-const humanize = (raw: string): string =>
-  raw
-    .replaceAll(/[-_]+/g, " ")
-    .replaceAll(/\b\w/g, (c) => c.toUpperCase())
-    .trim();

@@ -40,8 +40,6 @@ describe("Structurizr parser — body statements + directives", () => {
     const { model, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
     expect(model.elements["api"]?.tags).toEqual([
-      "Element",
-      "Container",
       "external",
       "api",
       "compliance",
@@ -58,13 +56,7 @@ describe("Structurizr parser — body statements + directives", () => {
     }`;
     const { model, parseErrors } = parse(src);
     expect(parseErrors).toEqual([]);
-    expect(model.elements["api"]?.tags).toEqual([
-      "Element",
-      "Container",
-      "alpha",
-      "beta",
-      "gamma",
-    ]);
+    expect(model.elements["api"]?.tags).toEqual(["alpha", "beta", "gamma"]);
   });
 
   it("body `tag` is an alias for `tags` — splits CSV", () => {
@@ -79,12 +71,7 @@ describe("Structurizr parser — body statements + directives", () => {
       }
     }`;
     const { model } = parse(src);
-    expect(model.elements["api"]?.tags).toEqual([
-      "Element",
-      "Container",
-      "alpha",
-      "beta",
-    ]);
+    expect(model.elements["api"]?.tags).toEqual(["alpha", "beta"]);
   });
 
   it("body `tag` accepts multiple whitespace-separated args (like tags)", () => {
@@ -96,13 +83,7 @@ describe("Structurizr parser — body statements + directives", () => {
       }
     }`;
     const { model } = parse(src);
-    expect(model.elements["api"]?.tags).toEqual([
-      "Element",
-      "Container",
-      "alpha",
-      "beta",
-      "gamma",
-    ]);
+    expect(model.elements["api"]?.tags).toEqual(["alpha", "beta", "gamma"]);
   });
 
   it("`!const` inside an element body parses (reference accepts at any scope)", () => {
@@ -128,11 +109,7 @@ describe("Structurizr parser — body statements + directives", () => {
       }
     }`;
     const { model } = parse(src);
-    expect(model.elements["api"]?.tags).toEqual([
-      "Element",
-      "Container",
-      "compliance",
-    ]);
+    expect(model.elements["api"]?.tags).toEqual(["compliance"]);
   });
 
   it("body `url` lands on Container.link", () => {
@@ -184,7 +161,7 @@ describe("Structurizr parser — body statements + directives", () => {
       expect.objectContaining({
         to: "api",
         description: "Uses",
-        tags: ["Relationship", "Critical"],
+        tags: ["Critical"],
         link: "https://example.com/rel",
         properties: {
           sla: "99.9",
@@ -407,7 +384,7 @@ workspace {
     expect(model.boundaries["bank"]).toEqual(
       expect.objectContaining({
         description: "The bank's internal system",
-        tags: ["Element", "Software System", "core"],
+        tags: ["core"],
       }),
     );
     expect(model.elements["api"]).toBeDefined();

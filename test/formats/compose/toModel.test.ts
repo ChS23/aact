@@ -124,7 +124,7 @@ describe("toModel — labels and overrides", () => {
     image: nginx
 `,
     );
-    expect(model.elements["api-gateway"].label).toBe("Api Gateway");
+    expect(model.elements["api-gateway"].label).toBe("API Gateway");
   });
 
   it("aact.description sets description", () => {

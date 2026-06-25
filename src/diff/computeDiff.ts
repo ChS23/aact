@@ -5,6 +5,7 @@ import type {
   Relation,
   WorkspaceMetadata,
 } from "../model";
+import { meaningfulTags } from "../model";
 import { hungarian } from "./hungarian";
 import { boundarySimilarity, elementSimilarity } from "./similarity";
 import type {
@@ -286,12 +287,14 @@ const diffElementFields = (
       after: after.description,
     });
   }
-  if (!stringArraysEqual(before.tags, after.tags)) {
-    const delta = setDelta(before.tags, after.tags);
+  const beforeTags = meaningfulTags(before.tags);
+  const afterTags = meaningfulTags(after.tags);
+  if (!stringArraysEqual(beforeTags, afterTags)) {
+    const delta = setDelta(beforeTags, afterTags);
     fields.push({
       field: "tags",
-      before: before.tags,
-      after: after.tags,
+      before: beforeTags,
+      after: afterTags,
       ...(delta.added.length > 0 ? { added: delta.added } : {}),
       ...(delta.removed.length > 0 ? { removed: delta.removed } : {}),
     });
@@ -341,12 +344,14 @@ const diffBoundaryFields = (
       after: after.description,
     });
   }
-  if (!stringArraysEqual(before.tags, after.tags)) {
-    const delta = setDelta(before.tags, after.tags);
+  const beforeTags = meaningfulTags(before.tags);
+  const afterTags = meaningfulTags(after.tags);
+  if (!stringArraysEqual(beforeTags, afterTags)) {
+    const delta = setDelta(beforeTags, afterTags);
     fields.push({
       field: "tags",
-      before: before.tags,
-      after: after.tags,
+      before: beforeTags,
+      after: afterTags,
       ...(delta.added.length > 0 ? { added: delta.added } : {}),
       ...(delta.removed.length > 0 ? { removed: delta.removed } : {}),
     });
@@ -396,12 +401,14 @@ const diffRelationFields = (
       after: after.description,
     });
   }
-  if (!stringArraysEqual(before.tags, after.tags)) {
-    const delta = setDelta(before.tags, after.tags);
+  const beforeTags = meaningfulTags(before.tags);
+  const afterTags = meaningfulTags(after.tags);
+  if (!stringArraysEqual(beforeTags, afterTags)) {
+    const delta = setDelta(beforeTags, afterTags);
     fields.push({
       field: "tags",
-      before: before.tags,
-      after: after.tags,
+      before: beforeTags,
+      after: afterTags,
       ...(delta.added.length > 0 ? { added: delta.added } : {}),
       ...(delta.removed.length > 0 ? { removed: delta.removed } : {}),
     });

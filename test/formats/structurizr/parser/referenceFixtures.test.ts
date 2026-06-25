@@ -116,10 +116,8 @@ maybe("Structurizr parser — reference DSL fixtures", () => {
       ]),
     );
 
-    // Default tags applied
-    expect(customer?.tags).toEqual(
-      expect.arrayContaining(["Element", "Person", "Customer"]),
-    );
+    // Only the user-authored tag survives — no implicit styling tags
+    expect(customer?.tags).toEqual(["Customer"]);
 
     // group "Big Bank plc" stamps properties.group on its children
     expect(model.elements["supportStaff"]?.properties?.group).toBe(

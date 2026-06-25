@@ -15,18 +15,16 @@ describe("Structurizr parser — CustomElement (`element` keyword)", () => {
     expect(model.elements["box"]?.kind).toBe("Container");
   });
 
-  it("carries only the `Element` tag (no kind-specific tag)", () => {
-    // CustomElement is C4's escape hatch — `Element` is the abstract
-    // parent type in C4 vocabulary, so we don't stamp a "second"
-    // kind-specific tag the way Person/Container do. Rules looking
-    // for `tags.includes("Person")` etc. naturally skip these.
+  it("carries no implicit tags", () => {
+    // CustomElement is C4's escape hatch. Like every other element it
+    // surfaces only user-authored tags — no implicit "Element" tag.
     const src = `workspace {
       model {
         box = element "Box 1"
       }
     }`;
     const { model } = parse(src);
-    expect(model.elements["box"]?.tags).toEqual(["Element"]);
+    expect(model.elements["box"]?.tags).toEqual([]);
   });
 
   it("accepts positional metadata, description, and tags", () => {
@@ -40,7 +38,7 @@ describe("Structurizr parser — CustomElement (`element` keyword)", () => {
     expect(model.elements["box"]).toEqual(
       expect.objectContaining({
         description: "A box outside C4",
-        tags: ["Element", "external", "visual"],
+        tags: ["external", "visual"],
       }),
     );
   });

@@ -2,6 +2,7 @@ import path from "pathe";
 
 import type { Element, Model, ModelIssue, Relation } from "../../model";
 import { buildModel } from "../../model";
+import { humanizeName } from "../_shared/humanize";
 import {
   compileImageHeuristic,
   inferKindFromImage,
@@ -101,12 +102,6 @@ const findModelOrigin = (
   }
   return undefined;
 };
-
-const humanize = (raw: string): string =>
-  raw
-    .replaceAll(/[-_]+/g, " ")
-    .replaceAll(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
 
 const DEFAULT_PROVIDER_TAGS: readonly string[] = Object.freeze(["provider"]);
 const DEFAULT_MODEL_TAGS: readonly string[] = Object.freeze(["ai", "model"]);
@@ -247,7 +242,7 @@ const buildServiceElement = (
     label:
       overrideLabel && overrideLabel.length > 0
         ? overrideLabel
-        : humanize(name),
+        : humanizeName(name),
     kind,
     external,
     description: descriptionLabel,
@@ -323,7 +318,8 @@ const processService = (
     const element = buildProviderElement(
       {
         name,
-        label: labelsMap.map[resolved.labels.label]?.trim() || humanize(name),
+        label:
+          labelsMap.map[resolved.labels.label]?.trim() || humanizeName(name),
         description: labelsMap.map[resolved.labels.description] ?? "",
         provider: ctx.service.provider,
         extraTags: parseCsvTags(labelsMap.map[resolved.labels.tags] ?? ""),
@@ -376,7 +372,7 @@ const processModel = (
   return buildAiModelElement(
     {
       name: transformedName,
-      label: humanize(transformedName),
+      label: humanizeName(transformedName),
       parsed: modelDef,
       sourceLocation: modelLocation,
     },

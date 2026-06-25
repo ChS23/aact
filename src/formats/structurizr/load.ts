@@ -9,7 +9,7 @@ import type {
   ModelIssue,
   Relation,
 } from "../../model";
-import { buildModel } from "../../model";
+import { buildModel, meaningfulTags } from "../../model";
 import { inferKindFromTechnology } from "../_shared/kindHeuristics";
 import { parseCsvTags } from "../_shared/tags";
 import type { LoadResult } from "../types";
@@ -71,13 +71,23 @@ const isExternal = (system: StructurizrSoftwareSystem): boolean =>
   system.location === STRUCTURIZR_LOCATION_EXTERNAL ||
   (system.tags?.includes(STRUCTURIZR_LOCATION_EXTERNAL) ?? false);
 
+/**
+ * Tags from an exported `workspace.json` carry Structurizr's implicit
+ * styling tags ("Element", "Container", …); strip them so a model loaded
+ * from JSON matches the same model loaded from `.dsl` (which no longer
+ * stamps them). External detection above reads the raw tag string, so
+ * dropping them from `Model.tags` is safe.
+ */
+const userTags = (raw: string | undefined): string[] =>
+  meaningfulTags(parseCsvTags(raw));
+
 const buildPersonContainer = (p: StructurizrPerson): Element => ({
   name: dslId(p.id, p.properties),
   label: p.name,
   kind: "Person",
   external: false,
   description: p.description ?? "",
-  tags: parseCsvTags(p.tags),
+  tags: userTags(p.tags),
   relations: [],
   link: p.url,
   properties: toProperties(p.properties, p.group, p.perspectives),
@@ -91,7 +101,7 @@ const buildExternalSystemContainer = (
   kind: "System",
   external: true,
   description: s.description ?? "",
-  tags: parseCsvTags(s.tags),
+  tags: userTags(s.tags),
   relations: [],
   link: s.url,
   properties: toProperties(s.properties, s.group, s.perspectives),
@@ -105,7 +115,7 @@ const buildInternalSystemContainer = (
   kind: "System",
   external: false,
   description: s.description ?? "",
-  tags: parseCsvTags(s.tags),
+  tags: userTags(s.tags),
   relations: [],
   link: s.url,
   properties: toProperties(s.properties, s.group, s.perspectives),
@@ -118,7 +128,7 @@ const buildContainer = (c: StructurizrContainer): Element => ({
   external: false,
   description: c.description ?? "",
   technology: c.technology,
-  tags: parseCsvTags(c.tags),
+  tags: userTags(c.tags),
   relations: [],
   link: c.url,
   properties: toProperties(c.properties, c.group, c.perspectives),
@@ -141,7 +151,7 @@ const buildComponent = (c: StructurizrComponent): Element => ({
   external: false,
   description: c.description ?? "",
   technology: c.technology,
-  tags: parseCsvTags(c.tags),
+  tags: userTags(c.tags),
   relations: [],
   link: c.url,
   properties: toProperties(c.properties, c.group, c.perspectives),
@@ -155,7 +165,7 @@ const buildContainerBoundary = (c: StructurizrContainer): Boundary => ({
   label: c.name,
   kind: "Container",
   description: c.description,
-  tags: parseCsvTags(c.tags),
+  tags: userTags(c.tags),
   elementNames: (c.components ?? []).map((component) =>
     dslId(component.id, component.properties),
   ),
@@ -172,7 +182,7 @@ const buildSystemBoundary = (
   label: s.name,
   kind: "System",
   description: s.description,
-  tags: parseCsvTags(s.tags),
+  tags: userTags(s.tags),
   elementNames: childContainers
     .filter((c) => !hasComponents(c))
     .map((c) => dslId(c.id, c.properties)),
@@ -187,7 +197,7 @@ const buildRelation = (
   rel: StructurizrRelationship,
   targetName: string,
 ): Relation => {
-  const baseTags = parseCsvTags(rel.tags);
+  const baseTags = userTags(rel.tags);
   const tags =
     rel.interactionStyle === STRUCTURIZR_INTERACTION_ASYNC
       ? [...baseTags, STRUCTURIZR_TAG_ASYNC]

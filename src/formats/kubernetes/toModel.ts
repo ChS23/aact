@@ -6,6 +6,7 @@ import type {
   ModelIssue,
 } from "../../model";
 import { buildModel } from "../../model";
+import { humanizeName } from "../_shared/humanize";
 import { compileImageHeuristic, matchesGlob } from "../_shared/imageHeuristic";
 import { parseCsvTags } from "../_shared/tags";
 import {
@@ -66,12 +67,6 @@ const VALID_ELEMENT_KINDS = new Set<ElementKind>([
 const isElementKind = (raw: string): raw is ElementKind =>
   (VALID_ELEMENT_KINDS as ReadonlySet<string>).has(raw);
 
-const humanize = (raw: string): string =>
-  raw
-    .replaceAll(/[-_]+/g, " ")
-    .replaceAll(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
-
 const resolveOptions = (
   user: KubernetesLoadOptions | undefined,
 ): ResolvedOptions => {
@@ -131,7 +126,7 @@ const buildElement = (
   const keys = resolved.annotations;
 
   const elementName = deriveElementName(manifest, resolved);
-  const label = annot[keys.label]?.trim() || humanize(elementName);
+  const label = annot[keys.label]?.trim() || humanizeName(elementName);
   const description = annot[keys.description] ?? "";
   const technology =
     annot[keys.technology]?.trim() || technologyFromManifest(manifest);
@@ -168,7 +163,7 @@ const buildNamespaceBoundary = (
 ): Boundary =>
   Object.freeze({
     name: namespace,
-    label: humanize(namespace),
+    label: humanizeName(namespace),
     kind: "System",
     tags: Object.freeze([]),
     elementNames: Object.freeze([...elementNames]),

@@ -35,6 +35,7 @@
  */
 
 import type { Boundary, Element } from "../model";
+import { meaningfulTags } from "../model";
 
 export interface SimilarityWeights {
   readonly name: number;
@@ -209,7 +210,7 @@ export const elementSimilarity = (
   const labelSim = stringSimilarity(a.label, b.label);
   const techEq = (a.technology ?? "") === (b.technology ?? "") ? 1 : 0;
   const extEq = a.external === b.external ? 1 : 0;
-  const tagSim = jaccard(a.tags, b.tags);
+  const tagSim = jaccard(meaningfulTags(a.tags), meaningfulTags(b.tags));
   const descSim = stringSimilarity(a.description, b.description);
   const propSim = propertiesSimilarity(a.properties, b.properties);
 
@@ -258,7 +259,7 @@ export const boundarySimilarity = (
     weights.label * stringSimilarity(a.label, b.label) +
     weights.description *
       stringSimilarity(a.description ?? "", b.description ?? "") +
-    weights.tags * jaccard(a.tags, b.tags) +
+    weights.tags * jaccard(meaningfulTags(a.tags), meaningfulTags(b.tags)) +
     weights.elementNames * jaccard(remappedElems, b.elementNames) +
     weights.boundaryNames * jaccard(a.boundaryNames, b.boundaryNames) +
     weights.properties * propertiesSimilarity(a.properties, b.properties)
