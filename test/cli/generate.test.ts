@@ -303,9 +303,10 @@ describe("executeGenerate — error cases", () => {
   });
 
   it("emits format.emptyOutput diagnostic when generator produces no files", async () => {
+    // Person isn't a deployable workload — kubernetes generate yields nothing.
     setupModel(
       makeModel({
-        elements: [{ name: "orders_db", kind: "ContainerDb" }],
+        elements: [{ name: "customer", kind: "Person" }],
       }),
     );
     mockMkdir.mockResolvedValue();

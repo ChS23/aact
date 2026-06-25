@@ -64,12 +64,16 @@ describe("Microservices (Structurizr)", () => {
     expect(report.databases.count).toBeGreaterThanOrEqual(0);
   });
 
-  it("generates Kubernetes configs from model", () => {
+  it("generates real Kubernetes manifests from model", () => {
     const output = kubernetesFormat.generate!(model);
     expect(output.files.length).toBeGreaterThan(0);
-    for (const file of output.files) {
-      expect(file.path).toMatch(/\.yml$/);
-      expect(file.content).toContain("name:");
+    const workloads = output.files.filter((f) => f.path !== "namespaces.yaml");
+    expect(workloads.length).toBeGreaterThan(0);
+    for (const file of workloads) {
+      expect(file.path).toMatch(/\.yaml$/);
+      expect(file.content).toContain("apiVersion: apps/v1");
+      expect(file.content).toMatch(/kind: (Deployment|StatefulSet)/);
+      expect(file.content).toContain("kind: Service");
     }
   });
 

@@ -52,8 +52,8 @@ describe("Architecture (banking C4L2)", () => {
     const output = kubernetesFormat.generate!(model);
     expect(output.files.length).toBeGreaterThan(0);
     for (const file of output.files) {
-      expect(file.path).toMatch(/\.yml$/);
-      expect(file.content).toContain("name:");
+      expect(file.path).toMatch(/\.yaml$/);
+      expect(file.content).toContain("apiVersion:");
     }
   });
 

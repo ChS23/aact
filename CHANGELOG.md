@@ -33,6 +33,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   not `Orders Api`). Together these let `aact diff architecture.dsl ./k8s/`
   report real structural drift without tag or label noise. New `meaningfulTags`
   helper is exported from the model surface.
+- **`aact generate --format kubernetes` now emits real, `kubectl apply`-able
+  manifests** — `apps/v1` Deployment / StatefulSet + `v1` Service / Namespace
+  (current stable API) — replacing the legacy `name:` / `environment:`
+  deploy-config. It's a scaffold, not a deployment source (the C4 model has no
+  resources / probes / secrets / ingress — those stay in your Helm / Kustomize),
+  but it round-trips: `generate` → `load` reproduces the model, with `aact.*`
+  annotations preserving kind / technology / tags / name and relations becoming
+  env-var Service references. `KubernetesGenerateOptions.dbConnectionTemplate`
+  now substitutes `{service}` / `{db}`.
 - **BREAKING: a rule is identified by `ruleId` everywhere in the JSON
   contract.** `CheckViolation` and `FixResult` now carry `ruleId` (was
   `rule`), matching SARIF `result.ruleId`, so consumers join
