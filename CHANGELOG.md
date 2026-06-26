@@ -110,6 +110,10 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   ([aact as a library](docs/guides/library-api.md)) — driving aact from code:
   `load`, built-in + `defineRule` rules, `computeDiff`, `analyzeArchitecture`,
   `generate`, all through the public package surface.
+- A [cascade coupling reduction guide](docs/guides/cascade-coupling.md) — how to
+  model the hierarchy as nested boundaries and check, with `analyzeArchitecture`,
+  that coupling doesn't grow up the levels (backed by the existing
+  `examples/banking-plantuml/ccr.test.ts`).
 - Format objects are exported from the package root — `plantumlFormat`,
   `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
   `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).

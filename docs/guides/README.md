@@ -22,6 +22,8 @@
 
 - [**Метрики архитектуры (`analyze`)**](./analyze.md) — cohesion против coupling,
   sync/async, fan-in/out hotspot'ы, циклы.
+- [**Каскадное снижение связанности (CCR)**](./cascade-coupling.md) — связанность
+  не должна расти вверх по уровням иерархии; как выразить и проверить машинно.
 - [**Разобраться в архитектуре (`view`)**](./explore-view.md) — интерактивная
   C4-карта, режимы Drill / Expand / Flat под задачу.
 - [**Ревью diff в PR**](./review-diff.md) — `aact diff` и `aact view --diff`:
