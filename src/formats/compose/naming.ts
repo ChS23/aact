@@ -9,24 +9,58 @@ import type { NamingPreset, NamingTransform } from "./types";
  * preset идемпотентен на уже-преобразованном input'е.
  */
 
+type WordChar = "lower" | "upper" | "digit";
+
+const classifyWordChar = (char: string): WordChar | undefined => {
+  const code = char.codePointAt(0);
+  if (code === undefined) return undefined;
+  if (code >= 65 && code <= 90) return "upper";
+  if (code >= 97 && code <= 122) return "lower";
+  if (code >= 48 && code <= 57) return "digit";
+  return undefined;
+};
+
+const startsNewWord = (
+  previous: WordChar,
+  current: WordChar,
+  next: WordChar | undefined,
+): boolean =>
+  current === "upper" &&
+  (previous === "lower" ||
+    previous === "digit" ||
+    (previous === "upper" && next === "lower"));
+
 /** Split string на "words" уважая kebab/snake/camel/pascal границы. */
 const splitWords = (input: string): readonly string[] => {
   if (input.length === 0) return [];
-  // Сначала режем по non-alnum (`-`, `_`, пробелы) → list of segments
-  const bySeparator = input.split(/[^A-Za-z0-9]+/u).filter(Boolean);
-  // Каждый segment может быть camelCase / PascalCase — режем дополнительно
-  // на word boundaries: вставляем space перед каждой uppercase которая
-  // следует за lowercase ИЛИ digit, плюс на границе lowercase→uppercase
-  // последовательностей подряд.
   const words: string[] = [];
-  for (const segment of bySeparator) {
-    const parts = segment
-      .replaceAll(/([a-z0-9])([A-Z])/gu, "$1 $2")
-      .replaceAll(/([A-Z]+)([A-Z][a-z])/gu, "$1 $2")
-      .split(" ")
-      .filter(Boolean);
-    words.push(...parts);
+  let current = "";
+  let previous: WordChar | undefined;
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const charKind = classifyWordChar(char);
+    if (charKind === undefined) {
+      if (current.length > 0) words.push(current);
+      current = "";
+      previous = undefined;
+      continue;
+    }
+
+    const next =
+      i + 1 < input.length ? classifyWordChar(input[i + 1]) : undefined;
+    if (
+      current.length > 0 &&
+      previous !== undefined &&
+      startsNewWord(previous, charKind, next)
+    ) {
+      words.push(current);
+      current = "";
+    }
+    current += char;
+    previous = charKind;
   }
+  if (current.length > 0) words.push(current);
   return words;
 };
 

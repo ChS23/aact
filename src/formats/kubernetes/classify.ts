@@ -84,7 +84,7 @@ export const getPrimaryContainer = (
   if (!podSpec) return undefined;
   const containers = podSpec.containers;
   if (!Array.isArray(containers) || containers.length === 0) return undefined;
-  const first = containers[0];
+  const first: unknown = containers[0];
   return first && typeof first === "object"
     ? (first as Record<string, unknown>)
     : undefined;

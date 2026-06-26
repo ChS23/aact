@@ -64,76 +64,135 @@ export const hungarian = (
   return hungarianRowsLeMin(cost, n, m);
 };
 
-/** Internal: rows ≤ cols path. */
-const hungarianRowsLeMin = (
+interface HungarianState {
+  /** Dual potentials for rows, 1-indexed. */
+  readonly u: number[];
+  /** Dual potentials for columns, 1-indexed. */
+  readonly v: number[];
+  /** `p[j]` is the row currently matched to column j. */
+  readonly p: number[];
+  /** Augmenting-path predecessor column for each column. */
+  readonly way: number[];
+}
+
+interface AugmentState {
+  readonly minv: number[];
+  readonly used: boolean[];
+}
+
+const INF = Number.POSITIVE_INFINITY;
+
+const createHungarianState = (
+  rowCount: number,
+  colCount: number,
+): HungarianState => ({
+  u: Array.from({ length: rowCount + 1 }, () => 0),
+  v: Array.from({ length: colCount + 1 }, () => 0),
+  p: Array.from({ length: colCount + 1 }, () => 0),
+  way: Array.from({ length: colCount + 1 }, () => 0),
+});
+
+const createAugmentState = (colCount: number): AugmentState => ({
+  minv: Array.from({ length: colCount + 1 }, () => INF),
+  used: Array.from({ length: colCount + 1 }, () => false),
+});
+
+const findNextColumn = (
   cost: readonly (readonly number[])[],
+  state: HungarianState,
+  augment: AugmentState,
+  row: number,
+  currentColumn: number,
+  colCount: number,
+): { readonly delta: number; readonly nextColumn: number } => {
+  let delta = INF;
+  let nextColumn = -1;
+  for (let j = 1; j <= colCount; j++) {
+    if (augment.used[j]) continue;
+    const cur = cost[row - 1][j - 1] - state.u[row] - state.v[j];
+    if (cur < augment.minv[j]) {
+      augment.minv[j] = cur;
+      state.way[j] = currentColumn;
+    }
+    if (augment.minv[j] < delta) {
+      delta = augment.minv[j];
+      nextColumn = j;
+    }
+  }
+  return { delta, nextColumn };
+};
+
+const updatePotentials = (
+  state: HungarianState,
+  augment: AugmentState,
+  delta: number,
+  colCount: number,
+): void => {
+  for (let j = 0; j <= colCount; j++) {
+    if (augment.used[j]) {
+      state.u[state.p[j]] += delta;
+      state.v[j] -= delta;
+    } else {
+      augment.minv[j] -= delta;
+    }
+  }
+};
+
+const replayAugmentingPath = (
+  state: HungarianState,
+  lastColumn: number,
+): void => {
+  let currentColumn = lastColumn;
+  while (currentColumn !== 0) {
+    const previousColumn = state.way[currentColumn];
+    state.p[currentColumn] = state.p[previousColumn];
+    currentColumn = previousColumn;
+  }
+};
+
+const augmentRow = (
+  cost: readonly (readonly number[])[],
+  state: HungarianState,
+  rowIndex: number,
+  colCount: number,
+): void => {
+  state.p[0] = rowIndex;
+  let currentColumn = 0;
+  const augment = createAugmentState(colCount);
+  do {
+    augment.used[currentColumn] = true;
+    const row = state.p[currentColumn];
+    const { delta, nextColumn } = findNextColumn(
+      cost,
+      state,
+      augment,
+      row,
+      currentColumn,
+      colCount,
+    );
+    // No reachable next column — graph is disconnected (every
+    // cell on the augmenting path is +Infinity). Bail: this row
+    // can't be matched. Leave its slot at 0 (unassigned).
+    if (nextColumn === -1 || !Number.isFinite(delta)) break;
+    updatePotentials(state, augment, delta, colCount);
+    currentColumn = nextColumn;
+  } while (state.p[currentColumn] !== 0);
+
+  replayAugmentingPath(state, currentColumn);
+};
+
+const buildHungarianResult = (
+  cost: readonly (readonly number[])[],
+  state: HungarianState,
   rowCount: number,
   colCount: number,
 ): HungarianResult => {
-  const n = rowCount;
-  const m = colCount;
-  // 1-indexed arrays to match the standard textbook formulation;
-  // sentinel row/col 0 holds "phantom" potentials used by the algo.
-  // `u`, `v` are dual potentials. `p[j]` is the row currently
-  // matched to column j (0 = unmatched). `way[j]` records the
-  // augmenting-path predecessor column.
-  const INF = Number.POSITIVE_INFINITY;
-  const u: number[] = Array.from({ length: n + 1 }, () => 0);
-  const v: number[] = Array.from({ length: m + 1 }, () => 0);
-  const p: number[] = Array.from({ length: m + 1 }, () => 0);
-  const way: number[] = Array.from({ length: m + 1 }, () => 0);
-
-  for (let i = 1; i <= n; i++) {
-    p[0] = i;
-    let j0 = 0;
-    const minv: number[] = Array.from({ length: m + 1 }, () => INF);
-    const used: boolean[] = Array.from({ length: m + 1 }, () => false);
-    do {
-      used[j0] = true;
-      const i0 = p[j0];
-      let delta = INF;
-      let j1 = -1;
-      for (let j = 1; j <= m; j++) {
-        if (used[j]) continue;
-        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
-        if (cur < minv[j]) {
-          minv[j] = cur;
-          way[j] = j0;
-        }
-        if (minv[j] < delta) {
-          delta = minv[j];
-          j1 = j;
-        }
-      }
-      // No reachable next column — graph is disconnected (every
-      // cell on the augmenting path is +Infinity). Bail: this row
-      // can't be matched. Leave its slot at 0 (unassigned).
-      if (j1 === -1 || !Number.isFinite(delta)) break;
-      for (let j = 0; j <= m; j++) {
-        if (used[j]) {
-          u[p[j]] += delta;
-          v[j] -= delta;
-        } else {
-          minv[j] -= delta;
-        }
-      }
-      j0 = j1;
-    } while (p[j0] !== 0);
-
-    // Augment along the recorded predecessor chain.
-    while (j0 !== 0) {
-      const j1 = way[j0];
-      p[j0] = p[j1];
-      j0 = j1;
-    }
-  }
-
   const assignment: (number | undefined)[] = Array.from<undefined>({
-    length: n,
+    length: rowCount,
   });
   let totalCost = 0;
-  for (let j = 1; j <= m; j++) {
-    const row = p[j];
+  for (let j = 1; j <= colCount; j++) {
+    const row = state.p[j];
     if (row === 0) continue;
     const c = cost[row - 1][j - 1];
     if (!Number.isFinite(c)) continue; // forbidden cell, treat as unmatched
@@ -141,6 +200,24 @@ const hungarianRowsLeMin = (
     totalCost += c;
   }
   return { assignment, totalCost };
+};
+
+/** Internal: rows ≤ cols path. */
+const hungarianRowsLeMin = (
+  cost: readonly (readonly number[])[],
+  rowCount: number,
+  colCount: number,
+): HungarianResult => {
+  // 1-indexed arrays to match the standard textbook formulation;
+  // sentinel row/col 0 holds "phantom" potentials used by the algo.
+  // `u`, `v` are dual potentials. `p[j]` is the row currently
+  // matched to column j (0 = unmatched). `way[j]` records the
+  // augmenting-path predecessor column.
+  const state = createHungarianState(rowCount, colCount);
+  for (let i = 1; i <= rowCount; i++) {
+    augmentRow(cost, state, i, colCount);
+  }
+  return buildHungarianResult(cost, state, rowCount, colCount);
 };
 
 /** Internal: rows > cols — transpose, solve, untranspose. */

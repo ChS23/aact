@@ -215,7 +215,7 @@ export const loadAndValidateConfig = async (
     typeof parsed.source === "string" ? { path: parsed.source } : parsed.source;
   const type = rawSource.type ?? (await inferSourceType(rawSource.path));
   const sourcePath = resolveConfigRelativePath(rawSource.path, configBase);
-  const sourceOptions =
+  const sourceOptions: unknown =
     "options" in rawSource && rawSource.options !== undefined
       ? rawSource.options
       : undefined;

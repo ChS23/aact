@@ -169,9 +169,13 @@ const parseFile = async (
 
   const docs = parseAllDocuments(content);
   for (const [docIndex, doc] of docs.entries()) {
-    const json = doc.toJSON();
+    const json: unknown = doc.toJSON();
     if (!json || typeof json !== "object") continue; // empty doc
-    const manifest = toManifest(filePath, docIndex, json);
+    const manifest = toManifest(
+      filePath,
+      docIndex,
+      json as Record<string, unknown>,
+    );
     if (manifest === undefined) {
       issues.push({
         kind: "loader-warning",

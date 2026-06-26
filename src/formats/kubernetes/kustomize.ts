@@ -74,7 +74,7 @@ export const resolveKustomization = async (
   const issues: ModelIssue[] = [];
   const baseDir = path.dirname(kustomizationPath);
   const content = await fs.readFile(kustomizationPath, "utf8");
-  const parsed = parseYaml(content);
+  const parsed: unknown = parseYaml(content);
 
   if (!parsed || typeof parsed !== "object") {
     return Object.freeze({

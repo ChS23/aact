@@ -51,7 +51,8 @@ const normalizeIncludeEntry = (
   if (Array.isArray(entry.path) && entry.path.length > 0) {
     // Multi-path include — берём первый файл; merge нескольких в одном
     // include-entry это phase 1.5. Compose-spec тоже редкое сочетание.
-    return entry.path[0];
+    const first: unknown = entry.path[0];
+    return typeof first === "string" ? first : undefined;
   }
   return undefined;
 };

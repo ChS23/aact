@@ -303,6 +303,239 @@ interface ElementWithRelations {
   readonly relationships?: readonly StructurizrRelationship[];
 }
 
+interface StructurizrLoadState {
+  readonly containers: Element[];
+  readonly boundaries: Boundary[];
+  readonly rootBoundaryNames: string[];
+  readonly loaderIssues: ModelIssue[];
+  readonly idToName: Map<string, string>;
+  /** Subset of idToName — только ids которые мапятся в Element. */
+  readonly idToContainerName: Map<string, string>;
+}
+
+const createStructurizrLoadState = (): StructurizrLoadState => ({
+  containers: [],
+  boundaries: [],
+  rootBoundaryNames: [],
+  loaderIssues: [],
+  idToName: new Map<string, string>(),
+  idToContainerName: new Map<string, string>(),
+});
+
+const registerContainer = (
+  state: StructurizrLoadState,
+  sourceId: string,
+  element: Element,
+): void => {
+  state.containers.push(element);
+  state.idToName.set(sourceId, element.name);
+  state.idToContainerName.set(sourceId, element.name);
+};
+
+const registerBoundary = (
+  state: StructurizrLoadState,
+  sourceId: string,
+  boundary: Boundary,
+  options?: { readonly root?: boolean },
+): void => {
+  state.boundaries.push(boundary);
+  if (options?.root) state.rootBoundaryNames.push(boundary.name);
+  state.idToName.set(sourceId, boundary.name);
+};
+
+const loadPeople = (
+  workspace: StructurizrWorkspace,
+  state: StructurizrLoadState,
+): void => {
+  for (const person of workspace.model.people ?? []) {
+    registerContainer(state, person.id, buildPersonContainer(person));
+  }
+};
+
+const loadLeafSystem = (
+  state: StructurizrLoadState,
+  system: StructurizrSoftwareSystem,
+): void => {
+  const container = isExternal(system)
+    ? buildExternalSystemContainer(system)
+    : buildInternalSystemContainer(system);
+  registerContainer(state, system.id, container);
+};
+
+const loadContainerWithComponents = (
+  state: StructurizrLoadState,
+  container: StructurizrContainer,
+): void => {
+  registerBoundary(state, container.id, buildContainerBoundary(container));
+  for (const component of container.components ?? []) {
+    registerContainer(state, component.id, buildComponent(component));
+  }
+};
+
+const loadDecomposedSystem = (
+  state: StructurizrLoadState,
+  system: StructurizrSoftwareSystem,
+): void => {
+  const childContainers = system.containers ?? [];
+  registerBoundary(
+    state,
+    system.id,
+    buildSystemBoundary(system, childContainers),
+    {
+      root: true,
+    },
+  );
+
+  for (const container of childContainers) {
+    if (hasComponents(container)) {
+      loadContainerWithComponents(state, container);
+    } else {
+      registerContainer(state, container.id, buildContainer(container));
+    }
+  }
+};
+
+const loadSoftwareSystem = (
+  state: StructurizrLoadState,
+  system: StructurizrSoftwareSystem,
+): void => {
+  if (isExternal(system) || (system.containers?.length ?? 0) === 0) {
+    loadLeafSystem(state, system);
+    return;
+  }
+  loadDecomposedSystem(state, system);
+};
+
+const loadSoftwareSystems = (
+  workspace: StructurizrWorkspace,
+  state: StructurizrLoadState,
+): void => {
+  for (const system of workspace.model.softwareSystems ?? []) {
+    loadSoftwareSystem(state, system);
+  }
+};
+
+const addRelationSource = (
+  out: ElementWithRelations[],
+  sourceId: string,
+  relationships: readonly StructurizrRelationship[] | undefined,
+): void => {
+  if (relationships) out.push({ sourceId, relationships });
+};
+
+const collectSystemRelationSources = (
+  out: ElementWithRelations[],
+  system: StructurizrSoftwareSystem,
+): void => {
+  addRelationSource(out, system.id, system.relationships);
+  for (const container of system.containers ?? []) {
+    addRelationSource(out, container.id, container.relationships);
+    for (const component of container.components ?? []) {
+      addRelationSource(out, component.id, component.relationships);
+    }
+  }
+};
+
+const collectElementsWithRelations = (
+  workspace: StructurizrWorkspace,
+): ElementWithRelations[] => {
+  const out: ElementWithRelations[] = [];
+  for (const person of workspace.model.people ?? []) {
+    addRelationSource(out, person.id, person.relationships);
+  }
+  for (const system of workspace.model.softwareSystems ?? []) {
+    collectSystemRelationSources(out, system);
+  }
+  return out;
+};
+
+const warnBoundarySourceRelationship = (
+  state: StructurizrLoadState,
+  mappedName: string,
+): void => {
+  state.loaderIssues.push({
+    kind: "loader-warning",
+    source: "structurizr",
+    code: "boundary-source-relationship-not-represented",
+    message: `Relationship from "${mappedName}" is attached to a Structurizr element that maps to a Boundary in aact; Boundary relations are not represented in v3 Model.`,
+    element: mappedName,
+  });
+};
+
+const warnBoundaryTargetRelationship = (
+  state: StructurizrLoadState,
+  sourceName: string,
+  mappedTargetName: string,
+): void => {
+  state.loaderIssues.push({
+    kind: "loader-warning",
+    source: "structurizr",
+    code: "boundary-target-relationship-not-represented",
+    message: `Relationship to "${mappedTargetName}" targets a Structurizr element that maps to a Boundary in aact; Boundary relations are not represented in v3 Model.`,
+    element: sourceName,
+  });
+};
+
+const applyRelationship = (
+  state: StructurizrLoadState,
+  containersByName: ReadonlyMap<string, Element>,
+  sourceName: string,
+  rel: StructurizrRelationship,
+  out: Relation[],
+): void => {
+  const mappedTargetName = state.idToName.get(rel.destinationId);
+  if (
+    mappedTargetName !== undefined &&
+    !containersByName.has(mappedTargetName)
+  ) {
+    warnBoundaryTargetRelationship(state, sourceName, mappedTargetName);
+    return;
+  }
+  const targetName = mappedTargetName ?? rel.destinationId;
+  out.push(buildRelation(rel, targetName));
+};
+
+const applyRelationsForSource = (
+  state: StructurizrLoadState,
+  containersByName: Map<string, Element>,
+  sourceId: string,
+  relationships: readonly StructurizrRelationship[] | undefined,
+): void => {
+  const authorRelationships = relationships?.filter(
+    (rel) => !rel.linkedRelationshipId,
+  );
+  const sourceName = state.idToContainerName.get(sourceId);
+  if (!authorRelationships || authorRelationships.length === 0) return;
+  if (!sourceName) {
+    const mappedName = state.idToName.get(sourceId);
+    if (mappedName !== undefined)
+      warnBoundarySourceRelationship(state, mappedName);
+    return;
+  }
+
+  const source = containersByName.get(sourceName);
+  if (!source) return;
+
+  const newRelations: Relation[] = [...source.relations];
+  for (const rel of authorRelationships) {
+    applyRelationship(state, containersByName, sourceName, rel, newRelations);
+  }
+  containersByName.set(sourceName, { ...source, relations: newRelations });
+};
+
+const applyRelationships = (
+  state: StructurizrLoadState,
+  elementsWithRelations: readonly ElementWithRelations[],
+): Map<string, Element> => {
+  const containersByName = new Map<string, Element>(
+    state.containers.map((c) => [c.name, c]),
+  );
+  for (const { sourceId, relationships } of elementsWithRelations) {
+    applyRelationsForSource(state, containersByName, sourceId, relationships);
+  }
+  return containersByName;
+};
+
 /**
  * Structurizr workspace.json → Model.
  *
@@ -328,159 +561,23 @@ export const load = async (filePath: string): Promise<LoadResult> => {
   const data = await fs.readFile(filepath, "utf8");
   const workspace = JSON.parse(data) as StructurizrWorkspace;
 
-  const containers: Element[] = [];
-  const boundaries: Boundary[] = [];
-  const rootBoundaryNames: string[] = [];
-  const loaderIssues: ModelIssue[] = [];
-  const idToName = new Map<string, string>();
-  /** Subset of idToName — только те id'шники которые мапятся в Container
-   * (не Boundary). Relations можно push'ать только сюда. */
-  const idToContainerName = new Map<string, string>();
-
-  // Pass 1: people
-  for (const person of workspace.model.people ?? []) {
-    const c = buildPersonContainer(person);
-    containers.push(c);
-    idToName.set(person.id, c.name);
-    idToContainerName.set(person.id, c.name);
-  }
-
-  // Pass 2: software systems
-  // - external systems → Element(kind=System, external=true)
-  // - internal leaf systems → Element(kind=System)
-  // - internal decomposed systems → Boundary + child Containers/Components
-  for (const system of workspace.model.softwareSystems ?? []) {
-    if (isExternal(system)) {
-      const c = buildExternalSystemContainer(system);
-      containers.push(c);
-      idToName.set(system.id, c.name);
-      idToContainerName.set(system.id, c.name);
-    } else if ((system.containers?.length ?? 0) === 0) {
-      const c = buildInternalSystemContainer(system);
-      containers.push(c);
-      idToName.set(system.id, c.name);
-      idToContainerName.set(system.id, c.name);
-    } else {
-      const childContainers = system.containers ?? [];
-      const boundary = buildSystemBoundary(system, childContainers);
-      boundaries.push(boundary);
-      rootBoundaryNames.push(boundary.name);
-      idToName.set(system.id, boundary.name);
-
-      for (const cont of childContainers) {
-        if (hasComponents(cont)) {
-          const b = buildContainerBoundary(cont);
-          boundaries.push(b);
-          idToName.set(cont.id, b.name);
-
-          for (const component of cont.components ?? []) {
-            const c = buildComponent(component);
-            containers.push(c);
-            idToName.set(component.id, c.name);
-            idToContainerName.set(component.id, c.name);
-          }
-        } else {
-          const c = buildContainer(cont);
-          containers.push(c);
-          idToName.set(cont.id, c.name);
-          idToContainerName.set(cont.id, c.name);
-        }
-      }
-    }
-  }
-
-  // Collect all relation-bearing elements for second-pass relation building
-  const elementsWithRelations: ElementWithRelations[] = [];
-  for (const person of workspace.model.people ?? []) {
-    if (person.relationships) {
-      elementsWithRelations.push({
-        sourceId: person.id,
-        relationships: person.relationships,
-      });
-    }
-  }
-  for (const system of workspace.model.softwareSystems ?? []) {
-    if (system.relationships) {
-      elementsWithRelations.push({
-        sourceId: system.id,
-        relationships: system.relationships,
-      });
-    }
-    for (const cont of system.containers ?? []) {
-      if (cont.relationships) {
-        elementsWithRelations.push({
-          sourceId: cont.id,
-          relationships: cont.relationships,
-        });
-      }
-      for (const component of cont.components ?? []) {
-        if (component.relationships) {
-          elementsWithRelations.push({
-            sourceId: component.id,
-            relationships: component.relationships,
-          });
-        }
-      }
-    }
-  }
+  const state = createStructurizrLoadState();
+  loadPeople(workspace, state);
+  loadSoftwareSystems(workspace, state);
 
   // Pass 3: relations — push only into Element-mapped sources.
   // Boundary sources can't carry outgoing relations in v3 Model, so make
   // the loss explicit instead of pretending the exported JSON fully loaded.
-  const containersByName = new Map<string, Element>(
-    containers.map((c) => [c.name, c]),
+  const containersByName = applyRelationships(
+    state,
+    collectElementsWithRelations(workspace),
   );
-  for (const { sourceId, relationships } of elementsWithRelations) {
-    // Structurizr JSON includes derived aggregate relationships linked
-    // to concrete author-level relations. Those are view duplicates.
-    const authorRelationships = relationships?.filter(
-      (rel) => !rel.linkedRelationshipId,
-    );
-    const sourceName = idToContainerName.get(sourceId);
-    if (!authorRelationships || authorRelationships.length === 0) continue;
-    if (!sourceName) {
-      const mappedName = idToName.get(sourceId);
-      if (mappedName !== undefined) {
-        loaderIssues.push({
-          kind: "loader-warning",
-          source: "structurizr",
-          code: "boundary-source-relationship-not-represented",
-          message: `Relationship from "${mappedName}" is attached to a Structurizr element that maps to a Boundary in aact; Boundary relations are not represented in v3 Model.`,
-          element: mappedName,
-        });
-      }
-      continue;
-    }
-    const source = containersByName.get(sourceName);
-    if (!source) continue;
-
-    const newRelations: Relation[] = [...source.relations];
-    for (const rel of authorRelationships) {
-      const mappedTargetName = idToName.get(rel.destinationId);
-      if (
-        mappedTargetName !== undefined &&
-        !containersByName.has(mappedTargetName)
-      ) {
-        loaderIssues.push({
-          kind: "loader-warning",
-          source: "structurizr",
-          code: "boundary-target-relationship-not-represented",
-          message: `Relationship to "${mappedTargetName}" targets a Structurizr element that maps to a Boundary in aact; Boundary relations are not represented in v3 Model.`,
-          element: sourceName,
-        });
-        continue;
-      }
-      const targetName = mappedTargetName ?? rel.destinationId;
-      newRelations.push(buildRelation(rel, targetName));
-    }
-    containersByName.set(sourceName, { ...source, relations: newRelations });
-  }
 
   return buildModel({
     elements: [...containersByName.values()],
-    boundaries,
-    rootBoundaryNames,
-    preIssues: loaderIssues,
+    boundaries: state.boundaries,
+    rootBoundaryNames: state.rootBoundaryNames,
+    preIssues: state.loaderIssues,
   });
 };
 
