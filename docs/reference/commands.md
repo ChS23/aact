@@ -93,6 +93,7 @@ Generate architecture artifacts
 
 | Argument | Type | Description |
 | --- | --- | --- |
+| `<source>` | positional, optional | Architecture source — file or directory. Overrides (or stands in for) aact.config.ts source; format auto-detected from the path. |
 | `--config` | string | Path to aact config file (defaults to c12 auto-discovery from cwd) |
 | `--json` | boolean | Emit JSON envelope on stdout (machine-readable for CI / agents) |
 | `--output` | string | Output path: file or directory (trailing '/' or an existing dir), '-' for stdout |

@@ -663,6 +663,29 @@ describe("aact generate", () => {
     expect(written).toContain("@startuml");
   });
 
+  it("accepts a positional source without a config file", async () => {
+    await runCli(["init"]);
+    await fs.rm(path.join(workDir, "aact.config.ts"));
+
+    const outFile = path.join(workDir, "positional.puml");
+    const result = await runCli([
+      "generate",
+      "architecture.puml",
+      "--output",
+      outFile,
+      "--json",
+    ]);
+    expect(result.exitCode).toBe(0);
+
+    const envelope = JSON.parse(result.stdout) as Record<string, unknown>;
+    expect(envelope.schemaVersion).toBe(1);
+    expect(envelope.command).toBe("generate");
+    expect(envelope.ok).toBe(true);
+
+    const written = await fs.readFile(outFile, "utf8");
+    expect(written).toContain("@startuml");
+  });
+
   it("--json + --output emits envelope on stdout, artefact on disk", async () => {
     await runCli(["init"]);
     const outFile = path.join(workDir, "out.puml");

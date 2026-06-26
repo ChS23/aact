@@ -7,7 +7,7 @@ import { ToolError } from "./output";
 
 /**
  * Optional positional `source` shared by the single-model commands
- * (`model`, `check`, `analyze`). When given it points aact at a file or
+ * (`model`, `check`, `analyze`, `generate`). When given it points aact at a file or
  * directory ad-hoc — matching how `aact diff` takes its paths
  * positionally. With an `aact.config.ts` present it overrides
  * `config.source`; with no config it stands in for one, so

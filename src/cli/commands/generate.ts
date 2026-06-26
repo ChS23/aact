@@ -12,6 +12,7 @@ import { formatDisplayPath } from "../output/hyperlinks";
 import type { ExecuteResult } from "../run";
 import { cliCommandWithConfig } from "../run";
 import { configArg, jsonArg } from "../sharedArgs";
+import { sourceArg } from "../sourceArg";
 
 // -----------------------------------------------------------------------------
 // Public data shape (envelope.data for `aact generate`)
@@ -98,6 +99,7 @@ const resolveSink = async (
 // -----------------------------------------------------------------------------
 
 export interface GenerateArgs {
+  readonly source?: string;
   readonly format?: string;
   readonly output?: string;
   readonly json?: boolean;
@@ -274,6 +276,7 @@ export const generate = cliCommandWithConfig({
   name: "generate",
   meta: { name: "generate", description: "Generate architecture artifacts" },
   args: {
+    ...sourceArg,
     ...configArg,
     ...jsonArg,
     output: {

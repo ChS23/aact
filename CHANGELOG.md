@@ -50,6 +50,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   annotations preserving kind / technology / tags / name and relations becoming
   env-var Service references. `KubernetesGenerateOptions.dbConnectionTemplate`
   now substitutes `{service}` / `{db}`.
+- **`aact generate` accepts a positional `source`** — like `model` / `check` /
+  `analyze`, so `aact generate architecture.dsl --format plantuml` works ad-hoc
+  with no `aact.config.ts`. The positional is the **input** (format auto-detected
+  from the path); `--format` stays the **target** format.
 - **BREAKING: a rule is identified by `ruleId` everywhere in the JSON
   contract.** `CheckViolation` and `FixResult` now carry `ruleId` (was
   `rule`), matching SARIF `result.ruleId`, so consumers join
