@@ -93,6 +93,35 @@ describe("PlantUML round-trip integrity (F3)", () => {
     expect(normalize(rebuilt)).toEqual(normalize(original));
   });
 
+  it("sanitises hyphenated names into valid PlantUML aliases", async () => {
+    // Names from Structurizr / kubernetes (`orders-api`) are valid there
+    // but illegal as a PlantUML alias — generate must normalise them, or
+    // the output won't parse back.
+    const original = makeModel({
+      elements: [
+        {
+          name: "orders-api",
+          kind: "Container",
+          relations: [{ to: "orders-db" }],
+        },
+        { name: "orders-db", kind: "ContainerDb" },
+      ],
+    });
+    const { content } = generate(original).files[0];
+    expect(content).toContain("Container(orders_api,");
+    expect(content).toContain("Rel(orders_api, orders_db,");
+    expect(content).not.toMatch(/\(orders-/);
+    // The bug: a hyphen alias threw on re-parse. Now it round-trips.
+    const rebuilt = await roundTrip(original);
+    expect(Object.keys(rebuilt.elements).toSorted()).toEqual([
+      "orders_api",
+      "orders_db",
+    ]);
+    expect(rebuilt.elements["orders_api"].relations.map((r) => r.to)).toEqual([
+      "orders_db",
+    ]);
+  });
+
   it("preserves a container with all fields populated", async () => {
     const original = makeModel({
       elements: [

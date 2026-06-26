@@ -23,6 +23,17 @@ const isContextKind = (kind: Element["kind"]): boolean =>
   kind === "Person" || kind === "System";
 
 /**
+ * C4-PlantUML aliases are identifiers (`[A-Za-z0-9_]`) — no hyphens or
+ * dots. Model names from other formats (Structurizr / kubernetes allow
+ * `orders-repo`) would emit an alias the PlantUML parser rejects, so
+ * normalise to a safe identifier. The human name stays in the label;
+ * only the alias is sanitised, and every reference (element, boundary,
+ * relation endpoint) runs through this same function so they stay
+ * consistent within the diagram.
+ */
+const toAlias = (name: string): string => name.replaceAll(/\W/g, "_");
+
+/**
  * `AddProperty` prefix lines that the C4-PlantUML stdlib attaches to
  * the next macro call. Emit one per `Element.properties` /
  * `Relation.properties` entry so the round-trip through `aact diff`
@@ -49,7 +60,7 @@ const renderPropertyLines = (
 
 const renderElement = (element: Element): string => {
   const macro = c4MacroName(element.kind, element.external);
-  const parts: string[] = [element.name, `"${element.label}"`];
+  const parts: string[] = [toAlias(element.name), `"${element.label}"`];
 
   if (isContextKind(element.kind)) {
     // Person/System: alias, label, descr (no techn)
@@ -89,7 +100,7 @@ const renderBoundary = (
     ]);
 
   // Boundary signature: Boundary(alias, label, ?type, ?tags, ?link)
-  const parts: string[] = [boundary.name, `"${boundary.label}"`];
+  const parts: string[] = [toAlias(boundary.name), `"${boundary.label}"`];
   const named: string[] = [];
   if (boundary.tags.length > 0)
     named.push(`$tags="${boundary.tags.join("+")}"`);
@@ -112,7 +123,7 @@ const renderRelation = (
   relation: Element["relations"][number],
 ): string => {
   const label = relation.description ?? "";
-  const parts: string[] = [from, relation.to, `"${label}"`];
+  const parts: string[] = [toAlias(from), toAlias(relation.to), `"${label}"`];
   if (relation.technology) parts.push(`"${relation.technology}"`);
 
   const named: string[] = [];
