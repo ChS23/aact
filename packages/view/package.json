@@ -34,9 +34,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm run build:ui && pnpm run build:server",
+    "build": "pnpm run clean && pnpm run build:ui && pnpm run build:server",
     "build:server": "tsc -p tsconfig.json",
     "build:ui": "vite build",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "lint": "pnpm run typecheck",
     "typecheck": "pnpm run typecheck:server && pnpm run typecheck:ui",
     "typecheck:server": "tsc --noEmit -p tsconfig.json",

@@ -1,7 +1,6 @@
 import * as realFs from "node:fs";
 
-import { loadBaseline } from "../../../../src/cli/commands/diff/baseline";
-import { ToolError } from "../../../../src/cli/output";
+import { DiffInputError, loadBaseline } from "../../../../src/diff/baseline";
 import { loadFormat } from "../../../../src/formats/registry";
 
 // `readStdin` calls `readFileSync(0, "utf8")`, which throws under vitest's
@@ -100,17 +99,15 @@ describe("loadBaseline — format without load capability", () => {
     ).rejects.toMatchObject({ kind: "model.unsupportedLoad" });
   });
 
-  it("re-throws a ToolError from format.load verbatim (no parseError wrap)", async () => {
-    // When the loader itself throws a ToolError, loadBaseline must surface
+  it("re-throws a DiffInputError from format.load verbatim (no parseError wrap)", async () => {
+    // When the loader itself throws a DiffInputError, loadBaseline must surface
     // it unchanged rather than re-wrapping it as model.parseError.
+    const sourceError = new DiffInputError("model.parseError", "dangling ref", {
+      from: "a",
+    });
     mockedLoadFormat.mockResolvedValueOnce({
       name: "plantuml",
-      load: () =>
-        Promise.reject(
-          new ToolError("model.danglingRelation", "dangling ref", {
-            from: "a",
-          }),
-        ),
+      load: () => Promise.reject(sourceError),
     });
 
     stdinContent = SIMPLE_PUML;
@@ -119,8 +116,7 @@ describe("loadBaseline — format without load capability", () => {
       formatOverride: "plantuml",
       sideLabel: "baseline",
     }).catch((error_: unknown) => error_);
-    expect(error).toBeInstanceOf(ToolError);
-    expect((error as ToolError).kind).toBe("model.danglingRelation");
+    expect(error).toBe(sourceError);
   });
 
   it("wraps a non-ToolError from format.load as model.parseError", async () => {
@@ -135,8 +131,8 @@ describe("loadBaseline — format without load capability", () => {
       formatOverride: "plantuml",
       sideLabel: "baseline",
     }).catch((error_: unknown) => error_);
-    expect(error).toBeInstanceOf(ToolError);
-    expect((error as ToolError).kind).toBe("model.parseError");
-    expect((error as ToolError).message).toContain("loader exploded");
+    expect(error).toBeInstanceOf(DiffInputError);
+    expect((error as DiffInputError).kind).toBe("model.parseError");
+    expect((error as DiffInputError).message).toContain("loader exploded");
   });
 });

@@ -1,3 +1,11 @@
+export {
+  detectFormatFromPath,
+  DiffInputError,
+  type DiffInputErrorKind,
+  loadBaseline,
+  type LoadBaselineInput,
+  type LoadBaselineResult,
+} from "./baseline";
 export { computeDiff, DEFAULT_RENAME_THRESHOLD } from "./computeDiff";
 export type {
   BoundaryChange,

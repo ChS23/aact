@@ -5,7 +5,17 @@
 // may change without a major bump.
 
 export * from "./analyze";
-export * from "./config";
+// Explicit re-export (not `export *`) so the public surface is chosen, not
+// whatever the barrel happens to hold. `AactConfigSchema` (the internal
+// valibot schema) stays internal — users author via `defineConfig`.
+export {
+  type AactConfig,
+  type AactConfigInput,
+  type AactRulesConfig,
+  type BuiltinRulesConfig,
+  type CustomRulesConfig,
+  defineConfig,
+} from "./config";
 export {
   type BoundaryChange,
   type Change,
@@ -15,6 +25,8 @@ export {
   computeDiff,
   DEFAULT_RENAME_THRESHOLD,
   type DiffData,
+  DiffInputError,
+  type DiffInputErrorKind,
   type DiffOptions,
   type DiffSide,
   type DiffSummary,
@@ -22,6 +34,9 @@ export {
   type FieldChange,
   type FieldKind,
   type JsonPatchOp,
+  loadBaseline,
+  type LoadBaselineInput,
+  type LoadBaselineResult,
   type RelationChange,
   type WorkspaceChange,
 } from "./diff";
@@ -49,7 +64,34 @@ export {
   type LoadResult,
   type RelationDeclOptions,
 } from "./formats/types";
-export * from "./model";
+// Explicit re-export — `isDuplicateElement` stays internal as a validation
+// helper, while `formatLocation` is public for non-terminal renderers.
+export {
+  allBoundaries,
+  allElements,
+  type Boundary,
+  type BoundaryKind,
+  buildModel,
+  type Element,
+  type ElementKind,
+  formatLocation,
+  getBoundary,
+  getElement,
+  isDatabaseElement,
+  isDatabaseKind,
+  meaningfulTags,
+  type Model,
+  type ModelBuildInput,
+  type ModelBuildResult,
+  type ModelIssue,
+  type Relation,
+  type SourceLocation,
+  type SourcePosition,
+  targetOf,
+  validateModel,
+  walkBoundaries,
+  type WorkspaceMetadata,
+} from "./model";
 export * from "./rules";
 
 // CLI envelope contract — consumers parsing `aact <command> --json`
@@ -100,11 +142,6 @@ export type {
   CheckSummary,
   CheckViolation,
 } from "./cli/commands/check";
-export {
-  loadBaseline,
-  type LoadBaselineInput,
-  type LoadBaselineResult,
-} from "./cli/commands/diff/baseline";
 export type {
   GenerateData,
   GeneratedFileInfo,

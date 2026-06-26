@@ -10,33 +10,44 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { DiffSide } from "../../../diff";
-import { knownFormatNames, loadFormat } from "../../../formats/registry";
-import { canLoad } from "../../../formats/types";
-import type { Model, ModelIssue } from "../../../model";
-import { ToolError } from "../../output";
+import { knownFormatNames, loadFormat } from "../formats/registry";
+import { canLoad } from "../formats/types";
+import type { Model, ModelIssue } from "../model";
+import type { DiffSide } from "./types";
 
 /**
- * Resolve `<arg>` to a normalized Model + provenance label for
- * `aact diff <baseline> [<current>]`. The whole heavy-lift —
- * format detection, parsing, shape validation — lives in the
- * Format registry. This module only resolves the three CLI input
- * forms (file path, git ref, stdin) into a file-on-disk that the
- * registry's `format.load(path)` can consume:
+ * Tooling-facing failure while resolving a diff side. The CLI maps this to
+ * ToolError at the command boundary; library consumers can handle it directly.
+ */
+export type DiffInputErrorKind =
+  | "format.unknown"
+  | "model.parseError"
+  | "model.sourceNotFound"
+  | "model.unsupportedLoad";
+
+export class DiffInputError extends Error {
+  readonly kind: DiffInputErrorKind;
+  readonly context?: Readonly<Record<string, string>>;
+
+  constructor(
+    kind: DiffInputErrorKind,
+    message: string,
+    context?: Readonly<Record<string, string>>,
+  ) {
+    super(message);
+    this.name = "DiffInputError";
+    this.kind = kind;
+    this.context = context;
+  }
+}
+
+/**
+ * Resolve `<arg>` to a normalized Model + provenance label for diff workflows.
  *
- *  - **File path** — passed straight to the loader.
- *  - **Git ref** — `<ref>:<path>` — we shell out to `git show` and
- *    write the bytes to a scratch tmp file so the loader sees a
- *    real path.
- *  - **`-` (stdin)** — read once, write to scratch, hand the path
- *    to the loader. Stdin requires an explicit `--*-format`
- *    because we have nothing else to infer from.
- *
- * Format autodetect by extension is uniform across the registry —
- * see `formats/registry.ts` and `cli/loadConfig.ts:inferSourceType`.
- * model-json's canonical extension is `*.aact.json`; non-canonical
- * `.json` files (e.g. `my-arch.json` Structurizr export) require
- * `--baseline-format <name>` explicitly.
+ * Inputs:
+ *  - File path — passed straight to the loader.
+ *  - Git ref — `<ref>:<path>`; materialized to a scratch file.
+ *  - `-` — stdin; materialized to a scratch file and requires formatOverride.
  */
 
 const WINDOWS_ABSOLUTE_PATH = /^[a-zA-Z]:[\\/]/;
@@ -66,7 +77,7 @@ const readGitRefBytes = (ref: string, path: string, cwd?: string): string => {
       },
     );
   } catch (error) {
-    throw new ToolError(
+    throw new DiffInputError(
       "model.sourceNotFound",
       `git ref "${ref}:${path}" not found (git show failed: ${
         error instanceof Error ? error.message : String(error)
@@ -79,9 +90,8 @@ const readGitRefBytes = (ref: string, path: string, cwd?: string): string => {
 const readStdin = (): string => readFileSync(0, "utf8");
 
 /**
- * Pick a sensible suffix for the scratch tmp file so loaders that
- * key off extension still behave correctly: `model-json` wants
- * `.aact.json`, `plantuml` wants `.puml`, etc.
+ * Pick a sensible suffix for the scratch tmp file so loaders that key off
+ * extension still behave correctly.
  */
 const scratchExt = (arg: string, formatHint: string): string => {
   if (arg === "-") {
@@ -90,13 +100,6 @@ const scratchExt = (arg: string, formatHint: string): string => {
   return path.extname(splitGitRef(arg).path) || `.${formatHint}`;
 };
 
-/**
- * Format detection by file extension — uniform with the registry's
- * `defaultPattern` for each format. Restricted to the canonical
- * extensions to keep "auto-detect" predictable; non-canonical
- * names (`my-arch.json`, `topology.txt`) require an explicit
- * `--baseline-format` flag.
- */
 const COMPOSE_BASES = new Set([
   "compose.yaml",
   "compose.yml",
@@ -108,11 +111,6 @@ export const detectFormatFromPath = (
   filePath: string,
   isDirectory = false,
 ): string | undefined => {
-  // Directory input — единственный формат принимающий директорию это
-  // `kubernetes` (k8s loader walks recursively, поддерживает
-  // kustomization chase). Future-proofing: если другой формат
-  // добавит directory acceptance, fallback станет ambiguous, и
-  // потребуется per-format directory hint.
   if (isDirectory) return "kubernetes";
   const base = path.basename(filePath).toLowerCase();
   const ext = path.extname(base);
@@ -127,28 +125,15 @@ export const detectFormatFromPath = (
 };
 
 export interface LoadBaselineInput {
-  /** Raw argument string from the CLI (file path, git ref, or "-"). */
+  /** Raw argument string from the CLI or caller (file path, git ref, or "-"). */
   readonly arg: string;
-  /** Explicit format override — `--baseline-format` / `--current-format`. */
+  /** Explicit format override. Required for stdin and useful for ambiguous paths. */
   readonly formatOverride?: string;
-  /** Label for diagnostics. "baseline" or "current". */
+  /** Label for diagnostics, usually "baseline" or "current". */
   readonly sideLabel: string;
-  /**
-   * Working directory for git-ref resolution. Falls back to the calling
-   * process's cwd when omitted — that's what CLI invocations want. Tests
-   * pass an explicit value so they don't have to `process.chdir()` (which
-   * is forbidden inside vitest's worker_threads pool, blocking mutation
-   * runs).
-   */
+  /** Working directory for git-ref resolution. */
   readonly cwd?: string;
-  /**
-   * Per-Format options (`ComposeLoadOptions` / `KubernetesLoadOptions`
-   * etc.) пробрасываемые в `format.load(path, options)`. Для current-side
-   * приходят из `aact.config.ts → source.options`. Для baseline-side
-   * сейчас всегда undefined — baseline это git-ref / другой файл, у
-   * него нет config context. Если когда-нибудь понадобится — добавим
-   * `--baseline-options` CLI flag или config.baselineOptions.
-   */
+  /** Per-format loader options. */
   readonly options?: unknown;
 }
 
@@ -163,11 +148,6 @@ export const loadBaseline = async (
 ): Promise<LoadBaselineResult> => {
   const { arg, formatOverride, sideLabel, cwd, options } = input;
 
-  // Resolve format hint FIRST — stdin without an explicit
-  // `--<side>-format` would otherwise hang waiting for fd 0 to
-  // close, only to throw the wrong error afterward. For file paths
-  // we extract format hint from the extension; the actual read
-  // happens once we know we have something to do.
   let formatHint: string | undefined = formatOverride;
   let sourceLabel: string;
   let pathForContent:
@@ -179,7 +159,7 @@ export const loadBaseline = async (
     pathForContent = { kind: "stdin" };
     sourceLabel = `<stdin:${sideLabel}>`;
     if (!formatHint) {
-      throw new ToolError(
+      throw new DiffInputError(
         "format.unknown",
         `${sideLabel} reads from stdin — pass --${sideLabel}-format <fmt> to specify (${knownFormatNames().join(", ")})`,
       );
@@ -191,15 +171,12 @@ export const loadBaseline = async (
     formatHint = formatHint ?? detectFormatFromPath(gitPath);
   } else {
     if (!existsSync(arg)) {
-      throw new ToolError(
+      throw new DiffInputError(
         "model.sourceNotFound",
         `${sideLabel} file not found: ${arg}`,
         { path: arg },
       );
     }
-    // `aact diff arch.dsl ./k8s/` — directory это валидный entry
-    // только для kubernetes loader (он сам walk'ает). detectFormatFromPath
-    // под флагом отдаёт "kubernetes" сразу, без extension парсинга.
     const isDirectory = statSync(arg).isDirectory();
     pathForContent = { kind: "file", arg };
     sourceLabel = arg;
@@ -207,17 +184,13 @@ export const loadBaseline = async (
   }
 
   if (!formatHint) {
-    throw new ToolError(
+    throw new DiffInputError(
       "format.unknown",
       `Could not infer format for ${sideLabel} "${arg}". Pass --${sideLabel}-format <fmt> (${knownFormatNames().join(", ")})`,
       { arg },
     );
   }
 
-  // Stdin / git refs need to materialise on disk because format
-  // loaders work on file paths. File / directory args go straight to
-  // the loader (k8s walks the directory itself; reading a directory
-  // through `readFileSync` would throw EISDIR).
   let rawContent: string | undefined;
   switch (pathForContent.kind) {
     case "stdin": {
@@ -233,7 +206,6 @@ export const loadBaseline = async (
       break;
     }
     case "file": {
-      // Loader reads directly from `arg` — no scratch needed.
       break;
     }
   }
@@ -242,23 +214,20 @@ export const loadBaseline = async (
   try {
     format = await loadFormat(formatHint);
   } catch {
-    throw new ToolError(
+    throw new DiffInputError(
       "format.unknown",
       `Unknown format "${formatHint}" for ${sideLabel}. Known formats: ${knownFormatNames().join(", ")}`,
       { format: formatHint },
     );
   }
   if (!canLoad(format)) {
-    throw new ToolError(
+    throw new DiffInputError(
       "model.unsupportedLoad",
       `Format "${formatHint}" does not support load`,
       { format: formatHint },
     );
   }
 
-  // Materialise stdin / git-ref content на scratch path с правильным
-  // extension'ом — loaders что keying off basename ведут себя
-  // consistently. Always cleaned up; failure to delete is benign.
   let pathForLoad = arg;
   let scratchDir: string | undefined;
   if (rawContent !== undefined) {
@@ -278,10 +247,8 @@ export const loadBaseline = async (
       side: { source: sourceLabel, format: formatHint },
     };
   } catch (error) {
-    // Format loader threw — surface as model.parseError so the
-    // envelope downstream sees a consistent `kind`.
-    if (error instanceof ToolError) throw error;
-    throw new ToolError(
+    if (error instanceof DiffInputError) throw error;
+    throw new DiffInputError(
       "model.parseError",
       `${sourceLabel}: ${error instanceof Error ? error.message : String(error)}`,
       { path: sourceLabel },
@@ -291,7 +258,7 @@ export const loadBaseline = async (
       try {
         rmSync(scratchDir, { recursive: true, force: true });
       } catch {
-        // Benign — temp dir gets reclaimed by the OS eventually.
+        // Benign: temp dir gets reclaimed by the OS eventually.
       }
     }
   }

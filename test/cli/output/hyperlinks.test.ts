@@ -1,12 +1,12 @@
 import path from "node:path";
 
+import { formatLocation } from "../../../src";
 import {
   formatDisplayPath,
   formatLocationDisplay,
   linkSourceLocation,
 } from "../../../src/cli/output/hyperlinks";
 import type { SourceLocation } from "../../../src/model";
-import { formatLocation } from "../../../src/model";
 
 const loc: SourceLocation = {
   file: "/abs/path/arch.puml",

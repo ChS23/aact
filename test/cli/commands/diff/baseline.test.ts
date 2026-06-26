@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { loadBaseline } from "../../../../src/cli/commands/diff/baseline";
+import { loadBaseline } from "../../../../src/diff/baseline";
 
 const makeTempPuml = (content: string, name = "arch.puml"): string => {
   const dir = mkdtempSync(path.join(tmpdir(), "aact-baseline-test-"));

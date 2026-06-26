@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { meaningfulTags } from "../../src";
 import { computeDiff } from "../../src/diff";
 import type { Model } from "../../src/model";
-import { meaningfulTags } from "../../src/model";
 import { makeModel } from "../helpers/makeModel";
 
 const SIDE_BASE = { source: "baseline", format: "structurizr" } as const;

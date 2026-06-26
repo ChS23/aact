@@ -148,7 +148,7 @@ jobs:
           # work regardless of how many manifests the model produces.
           node "$AACT" generate --format kubernetes --output ./k8s/
           test -d k8s || { echo "::error::generate did not create ./k8s/"; exit 1; }
-          ls k8s/*.yml > /dev/null || { echo "::error::no manifests written to ./k8s/"; exit 1; }
+          ls k8s/*.yaml > /dev/null || { echo "::error::no manifests written to ./k8s/"; exit 1; }
           echo "::endgroup::"
 
           echo "::group::aact rule list / explain"

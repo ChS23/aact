@@ -33,6 +33,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   not `Orders Api`). Together these let `aact diff architecture.dsl ./k8s/`
   report real structural drift without tag or label noise. New `meaningfulTags`
   helper is exported from the model surface.
+- **BREAKING: the root barrel (`aact`) is an explicit allow-list, not
+  `export *`.** Re-exports are now chosen deliberately rather than mirroring
+  whatever each module happens to hold. `AactConfigSchema` (author config via
+  `defineConfig`) and `isDuplicateElement` (a validation internal) are no
+  longer exported. `loadBaseline` and `DiffInputError` move out of CLI
+  internals into the public `diff` module — the CLI maps `DiffInputError` to a
+  tool error at its boundary — and join `meaningfulTags` / `formatLocation` on
+  the documented surface.
 - **`aact generate --format kubernetes` now emits real, `kubectl apply`-able
   manifests** — `apps/v1` Deployment / StatefulSet + `v1` Service / Namespace
   (current stable API) — replacing the legacy `name:` / `environment:`

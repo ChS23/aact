@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 
 import type { AactConfig } from "../config";
+import { detectFormatFromPath } from "../diff";
 import { ruleRegistry } from "../rules/registry";
-import { detectFormatFromPath } from "./commands/diff/baseline";
 import { ToolError } from "./output";
 
 /**

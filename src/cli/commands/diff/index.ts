@@ -1,7 +1,12 @@
 import { defineCommand } from "citty";
 
 import type { DiffData, DiffOptions } from "../../../diff";
-import { computeDiff, DEFAULT_RENAME_THRESHOLD } from "../../../diff";
+import {
+  computeDiff,
+  DEFAULT_RENAME_THRESHOLD,
+  DiffInputError,
+  loadBaseline,
+} from "../../../diff";
 import { knownFormatNames } from "../../../formats/registry";
 import { loadAndValidateConfig } from "../../loadConfig";
 import type { Reporter } from "../../output";
@@ -14,7 +19,6 @@ import {
 } from "../../output";
 import { exitWith, readJsonFlag } from "../../run";
 import { configArg, jsonArg } from "../../sharedArgs";
-import { loadBaseline } from "./baseline";
 import { renderDiffText } from "./textRenderer";
 
 /**
@@ -128,6 +132,11 @@ const determineExitCode = (data: DiffData, strict: boolean): 0 | 1 | 2 => {
   return 0;
 };
 
+const toCliError = (error: unknown): unknown =>
+  error instanceof DiffInputError
+    ? new ToolError(error.kind, error.message, error.context)
+    : error;
+
 export const diff = defineCommand({
   meta: {
     name: "diff",
@@ -236,7 +245,7 @@ export const diff = defineCommand({
     } catch (error) {
       const envelope = buildErrorEnvelope({
         command: "diff",
-        error,
+        error: toCliError(error),
         startedAt,
         configPath: resolvedConfigPath,
         source: null,
