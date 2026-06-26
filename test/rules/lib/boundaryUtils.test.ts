@@ -305,6 +305,7 @@ describe("resolveRedirectTarget", () => {
     const accessor = getElement(model, "fulfillment_api")!;
     const db = getElement(model, "orders_db")!;
     const repo = getElement(model, "orders_repo")!;
+    vi.spyOn(consola, "warn").mockImplementation(() => {});
 
     expect(
       resolveRedirectTarget(accessor, db, repo, ["repo"], model, map, "test"),
@@ -326,6 +327,7 @@ describe("resolveRedirectTarget", () => {
     const accessor = getElement(model, "fulfillment_api")!;
     const db = getElement(model, "orders_db")!;
     const repo = getElement(model, "orders_relay")!;
+    vi.spyOn(consola, "warn").mockImplementation(() => {});
 
     expect(
       resolveRedirectTarget(
@@ -360,6 +362,7 @@ describe("resolveRedirectTarget", () => {
     const accessor = getElement(model, "fulfillment_api")!;
     const db = getElement(model, "orders_db")!;
     const owner = getElement(model, "orders_only_svc")!;
+    vi.spyOn(consola, "warn").mockImplementation(() => {});
 
     expect(
       resolveRedirectTarget(accessor, db, owner, ["repo"], model, map, "test"),
