@@ -22,6 +22,10 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     target: "es2022",
+    // ELK ships as one prebundled layout engine chunk. We isolate it
+    // via manualChunks below; keep the warning threshold just above
+    // today's ELK vendor size so unrelated growth still shows up.
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         // Group every Svelte Flow / elkjs chunk under one vendor
