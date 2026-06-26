@@ -34,6 +34,11 @@ Kubernetes (самый богатый таргет); с Docker Compose всё р
   2. в кластере крутится `metrics-collector`, которого **нет в архитектуре**;
   3. `billing-db` поднят на **MySQL**, хотя архитектура требует PostgreSQL.
 
+Намеренная архитектура (обе цепочки идут через repo-слой) — её и сравниваем с
+кластером:
+
+![Намеренная архитектура Shop: orders-api → orders-repo → orders-db и billing-service → billing-repo → billing-db](assets/architecture-conformance/shop.svg)
+
 ## Найти расхождения: `aact diff`
 
 ```bash

@@ -3,6 +3,8 @@
 От нуля до зелёного `check` за пять минут: `init` → `check` → `--fix`. Установка
 не нужна — всё через `npx`.
 
+![aact за минуту: init → check → fix → analyze](../demo/demo.gif)
+
 ## 1. Создать каркас: `aact init`
 
 ```bash
