@@ -114,6 +114,8 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   model the hierarchy as nested boundaries and check, with `analyzeArchitecture`,
   that coupling doesn't grow up the levels (backed by the existing
   `examples/banking-plantuml/ccr.test.ts`).
+- A [getting-started guide](docs/guides/getting-started.md) — the five-minute
+  `init` → `check` → `--fix` onboarding path, with the real scaffolded output.
 - Format objects are exported from the package root — `plantumlFormat`,
   `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
   `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).
