@@ -44,5 +44,7 @@ diff в PR, гейт в CI, сверку схемы с задеплоенной 
 
 - [**Свои правила (custom rules)**](./custom-rules.md) — кодируем паттерны
   команды поверх встроенных правил.
-- [**aact как библиотека**](./library-api.md) — водим aact из кода: `load`,
+- [**aact как библиотека**](./library-api.md) — используем aact из кода: `load`,
   правила, `computeDiff`, `analyze`, `generate` через публичный API пакета.
+- [**Контракт для агентов**](./agent-contract.md) — как AI-агент работает с aact:
+  стабильный `--json`-envelope, exit-коды, `model`/`check`/`rule` и skill.

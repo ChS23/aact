@@ -116,6 +116,9 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   `examples/banking-plantuml/ccr.test.ts`).
 - A [getting-started guide](docs/guides/getting-started.md) — the five-minute
   `init` → `check` → `--fix` onboarding path, with the real scaffolded output.
+- An [agent-contract guide](docs/guides/agent-contract.md) — how an AI agent
+  drives aact: the stable `--json` `CliEnvelope`, exit codes, `model` / `check` /
+  `rule` data shapes, and the `aact-architect` skill.
 - Format objects are exported from the package root — `plantumlFormat`,
   `structurizrFormat`, `modelJsonFormat`, `kubernetesFormat`,
   `composeFormat` — mirroring the rule objects (`aclRule`, `crudRule`, …).
