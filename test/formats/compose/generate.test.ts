@@ -121,10 +121,33 @@ describe("compose generate — image inference", () => {
     ).toBe("node:20");
   });
 
-  it("omits image for Container without parseable technology", () => {
+  it("uses build context and preserves technology for Container without parseable technology", () => {
     const { parsed } = buildOutput([{ name: "api", technology: "Next.js 14" }]);
-    const svc = (parsed.services as Record<string, { image?: string }>).api;
+    const svc = (
+      parsed.services as Record<
+        string,
+        {
+          build?: { context: string };
+          image?: string;
+          labels?: Record<string, string>;
+        }
+      >
+    ).api;
     expect(svc.image).toBeUndefined();
+    expect(svc.build).toEqual({ context: "." });
+    expect(svc.labels?.["aact.technology"]).toBe("Next.js 14");
+  });
+
+  it("uses build context for Container when technology is absent", () => {
+    const { parsed } = buildOutput([{ name: "api" }]);
+    const svc = (
+      parsed.services as Record<
+        string,
+        { build?: { context: string }; image?: string }
+      >
+    ).api;
+    expect(svc.image).toBeUndefined();
+    expect(svc.build).toEqual({ context: "." });
   });
 
   it("defaults ContainerDb to postgres:latest when technology absent", () => {

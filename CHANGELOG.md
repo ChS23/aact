@@ -152,6 +152,12 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   `--sarif`, or `config.output.mode`), not just the CLI `--json` flag.
   Previously `config.output.mode: "json"` without `--output` wrote the
   artefact and the JSON envelope to the same stdout.
+- `aact generate --format compose` now emits valid Compose for a generic
+  `Container` with no inferable image: the service gets `build: { context: "." }`
+  (the Compose Spec requires `image` **or** `build`), and the original
+  `technology` is preserved as an `aact.technology` label so `generate → load`
+  round-trips it instead of dropping it. Previously such a service had neither
+  key — rejected by `docker compose config` and by aact's own loader.
 
 ## v3.0.0-beta.29 — 2026-06-10
 

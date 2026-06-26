@@ -128,7 +128,9 @@ const buildService = (
   const service: Record<string, unknown> = {};
 
   const image = inferImage(el);
-  if (image !== undefined) {
+  if (image === undefined) {
+    service.build = { context: "." };
+  } else {
     service.image = image;
   }
 
@@ -142,7 +144,7 @@ const buildService = (
     service.models = [...aiModels];
   }
 
-  const labels = buildLabels(el, prefix);
+  const labels = buildLabels(el, prefix, image);
   if (Object.keys(labels).length > 0) {
     service.labels = labels;
   }
@@ -175,9 +177,8 @@ const buildModelsBlock = (
  * Tech-string → docker image. Honour user-provided technology если
  * выглядит как image ref (`postgres:13`, `ghcr.io/org/repo:v1`,
  * `node`). Иначе для DB / Queue kinds — sensible default; для
- * generic Container — `undefined` (omitted в output: dev-команда
- * допишет руками; Compose Spec разрешает service без `image:`
- * когда есть `build:`).
+ * generic Container — `undefined`; caller emits `build.context: "."`
+ * so the generated scaffold is accepted by `docker compose config`.
  */
 const inferImage = (el: Element): string | undefined => {
   const tech = el.technology?.trim();
@@ -218,7 +219,11 @@ const collectAiModelRefs = (el: Element, model: Model): readonly string[] => {
 /*  Labels — round-trip metadata                                      */
 /* ------------------------------------------------------------------ */
 
-const buildLabels = (el: Element, prefix: string): Record<string, string> => {
+const buildLabels = (
+  el: Element,
+  prefix: string,
+  image: string | undefined,
+): Record<string, string> => {
   const labels: Record<string, string> = {};
   // `aact.label` только когда отличается от auto-humanized name'а —
   // иначе loader восстановит через `humanizeName(name)` без подсказки.
@@ -231,6 +236,9 @@ const buildLabels = (el: Element, prefix: string): Record<string, string> => {
   }
   if (el.tags.length > 0) {
     labels[`${prefix}.tags`] = el.tags.join(",");
+  }
+  if (el.technology !== undefined && image === undefined) {
+    labels[`${prefix}.technology`] = el.technology;
   }
   if (el.link !== undefined && el.link.length > 0) {
     labels[`${prefix}.link`] = el.link;
