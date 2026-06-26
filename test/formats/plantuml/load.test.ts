@@ -974,4 +974,12 @@ describe("plantumlSyntax helpers", () => {
       'Rel(a, b, "", "JDBC")',
     );
   });
+
+  it("relationDecl escapes URL technology so PlantUML does not treat // as italic markup", () => {
+    expect(
+      plantumlSyntax.relationDecl("a", "b", {
+        technology: "https://gateway.int.com:443/goods/v1",
+      }),
+    ).toBe('Rel(a, b, "", "https:~//gateway.int.com:443/goods/v1")');
+  });
 });

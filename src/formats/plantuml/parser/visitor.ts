@@ -17,6 +17,7 @@
 import type { CstNode, IToken } from "chevrotain";
 
 import type { SourceLocation, SourcePosition } from "../../../model";
+import { unescapePlantumlText } from "../strings";
 import type {
   ArgumentValue,
   BareToken,
@@ -128,33 +129,37 @@ const cstRange = (cst: CstNode, file: string): SourceLocation => {
 
 /**
  * `"..."` → inner string with backslash-escapes resolved. PUML stdlib
- * uses simple escapes (`\"`, `\\`, `\n`) — match the reference
- * tokenisation.
+ * uses simple escapes (`\"`, `\\`, `\n`) plus PlantUML Creole `~`
+ * escapes for rendered text (`https:~//...` displays as `https://...`).
  */
 const unwrapStringLiteral = (image: string): string => {
   const inner = image.slice(1, -1);
-  return inner.replaceAll(/\\(.)/g, (_match, char: string) => {
-    switch (char) {
-      case "n": {
-        return "\n";
+  const backslashUnescaped = inner.replaceAll(
+    /\\(.)/g,
+    (_match, char: string) => {
+      switch (char) {
+        case "n": {
+          return "\n";
+        }
+        case "t": {
+          return "\t";
+        }
+        case "r": {
+          return "\r";
+        }
+        case '"': {
+          return '"';
+        }
+        case "\\": {
+          return "\\";
+        }
+        default: {
+          return char;
+        }
       }
-      case "t": {
-        return "\t";
-      }
-      case "r": {
-        return "\r";
-      }
-      case '"': {
-        return '"';
-      }
-      case "\\": {
-        return "\\";
-      }
-      default: {
-        return char;
-      }
-    }
-  });
+    },
+  );
+  return unescapePlantumlText(backslashUnescaped);
 };
 
 const diagramNameFromStartUml = (

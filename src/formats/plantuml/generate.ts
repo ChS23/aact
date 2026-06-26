@@ -2,6 +2,7 @@ import type { Boundary, Element, Model } from "../../model";
 import { getBoundary, getElement } from "../../model";
 import { boundaryMacroName, c4MacroName } from "../_shared/c4Mapping";
 import type { FormatOutput } from "../types";
+import { quotePlantumlArg, quotePlantumlText } from "./strings";
 
 export interface PlantumlGenerateOptions {
   /** Если задано — все root boundaries оборачиваются в outer Boundary с этим label. */
@@ -47,35 +48,34 @@ const renderPropertyLines = (
   properties: Element["properties"] | undefined,
 ): readonly string[] =>
   properties
-    ? // `JSON.stringify` wraps in double quotes AND escapes any
-      // embedded `"` / `\` / control characters per JSON rules. The
-      // preParse extractor uses the symmetric `JSON.parse`, so a
-      // property whose value contains a quote round-trips through
-      // generate → parse unchanged. Bare template literals
-      // (`"${v}"`) would silently break on the first quote.
-      Object.entries(properties).map(
-        ([k, v]) => `AddProperty(${JSON.stringify(k)}, ${JSON.stringify(v)})`,
+    ? Object.entries(properties).map(
+        ([k, v]) =>
+          `AddProperty(${quotePlantumlText(k)}, ${quotePlantumlText(v)})`,
       )
     : [];
 
 const renderElement = (element: Element): string => {
   const macro = c4MacroName(element.kind, element.external);
-  const parts: string[] = [toAlias(element.name), `"${element.label}"`];
+  const parts: string[] = [
+    toAlias(element.name),
+    quotePlantumlText(element.label),
+  ];
 
   if (isContextKind(element.kind)) {
     // Person/System: alias, label, descr (no techn)
-    if (element.description) parts.push(`"${element.description}"`);
+    if (element.description) parts.push(quotePlantumlText(element.description));
   } else {
     // Container/Component family: alias, label, techn, descr
-    if (element.technology) parts.push(`"${element.technology}"`);
+    if (element.technology) parts.push(quotePlantumlText(element.technology));
     else if (element.description) parts.push('""'); // pad techn slot
-    if (element.description) parts.push(`"${element.description}"`);
+    if (element.description) parts.push(quotePlantumlText(element.description));
   }
 
   const named: string[] = [];
-  if (element.sprite) named.push(`$sprite="${element.sprite}"`);
-  if (element.tags.length > 0) named.push(`$tags="${element.tags.join("+")}"`);
-  if (element.link) named.push(`$link="${element.link}"`);
+  if (element.sprite) named.push(`$sprite=${quotePlantumlArg(element.sprite)}`);
+  if (element.tags.length > 0)
+    named.push(`$tags=${quotePlantumlText(element.tags.join("+"))}`);
+  if (element.link) named.push(`$link=${quotePlantumlArg(element.link)}`);
 
   return `${macro}(${[...parts, ...named].join(", ")})`;
 };
@@ -100,11 +100,14 @@ const renderBoundary = (
     ]);
 
   // Boundary signature: Boundary(alias, label, ?type, ?tags, ?link)
-  const parts: string[] = [toAlias(boundary.name), `"${boundary.label}"`];
+  const parts: string[] = [
+    toAlias(boundary.name),
+    quotePlantumlText(boundary.label),
+  ];
   const named: string[] = [];
   if (boundary.tags.length > 0)
-    named.push(`$tags="${boundary.tags.join("+")}"`);
-  if (boundary.link) named.push(`$link="${boundary.link}"`);
+    named.push(`$tags=${quotePlantumlText(boundary.tags.join("+"))}`);
+  if (boundary.link) named.push(`$link=${quotePlantumlArg(boundary.link)}`);
 
   return [
     `${indent}${macro}(${[...parts, ...named].join(", ")}) {`,
@@ -123,14 +126,19 @@ const renderRelation = (
   relation: Element["relations"][number],
 ): string => {
   const label = relation.description ?? "";
-  const parts: string[] = [toAlias(from), toAlias(relation.to), `"${label}"`];
-  if (relation.technology) parts.push(`"${relation.technology}"`);
+  const parts: string[] = [
+    toAlias(from),
+    toAlias(relation.to),
+    quotePlantumlText(label),
+  ];
+  if (relation.technology) parts.push(quotePlantumlText(relation.technology));
 
   const named: string[] = [];
-  if (relation.sprite) named.push(`$sprite="${relation.sprite}"`);
+  if (relation.sprite)
+    named.push(`$sprite=${quotePlantumlArg(relation.sprite)}`);
   if (relation.tags.length > 0)
-    named.push(`$tags="${relation.tags.join("+")}"`);
-  if (relation.link) named.push(`$link="${relation.link}"`);
+    named.push(`$tags=${quotePlantumlText(relation.tags.join("+"))}`);
+  if (relation.link) named.push(`$link=${quotePlantumlArg(relation.link)}`);
 
   return `Rel(${[...parts, ...named].join(", ")})`;
 };
@@ -162,7 +170,7 @@ const renderBody = (
 
   if (boundaryLabel) {
     return [
-      `Boundary(project, "${boundaryLabel}") {`,
+      `Boundary(project, ${quotePlantumlText(boundaryLabel)}) {`,
       ...rootBoundaries.map((b) => renderBoundary(model, b, "  ")),
       ...standaloneContainers.flatMap((c) => [
         ...renderPropertyLines(c.properties).map((p) => `  ${p}`),

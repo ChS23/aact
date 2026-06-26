@@ -68,6 +68,7 @@
  */
 
 import type { SourceLocation } from "../../../model";
+import { unescapePlantumlText } from "../strings";
 
 /**
  * Info-level diagnostic raised by a pre-lex pass. The PUML parser's
@@ -217,8 +218,72 @@ const collectIgnoredLocalIncludes = (
   return issues;
 };
 
-const SIMPLE_VAR_RE = /^\s*!\$([A-Za-z_]\w*)\s*=\s*(.*?)\s*$/u;
-const SIMPLE_DEFINE_RE = /^\s*!define\s+([A-Za-z_]\w*)\s+(.+?)\s*$/u;
+const isAsciiWhitespace = (char: string): boolean =>
+  char === " " || char === "\t" || char === "\r" || char === "\n";
+
+const isIdentifierStart = (char: string): boolean => {
+  const code = char.codePointAt(0);
+  if (code === undefined) return false;
+  return (
+    (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || char === "_"
+  );
+};
+
+const isIdentifierPart = (char: string): boolean => {
+  const code = char.codePointAt(0);
+  if (code === undefined) return false;
+  return isIdentifierStart(char) || (code >= 48 && code <= 57);
+};
+
+const isSimpleIdentifier = (value: string): boolean => {
+  if (value.length === 0 || !isIdentifierStart(value[0])) return false;
+  for (const char of value.slice(1)) {
+    if (!isIdentifierPart(char)) return false;
+  }
+  return true;
+};
+
+const parseSimpleVariableConstant = (
+  line: string,
+): readonly [string, string] | undefined => {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("!$")) return undefined;
+  const equals = trimmed.indexOf("=", 2);
+  if (equals === -1) return undefined;
+
+  const rawName = trimmed.slice(2, equals).trimEnd();
+  if (rawName.trimStart() !== rawName || !isSimpleIdentifier(rawName)) {
+    return undefined;
+  }
+  return [`$${rawName}`, trimmed.slice(equals + 1).trim()];
+};
+
+const firstWhitespaceIndex = (value: string): number => {
+  let index = 0;
+  for (const char of value) {
+    if (isAsciiWhitespace(char)) return index;
+    index += char.length;
+  }
+  return -1;
+};
+
+const parseSimpleDefineConstant = (
+  line: string,
+): readonly [string, string] | undefined => {
+  const trimmed = line.trimStart();
+  if (!trimmed.startsWith("!define")) return undefined;
+  const rest = trimmed.slice("!define".length);
+  if (rest.length === 0 || !isAsciiWhitespace(rest[0])) return undefined;
+
+  const body = rest.trimStart();
+  const nameEnd = firstWhitespaceIndex(body);
+  if (nameEnd === -1) return undefined;
+
+  const name = body.slice(0, nameEnd);
+  const value = body.slice(nameEnd).trim();
+  if (!isSimpleIdentifier(name) || value.length === 0) return undefined;
+  return [name, value];
+};
 
 const unquoteConstantValue = (raw: string): string => {
   const value = raw.trim();
@@ -234,15 +299,18 @@ const unquoteConstantValue = (raw: string): string => {
 export const extractSimpleConstants = (text: string): SimpleConstants => {
   const constants = new Map<string, string>();
   for (const line of text.split(/\r?\n/u)) {
-    const varMatch = SIMPLE_VAR_RE.exec(line);
-    if (varMatch) {
-      constants.set(`$${varMatch[1]}`, unquoteConstantValue(varMatch[2]));
+    const variableConstant = parseSimpleVariableConstant(line);
+    if (variableConstant) {
+      constants.set(
+        variableConstant[0],
+        unquoteConstantValue(variableConstant[1]),
+      );
       continue;
     }
 
-    const defineMatch = SIMPLE_DEFINE_RE.exec(line);
-    if (!defineMatch) continue;
-    constants.set(defineMatch[1], unquoteConstantValue(defineMatch[2]));
+    const defineConstant = parseSimpleDefineConstant(line);
+    if (!defineConstant) continue;
+    constants.set(defineConstant[0], unquoteConstantValue(defineConstant[1]));
   }
   return constants;
 };
@@ -803,7 +871,7 @@ const unwrapArg = (raw: string): string => {
   if (target.startsWith('"') && target.endsWith('"') && target.length >= 2) {
     try {
       const parsed = JSON.parse(target) as unknown;
-      if (typeof parsed === "string") return parsed;
+      if (typeof parsed === "string") return unescapePlantumlText(parsed);
     } catch {
       // JSON.parse rejects literal control characters inside a
       // string literal (raw tabs, newlines), even though the PUML
@@ -811,10 +879,10 @@ const unwrapArg = (raw: string): string => {
       // so those values still land on Model.properties — the
       // whitespace-only-key drop below catches the genuinely
       // empty cases either way.
-      return target.slice(1, -1);
+      return unescapePlantumlText(target.slice(1, -1));
     }
   }
-  return target;
+  return unescapePlantumlText(target);
 };
 
 interface PendingProps {

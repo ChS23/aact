@@ -1,9 +1,10 @@
 import type { FormatSyntax } from "../types";
+import { quotePlantumlText } from "./strings";
 
 export const plantumlSyntax: FormatSyntax = {
   containerDecl: (name, label, tags) => {
-    const tagsPart = tags ? `, "", "", $tags="${tags}"` : "";
-    return `Container(${name}, "${label}"${tagsPart})`;
+    const tagsPart = tags ? `, "", "", $tags=${quotePlantumlText(tags)}` : "";
+    return `Container(${name}, ${quotePlantumlText(label)}${tagsPart})`;
   },
   // C4-PUML stdlib Rel signature: Rel(from, to, label, ?techn, ?descr,
   // ?sprite, ?tags, ?link). We emit position 3 (label) from
@@ -14,9 +15,9 @@ export const plantumlSyntax: FormatSyntax = {
   relationDecl: (from, to, opts) => {
     const description = opts?.description ?? "";
     const technology = opts?.technology;
-    const parts: string[] = [from, to, `"${description}"`];
-    if (technology) parts.push(`"${technology}"`);
-    if (opts?.tags) parts.push(`$tags="${opts.tags}"`);
+    const parts: string[] = [from, to, quotePlantumlText(description)];
+    if (technology) parts.push(quotePlantumlText(technology));
+    if (opts?.tags) parts.push(`$tags=${quotePlantumlText(opts.tags)}`);
     return `Rel(${parts.join(", ")})`;
   },
 };

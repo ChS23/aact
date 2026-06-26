@@ -1,4 +1,5 @@
 import { generate } from "../../../src/formats/plantuml/generate";
+import { parseSource } from "../../../src/formats/plantuml/parser";
 import type { ElementSpec } from "../../helpers/makeModel";
 import { makeModel } from "../../helpers/makeModel";
 
@@ -90,6 +91,42 @@ describe("plantuml generate", () => {
       { name: "payments" },
     ]);
     expect(result).toContain('Rel(orders, payments, "", "REST")');
+  });
+
+  it("escapes PlantUML Creole markup in generated text arguments", () => {
+    const url = "https://gateway.int.com:443/goods/v1";
+    const result = renderModel([
+      {
+        name: "gateway",
+        label: "Gateway // Edge",
+        properties: { endpoint: url },
+        relations: [
+          {
+            to: "goods",
+            description: `GET ${url}`,
+            technology: url,
+          },
+        ],
+      },
+      { name: "goods" },
+    ]);
+
+    expect(result).toContain('Container(gateway, "Gateway ~// Edge")');
+    expect(result).toContain('AddProperty("endpoint", "https:~//gateway');
+    expect(result).toContain(
+      'Rel(gateway, goods, "GET https:~//gateway.int.com:443/goods/v1", "https:~//gateway.int.com:443/goods/v1")',
+    );
+    expect(result).not.toContain(
+      'Rel(gateway, goods, "GET https://gateway.int.com:443/goods/v1", "https://gateway.int.com:443/goods/v1")',
+    );
+
+    const parsed = parseSource(result, "generated.puml");
+    expect(parsed.parseErrors).toEqual([]);
+    const gateway = parsed.model.elements.gateway;
+    expect(gateway?.label).toBe("Gateway // Edge");
+    expect(gateway?.properties?.endpoint).toBe(url);
+    expect(gateway?.relations[0]?.description).toBe(`GET ${url}`);
+    expect(gateway?.relations[0]?.technology).toBe(url);
   });
 
   it("renders async relation tags", () => {

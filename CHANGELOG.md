@@ -158,6 +158,12 @@ helpUri?`), and `rule list` now carries `helpUri`. The public
   `technology` is preserved as an `aact.technology` label so `generate → load`
   round-trips it instead of dropping it. Previously such a service had neither
   key — rejected by `docker compose config` and by aact's own loader.
+- `aact generate --format plantuml` no longer emits diagrams that render
+  broken. PlantUML treats `//` as Creole italic markup, so a raw URL in a
+  label / description / technology / property (e.g. `https://gateway/v1`)
+  rendered as `[https: …]</size>//`. Generated text now escapes `//` → `~//`
+  (hyperlink `$link` targets are left intact), and the loader decodes the
+  escape so the Model keeps the real value and `generate → load` round-trips.
 
 ## v3.0.0-beta.29 — 2026-06-10
 
