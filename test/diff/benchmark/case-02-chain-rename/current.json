@@ -1,0 +1,36 @@
+{
+  "elements": {
+    "apiV2": {
+      "name": "apiV2",
+      "label": "API V2",
+      "kind": "Container",
+      "external": false,
+      "description": "Public API",
+      "technology": "Node.js",
+      "tags": [],
+      "relations": [{ "to": "primaryDbRepo", "tags": [] }]
+    },
+    "primaryDbRepo": {
+      "name": "primaryDbRepo",
+      "label": "Primary DB Repo",
+      "kind": "Container",
+      "external": false,
+      "description": "Database access layer",
+      "technology": "Node.js",
+      "tags": ["repo"],
+      "relations": [{ "to": "primaryDb", "tags": [] }]
+    },
+    "primaryDb": {
+      "name": "primaryDb",
+      "label": "Primary Database",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Primary store",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}

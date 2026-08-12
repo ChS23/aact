@@ -1,0 +1,33 @@
+{
+  "elements": {
+    "billing": {
+      "name": "billing",
+      "label": "Billing",
+      "kind": "Container",
+      "external": false,
+      "description": "Billing logic",
+      "technology": "Java",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {
+    "internal": {
+      "name": "internal",
+      "label": "Internal",
+      "kind": "System",
+      "tags": [],
+      "elementNames": ["billing"],
+      "boundaryNames": []
+    },
+    "platform": {
+      "name": "platform",
+      "label": "Platform",
+      "kind": "System",
+      "tags": [],
+      "elementNames": [],
+      "boundaryNames": []
+    }
+  },
+  "rootBoundaryNames": ["internal", "platform"]
+}

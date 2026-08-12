@@ -1,0 +1,37 @@
+{
+  "description": "Near miss — graph shape is A→B→C, but the new intermediary is cache-like, not repo-like. The primitive changes should be reported, but no introducedRepository group should be emitted.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "added",
+      "severity": "structural",
+      "address": "element:cache",
+      "name": "cache"
+    },
+    {
+      "entity": "relation",
+      "action": "removed",
+      "severity": "structural",
+      "address": "relation:api→store",
+      "from": "api",
+      "to": "store"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:api→cache",
+      "from": "api",
+      "to": "cache"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:cache→store",
+      "from": "cache",
+      "to": "store"
+    }
+  ],
+  "groups": []
+}

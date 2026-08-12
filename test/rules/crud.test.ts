@@ -1,123 +1,529 @@
-import { Container } from "../../src/model";
-import { checkCrud } from "../../src/rules";
+import { fc, test } from "@fast-check/vitest";
+import consola from "consola";
 
-describe("checkCrud", () => {
-  const db: Container = {
-    name: "orders_db",
-    label: "Orders DB",
-    type: "ContainerDb",
-    description: "",
-    relations: [],
-  };
+import { plantumlSyntax } from "../../src/formats/plantuml/syntax";
+import { structurizrDslSyntax } from "../../src/formats/structurizr/syntax";
+import { crudRule } from "../../src/rules";
+import { applyEdits } from "../../src/rules/lib/applyEdits";
+import { loadPumlString } from "../helpers/loadPumlString";
+import type { BoundarySpec, ElementSpec } from "../helpers/makeModel";
+import { makeModel } from "../helpers/makeModel";
 
-  const otherService: Container = {
-    name: "notifications",
-    label: "Notifications",
-    type: "Container",
-    description: "",
-    relations: [],
-  };
+const nameArb = fc
+  .string({ minLength: 2, maxLength: 8 })
+  .filter((s) => /^[a-z][a-z0-9_]*$/.test(s));
 
-  it("returns no violations when repo accesses only database", () => {
-    const containers: Container[] = [
+const dbSpec = (name = "orders_db", label = "Orders DB"): ElementSpec => ({
+  name,
+  label,
+  kind: "ContainerDb",
+});
+
+const buildModel = (elements: ElementSpec[], boundaries?: BoundarySpec[]) =>
+  makeModel({ elements, boundaries });
+
+const STDLIB =
+  "!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml";
+
+const pumlFix = async (
+  puml: string,
+  violationElement: string,
+  options?: Parameters<typeof crudRule.check>[1],
+) => {
+  const { model, source } = await loadPumlString(puml);
+  const fixes = crudRule.fix!({
+    model,
+    violations: [
+      { target: violationElement, targetKind: "element" as const, message: "" },
+    ],
+    syntax: plantumlSyntax,
+    options,
+  });
+  const edits = fixes.flatMap((f) => f.edits);
+  const { content } = applyEdits(source, edits);
+  return { fixes, content };
+};
+
+describe("crudRule.check", () => {
+  it("no violation when only repo accesses DB", () => {
+    const model = buildModel([
+      { name: "orders_repo", tags: ["repo"], relations: [{ to: "orders_db" }] },
+      dbSpec(),
+    ]);
+    expect(crudRule.check(model)).toHaveLength(0);
+  });
+
+  it("violation when non-repo accesses DB", () => {
+    const model = buildModel([
+      { name: "orders", relations: [{ to: "orders_db" }] },
+      dbSpec(),
+    ]);
+    const v = crudRule.check(model);
+    expect(v).toHaveLength(1);
+    expect(v[0].target).toBe("orders");
+    expect(v[0].message).toMatch(/repo/);
+  });
+
+  it("treats ComponentDb the same as ContainerDb (direct-access detection)", () => {
+    // The C4 stdlib has both `ContainerDb` (level-2) and
+    // `ComponentDb` (level-3) for data stores; the rule must fire
+    // on either when a non-repo accesses one directly.
+    const model = buildModel([
+      { name: "orders", relations: [{ to: "comp_db" }] },
+      { name: "comp_db", kind: "ComponentDb" },
+    ]);
+    const v = crudRule.check(model);
+    expect(v).toHaveLength(1);
+    expect(v[0].target).toBe("orders");
+  });
+
+  it("repos may access ComponentDb without violation, but not non-DB elements", () => {
+    // Inverse direction: a repo accessing a ComponentDb is fine
+    // (it's a DB). Accessing something else fires the rule.
+    const model = buildModel([
+      {
+        name: "user_repo",
+        tags: ["repo"],
+        relations: [{ to: "user_comp_db" }, { to: "other_svc" }],
+      },
+      { name: "user_comp_db", kind: "ComponentDb" },
+      { name: "other_svc" },
+    ]);
+    const v = crudRule.check(model);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/non-database/);
+  });
+
+  it("violation when repo has non-DB dependencies", () => {
+    const model = buildModel([
       {
         name: "orders_repo",
-        label: "Orders Repo",
-        type: "Container",
         tags: ["repo"],
-        description: "",
-        relations: [{ to: db }],
+        relations: [{ to: "orders_db" }, { to: "other_service" }],
       },
-      db,
-    ];
-
-    expect(checkCrud(containers)).toHaveLength(0);
+      dbSpec(),
+      { name: "other_service" },
+    ]);
+    const v = crudRule.check(model);
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toMatch(/non-database/);
   });
 
-  it("returns violation when non-repo accesses database", () => {
-    const containers: Container[] = [
-      {
-        name: "orders_service",
-        label: "Orders Service",
-        type: "Container",
-        description: "",
-        relations: [{ to: db }],
-      },
-      db,
-    ];
+  it("respects repoTags option", () => {
+    const model = buildModel([
+      { name: "orders_dao", tags: ["dao"], relations: [{ to: "orders_db" }] },
+      dbSpec(),
+    ]);
+    expect(crudRule.check(model, { repoTags: ["dao"] })).toHaveLength(0);
+  });
+});
 
-    const violations = checkCrud(containers);
-    expect(violations).toHaveLength(1);
-    expect(violations[0].container).toBe("orders_service");
+describe("crudRule.fix — non-repo accesses DB", () => {
+  it("returns empty for empty violations", () => {
+    const model = buildModel([]);
+    expect(
+      crudRule.fix!({
+        model,
+        violations: [],
+        syntax: plantumlSyntax,
+        options: undefined,
+      }),
+    ).toEqual([]);
   });
 
-  it("returns violation when repo has non-database dependencies", () => {
-    const containers: Container[] = [
-      {
-        name: "orders_repo",
-        label: "Orders Repo",
-        type: "Container",
-        tags: ["repo"],
-        description: "",
-        relations: [{ to: db }, { to: otherService }],
-      },
-      db,
-      otherService,
-    ];
-
-    const violations = checkCrud(containers);
-    expect(violations).toHaveLength(1);
-    expect(violations[0].message).toContain("non-database dependencies");
+  it("redirects accessor through an existing tagged repo", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'Container(orders_repo, "Orders Repo", $tags="repo")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      'Rel(orders_repo, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    expect(content).toContain("Rel(orders, orders_repo");
+    expect(content).not.toMatch(/Rel\(orders, orders_db,\s*""\)/);
   });
 
-  it("allows relay-tagged containers to access database", () => {
-    const containers: Container[] = [
-      {
-        name: "orders_relay",
-        label: "Orders Relay",
-        type: "Container",
-        tags: ["relay"],
-        description: "",
-        relations: [{ to: db }],
-      },
-      db,
-    ];
-
-    expect(checkCrud(containers)).toHaveLength(0);
+  it("redirects through a name-pattern-matched repo and promotes its tag", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'Container(orders_repo, "Orders Repo")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      'Rel(orders_repo, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    // Existing repo gets re-emitted with the canonical $tags="repo".
+    expect(content).toContain('$tags="repo"');
+    expect(content).toContain("Rel(orders, orders_repo");
   });
 
-  it("respects custom repoTags when checking repo outbound dependencies", () => {
-    const containers: Container[] = [
-      {
-        name: "orders_relay",
-        label: "Orders Relay",
-        type: "Container",
-        tags: ["relay"],
-        description: "",
-        relations: [{ to: db }, { to: otherService }],
-      },
-      db,
-      otherService,
-    ];
-
-    const violations = checkCrud(containers, { repoTags: ["relay"] });
-    expect(violations).toHaveLength(1);
-    expect(violations[0].container).toBe("orders_relay");
-    expect(violations[0].message).toContain("non-database dependencies");
+  it("creates a new repo when none exists", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    expect(content).toContain("Container(orders_repo,");
+    expect(content).toContain('$tags="repo"');
+    expect(content).toContain("Rel(orders_repo, orders_db");
+    expect(content).toContain("Rel(orders, orders_repo");
+    expect(content).not.toMatch(/Rel\(orders, orders_db,\s*""\)/);
   });
 
-  it("returns no violations when container has no db relations", () => {
-    const containers: Container[] = [
-      {
-        name: "api_gateway",
-        label: "API Gateway",
-        type: "Container",
-        description: "",
-        relations: [{ to: otherService }],
-      },
-      otherService,
-    ];
+  it("derives the new repo's label from the DB name (strip `_db`, capitalise)", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(svc, "Service")',
+      'ContainerDb(payment_db, "Payment DB")',
+      'Rel(svc, payment_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "svc");
+    expect(content).toContain('Container(payment_repo, "Payment Repo"');
+  });
 
-    expect(checkCrud(containers)).toHaveLength(0);
+  it("strips Database suffix in camelCase identifiers", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(svc, "Service")',
+      'ContainerDb(paymentDatabase, "Payment DB")',
+      'Rel(svc, paymentDatabase, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "svc");
+    expect(content).toContain("Container(paymentRepo,");
+  });
+
+  it("auto-detects camelCase and uses Repo suffix", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orderService, "Service")',
+      'ContainerDb(ordersDb, "DB")',
+      'Rel(orderService, ordersDb, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orderService");
+    expect(content).toContain("Container(ordersRepo,");
+  });
+
+  it("skips and warns when the derived repo name already exists as something else", async () => {
+    const warn = vi.spyOn(consola, "warn").mockImplementation(() => {});
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'Container(orders_repo, "Pre-existing")',
+      'ContainerDb(orders_db, "Orders DB")',
+      // `orders_repo` does NOT touch orders_db — name collision but not
+      // a usable repo. crud-fix should refuse to clobber it.
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { fixes } = await pumlFix(puml, "orders");
+    expect(fixes).toHaveLength(0);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("emits cross-boundary warning when no existing repo and accessor differs from db's boundary", async () => {
+    const warn = vi.spyOn(consola, "warn").mockImplementation(() => {});
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container_Boundary(svc_boundary, "Svc") {',
+      '  Container(svc, "Service")',
+      "}",
+      'Container_Boundary(db_boundary, "DB") {',
+      '  ContainerDb(orders_db, "Orders DB")',
+      "}",
+      'Rel(svc, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { fixes } = await pumlFix(puml, "svc");
+    expect(fixes).toHaveLength(0);
+    expect(warn).toHaveBeenCalled();
+    const msg = String(warn.mock.calls[0][0]);
+    expect(msg).toContain("fix crud");
+    expect(msg).toContain("cross-boundary");
+    expect(msg).toContain("svc");
+    expect(msg).toContain("orders_db");
+  });
+
+  it('tags every FixResult with rule="crud" and a human-readable description', async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { fixes } = await pumlFix(puml, "orders");
+    expect(fixes).toHaveLength(1);
+    expect(fixes[0].ruleId).toBe("crud");
+    expect(fixes[0].description).toContain("orders");
+    expect(fixes[0].description).toContain("orders_db");
+  });
+
+  it("ignores non-db outbound relations when scoping fix", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Container(audit, "Audit Bus")',
+      'Rel(orders, orders_db, "")',
+      'Rel(orders, audit, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    // The audit edge stays untouched
+    expect(content).toContain('Rel(orders, audit, "")');
+  });
+
+  it('falls back to "repo" tag when ownerTags is an empty array', async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders", { repoTags: [] });
+    expect(content).toContain('$tags="repo"');
+  });
+
+  it("uses the first repoTag as the new repo's tag when ownerTags is custom", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders", { repoTags: ["dao"] });
+    expect(content).toContain('$tags="dao"');
+  });
+});
+
+describe("crudRule.fix — repo with non-DB deps", () => {
+  it("removes the offending non-database edges", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders_repo, "Orders Repo", $tags="repo")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Container(audit, "Audit Bus")',
+      'Rel(orders_repo, orders_db, "")',
+      'Rel(orders_repo, audit, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders_repo");
+    expect(content).toContain("Rel(orders_repo, orders_db,");
+    expect(content).not.toContain("Rel(orders_repo, audit");
+  });
+
+  it('tags repo-with-non-db-deps fixes with rule="crud"', async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders_repo, "Orders Repo", $tags="repo")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Container(audit, "Audit Bus")',
+      'Rel(orders_repo, orders_db, "")',
+      'Rel(orders_repo, audit, "")',
+      "@enduml",
+    ].join("\n");
+    const { fixes } = await pumlFix(puml, "orders_repo");
+    expect(fixes).toHaveLength(1);
+    expect(fixes[0].ruleId).toBe("crud");
+    expect(fixes[0].description).toMatch(/orders_repo/);
+  });
+});
+
+describe("crudRule.fix — repo discovery", () => {
+  it("ignores an untagged container that does not match name patterns", async () => {
+    // `helper` is not a repo by tag or by name. Pin: crud must NOT
+    // pick it as a redirect target — should create a fresh repo.
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'Container(helper, "Helper")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      'Rel(helper, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    // A fresh orders_repo container should be created (not redirect through helper).
+    expect(content).toContain("Container(orders_repo,");
+    expect(content).not.toContain("Rel(orders, helper");
+  });
+
+  it("requires the candidate repo to actually reach the same db", async () => {
+    // `unrelated_repo` is repo-tagged but talks to a DIFFERENT db. Pin:
+    // crud must NOT redirect orders → unrelated_repo for orders_db
+    // accesses; it has to create a fresh repo.
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'Container(unrelated_repo, "Unrelated Repo", $tags="repo")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'ContainerDb(other_db, "Other DB")',
+      'Rel(orders, orders_db, "")',
+      'Rel(unrelated_repo, other_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    expect(content).toContain("Container(orders_repo,");
+    expect(content).not.toContain("Rel(orders, unrelated_repo");
+  });
+
+  it("does not consider the accessor itself when scanning for an existing repo", async () => {
+    // Pin: `c !== accessor` guard — without it, a service that already
+    // touches its own db could be "rescued" by pointing at itself.
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    expect(content).toContain("Container(orders_repo,");
+    expect(content).not.toMatch(/Rel\(orders, orders,/);
+  });
+});
+
+describe("crudRule.fix — edge cases", () => {
+  it("silently skips a violation that names a non-existent element", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'ContainerDb(orders_db, "Orders DB")',
+      "@enduml",
+    ].join("\n");
+    const { model } = await loadPumlString(puml);
+    expect(
+      crudRule.fix!({
+        model,
+        violations: [
+          { target: "ghost", targetKind: "element" as const, message: "" },
+        ],
+        syntax: plantumlSyntax,
+        options: undefined,
+      }),
+    ).toHaveLength(0);
+  });
+
+  it("description pins exact `Add repo intermediary for X → Y` format", async () => {
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Orders Service")',
+      'ContainerDb(orders_db, "Orders DB")',
+      'Rel(orders, orders_db, "")',
+      "@enduml",
+    ].join("\n");
+    const { fixes } = await pumlFix(puml, "orders");
+    expect(fixes[0].description).toBe(
+      "Add repo intermediary for orders → orders_db",
+    );
+  });
+
+  // Note: `relationDecl(from, to, tech)` currently emits `tech` in
+  // C4-PUML positional 3 (label slot), conflating description and
+  // technology. That's a pre-existing FormatSyntax shortcoming
+  // independent of the range-edit refactor — track separately so we
+  // can split the helper into `description` + `technology` params.
+
+  test.prop([nameArb])(
+    "never throws for arbitrary service identifiers",
+    async (svc) => {
+      const puml = [
+        "@startuml",
+        STDLIB,
+        `Container(${svc}, "Service")`,
+        'ContainerDb(orders_db, "Orders DB")',
+        `Rel(${svc}, orders_db, "")`,
+        "@enduml",
+      ].join("\n");
+      const { model } = await loadPumlString(puml);
+      const v = crudRule.check(model);
+      expect(() =>
+        crudRule.fix!({
+          model,
+          violations: v,
+          syntax: plantumlSyntax,
+          options: undefined,
+        }),
+      ).not.toThrow();
+    },
+  );
+});
+
+describe("crudRule.fix — UTF-16 offset semantics", () => {
+  it("rewires correctly when source contains cyrillic and emoji before the edit point", async () => {
+    // Regression: SourcePosition.offset is a UTF-16 code unit index,
+    // not a UTF-8 byte offset. If `applyEdits` ever switched to
+    // byte-based slicing (Buffer.from(...).slice), multibyte
+    // characters BEFORE the edited line would shift the offsets and
+    // the splice would land mid-glyph. Pin: cyrillic + emoji labels
+    // round-trip cleanly through `--fix` rewrite.
+    const puml = [
+      "@startuml",
+      STDLIB,
+      'Container(orders, "Сервис заказов 📦")',
+      'ContainerDb(orders_db, "База данных 💾")',
+      'Rel(orders, orders_db, "читает")',
+      "@enduml",
+    ].join("\n");
+    const { content } = await pumlFix(puml, "orders");
+    // Original labels survive byte-for-byte.
+    expect(content).toContain('Container(orders, "Сервис заказов 📦")');
+    expect(content).toContain('ContainerDb(orders_db, "База данных 💾")');
+    // New repo container injected.
+    expect(content).toContain("Container(orders_repo,");
+    // Original Rel was rewired (not duplicated, not corrupted).
+    expect(content).not.toMatch(/Rel\(orders, orders_db,\s*"читает"\)/);
+    expect(content).toContain("Rel(orders, orders_repo");
+  });
+});
+
+describe("crudRule.fix (structurizr syntax)", () => {
+  it("emits structurizr DSL content via FormatSyntax helper", () => {
+    // Synth model has no sourceLocation → fix returns no edits. The
+    // syntax helper itself is what we pin here — actual fix path is
+    // covered end-to-end by PUML tests above; structurizr in-place
+    // editing uses the same applier.
+    const decl = structurizrDslSyntax.containerDecl(
+      "orders_repo",
+      "Orders Repo",
+      "repo",
+    );
+    expect(decl).toContain('orders_repo = container "Orders Repo"');
+    expect(decl).toContain('tags "repo"');
+    const rel = structurizrDslSyntax.relationDecl("orders", "orders_repo", {
+      technology: "PostgreSQL",
+    });
+    expect(rel).toBe('orders -> orders_repo "" "PostgreSQL"');
   });
 });

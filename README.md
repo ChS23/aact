@@ -5,6 +5,12 @@
 [![npm version](https://img.shields.io/npm/v/aact)](https://www.npmjs.com/package/aact)
 [![test workflow](https://github.com/Byndyusoft/aact/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/Byndyusoft/aact/actions/workflows/test.yaml)
 
+🇷🇺 **Русский** | 🇬🇧 [English](README.en.md)
+
+<p align="center">
+  <img src="docs/demo/demo.gif" alt="aact demo: init → check → fix → analyze" width="820"/>
+</p>
+
 CLI и библиотека для валидации, анализа и генерации архитектуры микросервисных систем, описанной "as Code" (PlantUML C4, Structurizr).
 
 Инструменты для работы с архитектурой в формате "as Code":
@@ -19,7 +25,7 @@ CLI и библиотека для валидации, анализа и ген�
 
 <img src="https://github.com/Byndyusoft/aact/assets/1096954/a3c3b3b0-a09b-4da7-aca4-5538159b371c" width="15"/> Телеграм-канал: [Архитектура распределённых систем](https://t.me/rsa_enc)
 
-aact можно использовать двумя способами: как **CLI** (`npx aact check`, авто-фикс, генерация артефактов) или как **библиотеку** (импортировать `checkAcl`, `analyzeArchitecture` и пр. в свои тесты на vitest/jest). CLI — ниже, library-режим — в [соответствующем разделе](#использование-как-библиотеки).
+aact можно использовать двумя способами: как **CLI** (`npx aact check`, авто-фикс, генерация артефактов) или как **библиотеку** (импортировать `aclRule`, `analyzeArchitecture` и пр. в свои тесты на vitest/jest). CLI — ниже, library-режим — в [соответствующем разделе](#использование-как-библиотеки).
 
 ## Quick Start (CLI)
 
@@ -47,13 +53,17 @@ npx aact check
 
 ```bash
 npx aact check --dry-run             # preview auto-fix без записи
+npx aact model                       # inspect нормализованной C4-модели
 npx aact analyze                     # coupling/cohesion метрики
+npx aact view                        # локальный live-workbench в браузере
 npx aact generate --format plantuml  # сгенерировать .puml из источника
+npx aact generate --format model-json
 npx aact generate --format kubernetes
+npx aact generate --format compose
 ```
 
-> Для `structurizr` укажите `source.writePath` в `aact.config.ts` —
-> путь к `workspace.dsl`, в который пишутся правки от `--fix`.
+`--fix` пишет правки обратно в `source.path`. Отдельного
+`source.writePath` в v3 нет.
 
 ### Что создаёт `aact init`
 
@@ -71,7 +81,7 @@ import type { AactConfig } from "aact";
 
 const config: AactConfig = {
   source: {
-    type: "plantuml", // "plantuml" | "structurizr"
+    type: "plantuml", // "plantuml" | "structurizr" | "model-json" | "kubernetes" | "compose"
     path: "./architecture.puml",
   },
   rules: {
@@ -89,46 +99,104 @@ const config: AactConfig = {
 export default config;
 ```
 
+## AI-агенты
+
+aact поставляет agent skill (`aact-architect`) и стабильный JSON-envelope, чтобы AI-агенты (Copilot, Claude, Codex, Cursor, Cline) могли работать с ним без парсинга текста:
+
+```bash
+# Установить скилл, чтобы агент знал когда вызывать aact
+npx aact skill install --claude     # Claude Code
+npx aact skill install --codex      # Codex (общий путь ~/.agents/skills)
+npx aact skill install --cursor     # Cursor (тот же общий путь)
+npx aact skill install --copilot    # GitHub Copilot (тот же общий путь)
+npx aact skill install --cline      # Cline
+npx aact skill install --all        # все клиенты сразу
+
+# Machine-readable команды (все поддерживают --json)
+npx aact model --json    # распарсенная C4-модель + диагностики
+npx aact check --json    # violations + suggestedFixes + каталог правил
+npx aact check --sarif   # SARIF v2.1.0 для GitHub Code Scanning
+npx aact analyze --json  # метрики связности и связанности
+```
+
+Exit codes: `0` чисто, `1` нарушения, `2` tool error. Форма envelope стабильна с `schemaVersion: 1` — полный контракт для агентов см. в [AGENTS.md](AGENTS.md).
+
 ## Использование как библиотеки
 
 ```ts
 import {
-  loadPlantumlElements,
-  mapContainersFromPlantumlElements,
-  checkAcl,
-  checkAcyclic,
-  checkCrud,
+  plantumlFormat,
+  aclRule,
+  acyclicRule,
+  crudRule,
   analyzeArchitecture,
+  validateModel,
 } from "aact";
 
-const elements = await loadPlantumlElements("architecture.puml");
-const model = mapContainersFromPlantumlElements(elements);
+// Загрузка через format — возвращает Model + diagnostic issues
+const { model, issues } = await plantumlFormat.load("architecture.puml");
+for (const issue of issues) console.warn(`model:`, issue);
 
-// Проверка правил
-const aclViolations = checkAcl(model.allContainers);
-const cyclicViolations = checkAcyclic(model.allContainers);
+// Проверка правил — uniform signature (model, options?) => Violation[]
+const aclViolations = aclRule.check(model);
+const cyclicViolations = acyclicRule.check(model);
+const crudViolations = crudRule.check(model, { repoTags: ["repo", "dao"] });
 
 // Анализ метрик
 const { report } = analyzeArchitecture(model);
 console.log(`Elements: ${report.elementsCount}`);
+
+// Прямой доступ к elements / boundaries — Record<name, ...>
+for (const element of Object.values(model.elements)) {
+  console.log(`${element.kind} ${element.name}`);
+}
+const ordersService = model.elements["orders"];
 ```
+
+Полный API: [`Model`](./src/model/types.ts), [`Format`](./src/formats/types.ts),
+[`RuleDefinition`](./src/rules/types.ts). См. `CHANGELOG.md` для v2 → v3 migration.
 
 ## Примеры
 
 Запускаемые из коробки (склонируй репо, `cd examples/<name>`, `npx aact check`):
 
 - [`examples/ecommerce-structurizr/`](examples/ecommerce-structurizr/) — Structurizr-источник с `workspace.json` + `workspace.dsl`, полный цикл правил и auto-fix.
+- [`examples/custom-rules/`](examples/custom-rules/) — PlantUML-источник + два своих правила (`bcIsolation`, `requireOwnerTag`) через `defineConfig` / `defineRule` — как писать и подключать кастомные правила.
 - [`examples/violations-demo/`](examples/violations-demo/) — мини-набор умышленных нарушений по каждому правилу — чтобы посмотреть, как выглядит вывод и какие правки предлагает `--fix`.
 
 Тестовые сценарии (для разработчиков пакета, запускаются через `vitest`):
 
-- [`examples/banking-plantuml/`](examples/banking-plantuml/) и [`examples/microservices-structurizr/`](examples/microservices-structurizr/) — интеграционные тесты архитектуры из `resources/`.
+- [`examples/banking-plantuml/`](examples/banking-plantuml/), [`examples/common-reuse-plantuml/`](examples/common-reuse-plantuml/) и [`examples/microservices-structurizr/`](examples/microservices-structurizr/) — интеграционные тесты архитектур из `fixtures/`.
 
 ## Документация
 
+- [Гайды](docs/guides/) — практические сценарии: моделирование, CI, custom rules, diff
+- [Справочник](docs/reference/) — правила, команды, форматы (генерируется из кода)
 - [Справочник паттернов](patterns.md) — принципы и паттерны с примерами тестов
 - [ADR](ADRs/) — Architecture Decision Records
 - [Roadmap](roadmap.md) — планы развития
+- [AGENTS.md](AGENTS.md) — инструкции для AI-агентов, работающих с aact
+
+## Testing
+
+Тестовый стек разделён на четыре уровня:
+
+```bash
+pnpm test            # все unit + integration + e2e
+pnpm test:unit       # только unit
+pnpm test:integration # интеграционные на реальных фикстурах
+pnpm test:e2e        # subprocess-тесты CLI через execa
+pnpm test:coverage   # с v8 coverage + порогами
+pnpm test:mutation   # Stryker mutation testing
+```
+
+**Метрики качества тестов:**
+
+- **Coverage** (v8): порог в CI — statements ≥95%, branches ≥85%, functions ≥95%, lines ≥95%
+- **Mutation score** (Stryker) ≥95% — каждое смысловое изменение в исходнике должно ломать хотя бы один тест
+- **Property-based** (`@fast-check/vitest`) на option-bearing правилах — защита от «hardcoded literal where option should be read» бага
+- **Inline snapshots** на генераторах для regression-pin'а формата вывода
+- **E2E** на цепочке `init → check → fix → recheck` через `npx aact` в subprocess
 
 ## Публичные материалы
 
@@ -172,13 +240,13 @@ https://www.youtube.com/watch?v=fb2UjqjHGUE
 
 ## Пример архитектуры, которую покроем тестами
 
-[![C4](resources/architecture/Demo%20Tests.svg)](resources/architecture/Demo%20Tests.svg)
+[![C4](fixtures/architecture/Demo%20Tests.svg)](fixtures/architecture/Demo%20Tests.svg)
 
 ## Пример тестов
 
-1. [find diff in configs and uml containers](examples/banking-plantuml/architecture.test.ts) — проверяет актуальность списка микросервисов на архитектуре и в [конфигурации инфраструктуры](resources/kubernetes/microservices)
-2. [find diff in configs and uml dependencies](examples/banking-plantuml/architecture.test.ts) — проверяет актуальность зависимостей (связей) микросервисов на архитектуре и в [конфигурации инфраструктуры](resources/kubernetes/microservices)
-3. [check that urls and topics from relations exist in config](examples/banking-plantuml/architecture.test.ts) — проверяет соответствие между параметрами связей микросервисов (REST-урлы, топики kafka) на архитектуре и в [конфигурации инфраструктуры](resources/kubernetes/microservices)
+1. [find diff in configs and uml containers](examples/banking-plantuml/architecture.test.ts) — проверяет актуальность списка микросервисов на архитектуре и в [конфигурации инфраструктуры](fixtures/kubernetes/microservices)
+2. [find diff in configs and uml dependencies](examples/banking-plantuml/architecture.test.ts) — проверяет актуальность зависимостей (связей) микросервисов на архитектуре и в [конфигурации инфраструктуры](fixtures/kubernetes/microservices)
+3. [check that urls and topics from relations exist in config](examples/banking-plantuml/architecture.test.ts) — проверяет соответствие между параметрами связей микросервисов (REST-урлы, топики kafka) на архитектуре и в [конфигурации инфраструктуры](fixtures/kubernetes/microservices)
 4. [only acl can depend on external systems](test/rules/acl.test.ts) — проверяет, что не нарушен выбранный принцип построения интеграций с внешними системами только через ACL (Anti Corruption Layer). Проверяет, что только acl-микросервисы имеют зависимости от внешних систем.
 5. [connect to external systems only by API Gateway or kafka](examples/banking-plantuml/architecture.test.ts) — проверяет, что все внешние интеграции идут через API Gateway или через kafka
 
@@ -190,11 +258,11 @@ https://www.youtube.com/watch?v=fb2UjqjHGUE
 
 ### Ручная:
 
-[![C4](resources/architecture/Demo%20Tests.svg)](resources/architecture/Demo%20Tests.svg)
+[![C4](fixtures/architecture/Demo%20Tests.svg)](fixtures/architecture/Demo%20Tests.svg)
 
 ### Сгенерированная:
 
-[![C4](resources/architecture/Demo%20Generated.svg)](resources/architecture/Demo%20Generated.svg)
+[![C4](fixtures/architecture/Demo%20Generated.svg)](fixtures/architecture/Demo%20Generated.svg)
 
 # Тестирование модульного монолита
 

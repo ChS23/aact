@@ -1,0 +1,35 @@
+@startuml custom-rules-demo
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+System_Boundary(shop, "Shop") {
+
+    ' === Orders bounded context ===
+    Container(orders_api, "Orders API", "Node.js", $tags="bc:orders+owner:orders-team")
+    Container(orders_svc, "Orders Service", "Node.js", $tags="bc:orders+owner:orders-team")
+    ContainerDb(orders_db, "Orders DB", "PostgreSQL", $tags="bc:orders+owner:orders-team")
+
+    ' === Inventory bounded context ===
+    Container(inventory_api, "Inventory API", "Node.js", $tags="bc:inventory+owner:inventory-team")
+    Container(inventory_svc, "Inventory Service", "Node.js", $tags="bc:inventory")
+    '                                                                  ^^^^^^^^^^^^^^^
+    ' VIOLATION (requireOwnerTag): missing owner:<team> tag
+    ContainerDb(inventory_db, "Inventory DB", "PostgreSQL", $tags="bc:inventory+owner:inventory-team")
+
+    ' === Platform infrastructure ===
+    Container(events, "Events Broker", "Kafka", $tags="broker+owner:platform-team")
+}
+
+' --- Internal traffic ---
+Rel(orders_svc, orders_db, "SQL")
+Rel(inventory_svc, inventory_db, "SQL")
+
+' --- Cross-BC traffic via public API: OK ---
+Rel(orders_svc, inventory_api, "HTTP")
+
+' --- VIOLATION (bcIsolation): orders BC reaches into inventory BC directly ---
+Rel(orders_svc, inventory_svc, "HTTP")
+
+' --- Cross-BC via broker: OK ---
+Rel(inventory_svc, events, "publish")
+
+@enduml

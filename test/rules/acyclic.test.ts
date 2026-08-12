@@ -1,121 +1,52 @@
-import { Container } from "../../src/model";
-import { checkAcyclic } from "../../src/rules";
+import { acyclicRule } from "../../src/rules";
+import { makeModel } from "../helpers/makeModel";
 
-describe("checkAcyclic", () => {
+describe("acyclicRule.check", () => {
   it("returns no violations for acyclic graph", () => {
-    const c: Container = {
-      name: "c",
-      label: "C",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [{ to: c }],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [{ to: b }],
-    };
-
-    expect(checkAcyclic([a, b, c])).toHaveLength(0);
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }] },
+        { name: "b", relations: [{ to: "c" }] },
+        { name: "c" },
+      ],
+    });
+    expect(acyclicRule.check(model)).toHaveLength(0);
   });
 
-  it("detects direct cycle A -> B -> A", () => {
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [{ to: a }],
-    };
-    a.relations.push({ to: b });
-
-    const violations = checkAcyclic([a, b]);
-    expect(violations.length).toBeGreaterThan(0);
-    expect(violations.some((v) => v.container === "a")).toBe(true);
-    expect(violations.some((v) => v.container === "b")).toBe(true);
+  it("detects self-loop", () => {
+    const model = makeModel({
+      elements: [{ name: "a", relations: [{ to: "a" }] }],
+    });
+    const v = acyclicRule.check(model);
+    expect(v.length).toBeGreaterThan(0);
+    expect(v[0].target).toBe("a");
   });
 
-  it("detects indirect cycle A -> B -> C -> A", () => {
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const c: Container = {
-      name: "c",
-      label: "C",
-      type: "Container",
-      description: "",
-      relations: [{ to: a }],
-    };
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [{ to: c }],
-    };
-    a.relations.push({ to: b });
-
-    const violations = checkAcyclic([a, b, c]);
-    expect(violations.length).toBeGreaterThan(0);
+  it("detects 2-cycle", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }] },
+        { name: "b", relations: [{ to: "a" }] },
+      ],
+    });
+    expect(acyclicRule.check(model).length).toBeGreaterThan(0);
   });
 
-  it("detects self-cycle A -> A", () => {
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    a.relations.push({ to: a });
-
-    const violations = checkAcyclic([a]);
-    expect(violations).toHaveLength(1);
-    expect(violations[0].container).toBe("a");
+  it("detects 3-cycle", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }] },
+        { name: "b", relations: [{ to: "c" }] },
+        { name: "c", relations: [{ to: "a" }] },
+      ],
+    });
+    expect(acyclicRule.check(model)).toHaveLength(3);
   });
 
-  it("returns no violations for empty list", () => {
-    expect(checkAcyclic([])).toHaveLength(0);
-  });
-
-  it("returns no violations for isolated containers", () => {
-    const containers: Container[] = [
-      {
-        name: "a",
-        label: "A",
-        type: "Container",
-        description: "",
-        relations: [],
-      },
-      {
-        name: "b",
-        label: "B",
-        type: "Container",
-        description: "",
-        relations: [],
-      },
-    ];
-
-    expect(checkAcyclic(containers)).toHaveLength(0);
+  it("dangling relation does not crash", () => {
+    const model = makeModel({
+      elements: [{ name: "a", relations: [{ to: "nonexistent" }] }],
+    });
+    expect(acyclicRule.check(model)).toHaveLength(0);
   });
 });

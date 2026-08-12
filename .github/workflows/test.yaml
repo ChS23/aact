@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -20,7 +20,26 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Fetch parser reference fixtures
+        run: bash scripts/fetch-parser-refs.sh
+      - name: Schema in sync with TS types
+        run: pnpm schema:check
+      - name: Rule reference in sync with registry
+        run: pnpm docs:check
+      # Build before Lint: `pnpm lint` typechecks @aact/view, which imports
+      # `aact` — its declarations must exist first.
+      - name: Build packages
+        run: pnpm build
       - name: Lint
         run: pnpm lint
-      - name: Test
-        run: pnpm test
+      - name: Pack smoke
+        run: pnpm pack:smoke
+      - name: Tests with coverage (unit + integration + e2e)
+        run: pnpm test:coverage
+      - name: Upload coverage report
+        if: matrix.node-version == '24.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14

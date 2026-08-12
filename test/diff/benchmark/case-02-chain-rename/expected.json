@@ -1,0 +1,31 @@
+{
+  "description": "Chain rename — three connected containers all renamed together (api → apiV2, dbRepo → primaryDbRepo, db → primaryDb). Realistic label evolution preserves enough technology/tags anchors that the leaf (db ↔ primaryDb, same tech PostgreSQL, both empty relations) crosses threshold first; iteration 2 catches the middle (primaryDbRepo ↔ dbRepo, now with confirmed db→primaryDb in renameMap so relation jaccard = 1); iteration 3 catches the head. Without fixed-point iteration, raw relation jaccard sees all-renamed targets and falls to 0, killing the chain.\n\nConfidence on the chain leaf (primaryDb) lands in the LOW band — it crosses threshold mostly on technology + empty-relations match, no transitive bonus available. The middle element gets HIGH confidence because relation jaccard transitively confirms via the leaf's rename. The head (api → apiV2) stays LOW after adding description/properties to the score because it preserved the structural chain but changed enough naming/prose surface to remain review-worthy.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:apiV2",
+      "name": "apiV2",
+      "previousName": "api",
+      "confidenceHint": "low"
+    },
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:primaryDbRepo",
+      "name": "primaryDbRepo",
+      "previousName": "dbRepo",
+      "confidenceHint": "high"
+    },
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:primaryDb",
+      "name": "primaryDb",
+      "previousName": "db"
+    }
+  ]
+}

@@ -1,0 +1,217 @@
+name: user-smoke
+
+# End-to-end walkthrough that exercises every public command the way
+# a first-time user would: `init` a fresh project, run each CLI flow,
+# inspect the JSON envelope shapes for required keys. Catches the
+# class of "looked green in vitest but the CLI surface broke" bugs
+# that slipped through previous betas (path display drift, $schema
+# field missing, helpUri dead, reporter dedup, etc.).
+#
+# Built dist runs in a tmp directory disconnected from the repo so
+# config-relative path resolution, cwd-relative display paths, and
+# the OSC 8 fallback codepaths all see realistic input.
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  user-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Smoke — full user walkthrough on a scratch project
+        # Explicit bash so the same script runs on the windows runner
+        # (default shell there is pwsh).
+        shell: bash
+        env:
+          # Drop AACT_FILE_OPENER so hyperlink builder picks its
+          # CI-safe default — runner has no TTY, anyway.
+          AACT_FILE_OPENER: none
+        run: |
+          set -euo pipefail
+          # The runner injects GITHUB_ACTIONS=true into every step;
+          # step-level `env: GITHUB_ACTIONS: ""` doesn't reach the
+          # spawned subprocesses. Unset it for this block so
+          # `renderCheckText` stays in human mode — the
+          # `::error file=...` annotation path is covered by
+          # check.test.ts.
+          unset GITHUB_ACTIONS
+          AACT="$GITHUB_WORKSPACE/dist/cli/index.mjs"
+          SMOKE_DIR="$RUNNER_TEMP/aact-smoke"
+          mkdir -p "$SMOKE_DIR"
+          cd "$SMOKE_DIR"
+
+          echo "::group::aact init"
+          node "$AACT" init
+          test -f aact.config.ts || { echo "init did not create aact.config.ts"; exit 1; }
+          test -f architecture.puml || { echo "init did not create architecture.puml"; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::aact check — expect violation (init seeds a CRUD violation)"
+          set +e
+          node "$AACT" check > check.txt 2> check.err
+          rc=$?
+          set -e
+          cat check.txt
+          if [ "$rc" -ne 1 ]; then
+            echo "::error::expected check to exit 1 on starter violation, got $rc"
+            cat check.err
+            exit 1
+          fi
+          grep -q "violations" check.txt || { echo "::error::check text mode missing 'violations'"; exit 1; }
+          grep -q "architecture.puml:" check.txt || { echo "::error::check text mode missing relativised path"; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::aact check --json — envelope shape"
+          set +e
+          node "$AACT" check --json > check.json 2> check-json.err
+          set -e
+          # The smoke dir has no package.json, so a bare native import of
+          # aact.config.ts makes Node grumble "Failed to load the ES
+          # module" on stderr — exactly what a fresh `npm init -y` user
+          # sees. Config loading must stay silent.
+          if [ -s check-json.err ]; then
+            echo "::error::check --json wrote to stderr:"
+            cat check-json.err
+            exit 1
+          fi
+          jq -e '.schemaVersion == 1' check.json > /dev/null
+          jq -e '.command == "check"' check.json > /dev/null
+          jq -e '.exitCode == 1' check.json > /dev/null
+          jq -e '.data.violations | length > 0' check.json > /dev/null
+          jq -e '.data.rules | length > 0' check.json > /dev/null
+          # Absolute = leading "/" on POSIX, "C:/" (pathe-normalised) on Windows.
+          jq -e '.meta.source | startswith("/") or test("^[A-Za-z]:/")' check.json > /dev/null \
+            || { echo "::error::meta.source not absolute"; jq .meta check.json; exit 1; }
+          jq -e '.meta.configPath | startswith("/") or test("^[A-Za-z]:/")' check.json > /dev/null
+          echo "::endgroup::"
+
+          echo "::group::aact model --json — envelope shape"
+          node "$AACT" model --json > model.json
+          jq -e '.command == "model"' model.json > /dev/null
+          jq -e '.data.model.elements | length > 0' model.json > /dev/null
+          jq -e '.exitCode == 0' model.json > /dev/null
+          echo "::endgroup::"
+
+          echo "::group::aact analyze --json — envelope shape"
+          node "$AACT" analyze --json > analyze.json
+          jq -e '.command == "analyze"' analyze.json > /dev/null
+          jq -e '.data.boundaries | length >= 0' analyze.json > /dev/null
+          jq -e '.exitCode == 0' analyze.json > /dev/null
+          echo "::endgroup::"
+
+          echo "::group::aact diff <same> <same> — expect no changes"
+          set +e
+          node "$AACT" diff architecture.puml architecture.puml > diff.txt
+          rc=$?
+          set -e
+          cat diff.txt
+          if [ "$rc" -ne 0 ]; then echo "::error::diff of file with itself exited $rc"; exit 1; fi
+          grep -qi "no .*changes" diff.txt || { echo "::error::diff missing 'No structural changes' marker"; exit 1; }
+          grep -q "^aact diff architecture.puml architecture.puml" diff.txt \
+            || { echo "::error::diff header missing relativised paths"; cat diff.txt; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::aact generate --format model-json — \$schema present"
+          node "$AACT" generate --format model-json --output ./snapshot.aact.json
+          test -f snapshot.aact.json
+          jq -e '."$schema"' snapshot.aact.json > /dev/null \
+            || { echo "::error::generated model-json missing \$schema field"; head snapshot.aact.json; exit 1; }
+          jq -e '.schemaVersion == 1' snapshot.aact.json > /dev/null
+          jq -e '.model.elements | length > 0' snapshot.aact.json > /dev/null
+          # Round-trip: the model-json loader must accept the file we
+          # just emitted, exit cleanly and report no structural diff.
+          node "$AACT" diff ./snapshot.aact.json ./snapshot.aact.json > snap-diff.txt
+          grep -qi "no .*changes" snap-diff.txt
+          echo "::endgroup::"
+
+          echo "::group::aact generate --format kubernetes --output ./k8s/ — directory sink"
+          # AGENTS.md documents the trailing-slash directory form; it must
+          # work regardless of how many manifests the model produces.
+          node "$AACT" generate --format kubernetes --output ./k8s/
+          test -d k8s || { echo "::error::generate did not create ./k8s/"; exit 1; }
+          ls k8s/*.yaml > /dev/null || { echo "::error::no manifests written to ./k8s/"; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::aact rule list / explain"
+          node "$AACT" rule list > rule-list.txt
+          grep -q "acl" rule-list.txt
+          grep -q "crud" rule-list.txt
+          node "$AACT" rule explain acl > rule-explain.txt
+          grep -q "Rationale" rule-explain.txt
+          grep -q "Examples" rule-explain.txt
+          grep -q "ADRs/Anti-corruption Layer.md" rule-explain.txt
+          # Live ADR URL, not the dead README anchor.
+          grep -qF "https://github.com/Byndyusoft/aact/blob/main/ADRs/Anti-corruption%20Layer.md" rule-explain.txt \
+            || { echo "::error::rule explain helpUri regressed to dead README anchor"; cat rule-explain.txt; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::aact check --fix — clears the starter violation"
+          set +e
+          node "$AACT" check --fix > fix.txt
+          set -e
+          cat fix.txt
+          grep -qi "applied" fix.txt || { echo "::error::check --fix did not apply edits"; exit 1; }
+          set +e
+          node "$AACT" check > recheck.txt
+          rc=$?
+          set -e
+          cat recheck.txt
+          if [ "$rc" -ne 0 ]; then echo "::error::expected clean check after --fix, got $rc"; exit 1; fi
+          grep -q "No violations found" recheck.txt
+          echo "::endgroup::"
+
+          echo "::group::aact check --sarif — GitHub Code Scanning shape"
+          # Re-seed a violation directly. `aact init` has no --force
+          # so we can't ask it to re-run on top of the just-fixed file;
+          # overwrite the source with a tiny known-violating PUML.
+          cat > architecture.puml <<'PUML'
+          @startuml
+          !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+          Container(orders, "Orders")
+          ContainerDb(orders_db, "Orders DB", "PostgreSQL")
+          Rel(orders, orders_db, "reads/writes")
+          @enduml
+          PUML
+          set +e
+          node "$AACT" check --sarif > check.sarif
+          set -e
+          # `aact check` exits 1 on the seeded crud violation; SARIF is
+          # still produced on stdout. Assert structural shape and that
+          # at least one result landed.
+          jq -e '.version == "2.1.0"' check.sarif > /dev/null
+          jq -e '."$schema" | contains("sarif")' check.sarif > /dev/null
+          jq -e '.runs[0].tool.driver.name == "aact"' check.sarif > /dev/null
+          jq -e '.runs[0].results | length > 0' check.sarif > /dev/null \
+            || { echo "::error::SARIF produced no results — re-seed did not stick"; head check.sarif; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::aact bogus — unknown command path"
+          set +e
+          node "$AACT" bogus > /dev/null 2> bogus.err
+          rc=$?
+          set -e
+          # citty prints help and exits non-zero on unknown command;
+          # we only assert that the runner did not crash.
+          if [ "$rc" -eq 0 ]; then echo "::error::unknown command unexpectedly exited 0"; exit 1; fi
+          echo "::endgroup::"
+
+          echo "All smoke checks passed."

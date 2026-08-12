@@ -1,0 +1,28 @@
+{
+  "description": "Decomposition: one container split into two. Hungarian + multi-feature similarity picks the closer of the two (orderApi) as the rename target. The second container surfaces as `added`. Confidence on the chosen rename reflects pair similarity, not split-ambiguity — both candidates are reasonably similar so the chosen one gets HIGH-band confidence. A future enhancement could compute a margin-based ambiguity score, but PR review agents can already see that a sibling `added` shares the same dependencies and infer the split.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:orderApi",
+      "name": "orderApi",
+      "previousName": "orderService"
+    },
+    {
+      "entity": "element",
+      "action": "added",
+      "severity": "structural",
+      "address": "element:orderWorker",
+      "name": "orderWorker"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:orderWorker→ordersDb",
+      "from": "orderWorker",
+      "to": "ordersDb"
+    }
+  ]
+}

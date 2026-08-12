@@ -1,149 +1,143 @@
-import { Container } from "../../src/model";
-import { checkStableDependencies } from "../../src/rules";
+import { stableDependenciesRule } from "../../src/rules";
+import { makeModel } from "../helpers/makeModel";
 
-describe("checkStableDependencies", () => {
-  it("returns no violations when unstable depends on stable", () => {
-    // B is stable (Ca=1, Ce=0, I=0), A is unstable (Ca=0, Ce=1, I=1)
-    // A→B: I(A)=1 >= I(B)=0 ✓
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [{ to: b }],
-    };
-
-    expect(checkStableDependencies([a, b])).toHaveLength(0);
-  });
-
-  it("returns violation when stable depends on unstable", () => {
-    // C depends on both A and B; A depends on C (cycle-like instability)
-    // A: Ce=1 (→C), Ca=1 (C→A), I=0.5
-    // B: Ce=0, Ca=1 (C→B), I=0
-    // C: Ce=2 (→A,→B), Ca=1 (A→C), I=0.67
-    // A→C: I(A)=0.5 < I(C)=0.67 → violation
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const c: Container = {
-      name: "c",
-      label: "C",
-      type: "Container",
-      description: "",
-      relations: [{ to: a }, { to: b }],
-    };
-    (a as { relations: Container["relations"] }).relations = [{ to: c }];
-
-    const violations = checkStableDependencies([a, b, c]);
-    expect(violations.length).toBeGreaterThanOrEqual(1);
-    expect(violations.some((v) => v.container === "a")).toBe(true);
-  });
-
-  it("returns no violations for isolated container", () => {
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-
-    expect(checkStableDependencies([a])).toHaveLength(0);
-  });
-
-  it("excludes external systems from calculation", () => {
-    const ext: Container = {
-      name: "ext",
-      label: "External",
-      type: "System_Ext",
-      description: "",
-      relations: [],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [{ to: ext }],
-    };
-
-    expect(checkStableDependencies([a, ext])).toHaveLength(0);
-  });
-
-  it("respects custom externalType option", () => {
-    const legacy: Container = {
-      name: "legacy",
-      label: "Legacy",
-      type: "Legacy_System",
-      description: "",
-      relations: [],
-    };
-    const svc: Container = {
-      name: "svc",
-      label: "Svc",
-      type: "Container",
-      description: "",
-      relations: [{ to: legacy }],
-    };
-
-    // Without option, legacy is treated as internal → violation possible
-    const withDefault = checkStableDependencies([svc, legacy]);
-    // With custom externalType, legacy is excluded → no violations
-    const withOption = checkStableDependencies([svc, legacy], {
-      externalType: "Legacy_System",
+describe("stableDependenciesRule.check", () => {
+  it("no violation when deps point to more stable", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }] },
+        { name: "b", relations: [{ to: "c" }] },
+        { name: "c" },
+      ],
     });
-    expect(withOption).toHaveLength(0);
-    // Default should include legacy as internal (I=0 for leaf, I=1 for svc)
-    // svc→legacy: I(svc)=1 >= I(legacy)=0 ✓ no violation either
-    expect(withDefault).toHaveLength(0);
+    expect(stableDependenciesRule.check(model)).toHaveLength(0);
   });
 
-  it("handles chain A→B→C correctly", () => {
-    // C: Ce=0, Ca=1, I=0
-    // B: Ce=1, Ca=1, I=0.5
-    // A: Ce=1, Ca=0, I=1
-    // A→B: I(A)=1 >= I(B)=0.5 ✓
-    // B→C: I(B)=0.5 >= I(C)=0 ✓
-    const c: Container = {
-      name: "c",
-      label: "C",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [{ to: c }],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [{ to: b }],
-    };
+  it("flags violation when stable module depends on less stable", () => {
+    // a, b → c, b → d. b has afferent (incoming from a) AND efferent (out to c+d):
+    //   a: ca=0, ce=1 → I = 1/1 = 1
+    //   b: ca=1, ce=2 → I = 2/3 ≈ 0.67
+    //   c: ca=1, ce=0 → I = 0/1 = 0
+    //   d: ca=1, ce=0 → I = 0
+    // Now flip: e is "stable" (afferent=2, efferent=1) → I=1/3 ≈ 0.33
+    // e → a (I=1) — stable depends on UNstable → fire.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "x" }] },
+        { name: "b", relations: [{ to: "e" }] },
+        { name: "c", relations: [{ to: "e" }] },
+        { name: "e", relations: [{ to: "a" }] },
+        { name: "x" },
+      ],
+    });
+    const v = stableDependenciesRule.check(model);
+    const eToA = v.find((it) => it.target === "e" && it.message.includes("a"));
+    expect(eToA).toBeDefined();
+    // Message format pin: covers StringLiteral mutants on the message
+    expect(eToA!.message).toMatch(/stable module .I=\d\.\d{2}/);
+    expect(eToA!.message).toMatch(/I=\d\.\d{2}.* — dependencies should point/);
+  });
 
-    expect(checkStableDependencies([a, b, c])).toHaveLength(0);
+  it("returns array (covers initial violations: [] AssignmentOperator)", () => {
+    const model = makeModel({ elements: [] });
+    const v = stableDependenciesRule.check(model);
+    expect(Array.isArray(v)).toBe(true);
+    expect(v).toHaveLength(0);
+  });
+
+  it("DOES NOT count external containers in instability (covers c.external filter)", () => {
+    // If we counted external "ext" as internal, "a → ext" would mean a has
+    // ce=1 (efferent), I_a = 1; "ext" would be in internal set so checking
+    // "iSource < iTarget" might fire. Pin: external excluded.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "ext" }] },
+        { name: "ext", kind: "System", external: true },
+      ],
+    });
+    expect(stableDependenciesRule.check(model)).toHaveLength(0);
+  });
+
+  it("ignores relations to containers outside internal set (covers !internalNames.has)", () => {
+    // a → ext where ext is external. ce_a should NOT be incremented when
+    // relation goes external. Pin: if external "ext" were treated as
+    // internal, a would have I_a = 1 and ext would have I_ext = 0, leading
+    // to false violation.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }, { to: "ext" }] },
+        { name: "b" },
+        { name: "ext", kind: "System", external: true },
+      ],
+    });
+    expect(stableDependenciesRule.check(model)).toHaveLength(0);
+  });
+
+  it("isolated container (no edges) gets I=1 (covers afferent+efferent===0)", () => {
+    // a is isolated, b → c. Without the boundary check (afferent+efferent===0
+    // returns 1), instability(a) would divide by 0 → NaN, behavior undefined.
+    // Pin: isolated container coexists with other relations without throwing.
+    const model = makeModel({
+      elements: [
+        { name: "a" },
+        { name: "b", relations: [{ to: "c" }] },
+        { name: "c" },
+      ],
+    });
+    expect(() => stableDependenciesRule.check(model)).not.toThrow();
+  });
+
+  it("strict < operator: equal-instability deps do NOT fire (covers iSource < iTarget vs <=)", () => {
+    // Two containers each with I=1 (both pure efferent): a → x, b → x.
+    //   a: ca=0, ce=1 → I=1
+    //   b: ca=0, ce=1 → I=1
+    //   x: ca=2, ce=0 → I=0
+    // Now a → b: iSource(a)=1, iTarget(b)=1 → 1 < 1 is false → no violation.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "x" }, { to: "b" }] },
+        { name: "b", relations: [{ to: "x" }] },
+        { name: "x" },
+      ],
+    });
+    // a → b should NOT trigger (equal stability).
+    const v = stableDependenciesRule.check(model);
+    expect(
+      v.find((it) => it.target === "a" && it.message.includes("b")),
+    ).toBeUndefined();
+  });
+
+  it("anchors violation on the offending edge's sourceLocation", () => {
+    const edgeLoc = {
+      file: "arch.dsl",
+      start: { line: 42, col: 5, offset: 800 },
+      end: { line: 42, col: 35, offset: 830 },
+    };
+    // Mirrors the "stable → less stable" case above; we just attach a
+    // fixture location to the e → a relation and expect it back on the
+    // violation. Loaders populate sourceLocation in production; CLI
+    // falls back to the source element when it's absent.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "x" }] },
+        { name: "b", relations: [{ to: "e" }] },
+        { name: "c", relations: [{ to: "e" }] },
+        {
+          name: "e",
+          relations: [{ to: "a", sourceLocation: edgeLoc }],
+        },
+        { name: "x" },
+      ],
+    });
+    const v = stableDependenciesRule.check(model);
+    const eToA = v.find((it) => it.target === "e" && it.message.includes("a"));
+    expect(eToA?.sourceLocation).toEqual(edgeLoc);
+  });
+
+  it("description ends with 'stability' (covers description literal)", () => {
+    // Stryker emptied the rule's description string. Lock it in via direct
+    // assertion on the RuleDefinition itself.
+    expect(stableDependenciesRule.description).toContain("stability");
+    expect(stableDependenciesRule.description.length).toBeGreaterThan(0);
   });
 });

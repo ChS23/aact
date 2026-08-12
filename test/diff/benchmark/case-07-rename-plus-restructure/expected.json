@@ -1,0 +1,52 @@
+{
+  "description": "Mixed refactor — api renamed to customerApi, db renamed to customerDb (with label change), metrics gained a tag and moved to bank. Chain transitivity (api→customerApi requires db→customerDb to remap relations.to) is closed by the fixed-point iteration; confidence on both renames lands in the LOW band because name and label drifted substantially (\"API\" → \"Customer API\", short identifier becoming long descriptive one). Useful signal for PR review agents — \"we think this is a rename but it's not super-confident, double-check\".",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:customerApi",
+      "name": "customerApi",
+      "previousName": "api",
+      "fields": [{ "field": "label", "before": "API", "after": "Customer API" }]
+    },
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:customerDb",
+      "name": "customerDb",
+      "previousName": "db",
+      "fields": [
+        { "field": "label", "before": "Database", "after": "Customer Database" }
+      ]
+    },
+    {
+      "entity": "element",
+      "action": "modified",
+      "severity": "structural",
+      "address": "element:metrics",
+      "name": "metrics",
+      "fields": [
+        { "field": "tags", "before": [], "after": ["telemetry"] },
+        { "field": "boundary", "before": "ops", "after": "bank" }
+      ]
+    },
+    {
+      "entity": "boundary",
+      "action": "modified",
+      "severity": "structural",
+      "address": "boundary:bank",
+      "name": "bank",
+      "fields": [{ "field": "elementNames" }]
+    },
+    {
+      "entity": "boundary",
+      "action": "modified",
+      "severity": "structural",
+      "address": "boundary:ops",
+      "name": "ops",
+      "fields": [{ "field": "elementNames" }]
+    }
+  ]
+}

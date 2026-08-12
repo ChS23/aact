@@ -1,0 +1,14 @@
+{
+  "description": "Single rename: api → apiV2. Everything else identical. Label, technology, all relations stay the same. Web's outgoing edge to api naturally rewires to apiV2 in current; the diff should NOT report it as a relation change because the underlying element is the same — just renamed.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "renamed",
+      "severity": "structural",
+      "address": "element:apiV2",
+      "name": "apiV2",
+      "previousName": "api",
+      "confidenceHint": "high"
+    }
+  ]
+}

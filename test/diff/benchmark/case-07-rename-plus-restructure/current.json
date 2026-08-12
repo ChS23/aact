@@ -1,0 +1,53 @@
+{
+  "elements": {
+    "customerApi": {
+      "name": "customerApi",
+      "label": "Customer API",
+      "kind": "Container",
+      "external": false,
+      "description": "Customer API",
+      "technology": "Node.js",
+      "tags": [],
+      "relations": [{ "to": "customerDb", "tags": [] }]
+    },
+    "customerDb": {
+      "name": "customerDb",
+      "label": "Customer Database",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Customer store",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    },
+    "metrics": {
+      "name": "metrics",
+      "label": "Metrics",
+      "kind": "Container",
+      "external": false,
+      "description": "Metrics exporter",
+      "technology": "Go",
+      "tags": ["telemetry"],
+      "relations": []
+    }
+  },
+  "boundaries": {
+    "bank": {
+      "name": "bank",
+      "label": "Bank",
+      "kind": "System",
+      "tags": [],
+      "elementNames": ["customerApi", "customerDb", "metrics"],
+      "boundaryNames": []
+    },
+    "ops": {
+      "name": "ops",
+      "label": "Ops",
+      "kind": "System",
+      "tags": [],
+      "elementNames": [],
+      "boundaryNames": []
+    }
+  },
+  "rootBoundaryNames": ["bank", "ops"]
+}

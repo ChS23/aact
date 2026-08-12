@@ -1,0 +1,42 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_WITH_LEGEND()
+AddRelTag("async", $lineStyle = DottedLine())
+
+System_Boundary(our_system, "Our System") {
+  Container(bff, "BFF", "", "Backend for Frontend")
+  Container(goods_acl, "Goods ACL", "", "Anti-Corruption Layer for Goods", $tags="acl")
+  Container(camunda, "Camunda", "", "Workflow Engine")
+  Container(task_repository, "Task Repository", "", "Task storage", $tags="repo")
+  ContainerDb(task_repository_db, "Task DB", "PostgreSQL Database", "Database for tasks", $tags="Database")
+  Container(invoice_repository, "Invoice Repository", "", "Invoice storage", $tags="repo")
+  ContainerDb(invoice_repository_db, "Invoice DB", "PostgreSQL Database", "Database for invoices", $tags="Database")
+  Container(invoice_acl, "Invoice ACL", "", "Anti-Corruption Layer for Invoices", $tags="acl")
+  Container(stock_acl, "Stock ACL", "", "Anti-Corruption Layer for Stock", $tags="acl")
+}
+System_Ext(ext_system, "Ext System")
+System_Ext(front, "Front")
+System_Ext(goods_repository, "Goods Repository")
+System_Ext(goods2_repository, "Goods2 Repository")
+System_Ext(invoice_dest, "Invoice Consumer")
+System_Ext(invoice_source, "Invoice Source")
+System_Ext(stock, "Stock")
+Person(user, "User")
+
+Rel(bff, camunda, "", "HTTP")
+Rel(bff, goods_acl, "", "HTTP")
+Rel(bff, task_repository, "", "HTTP")
+Rel(bff, invoice_repository, "", "HTTP")
+Rel(camunda, stock_acl, "", "HTTP")
+Rel(camunda, task_repository, "", "HTTP")
+Rel(camunda, invoice_repository, "", "HTTP")
+Rel(camunda, invoice_acl, "", "HTTP")
+Rel(goods_acl, goods_repository, "", "https:~//gateway.int.com:443/goods/v1")
+Rel(goods_acl, goods2_repository, "", "https:~//gateway.int.com:443/goods2/v1")
+Rel(invoice_acl, ext_system, "", "https:~//gateway.int.com:443/ext/v1")
+Rel(invoice_acl, invoice_dest, "", "result-invoice-q8s-v1", $tags="async")
+Rel(invoice_repository, invoice_repository_db, "", "PostgreSQL")
+Rel(stock_acl, stock, "", "https:~//gateway.int.com:443/stock/v1")
+Rel(task_repository, task_repository_db, "", "PostgreSQL")
+Rel(user, front, "Uses")
+@enduml

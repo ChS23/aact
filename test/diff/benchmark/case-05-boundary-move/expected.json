@@ -1,0 +1,31 @@
+{
+  "description": "Element relocated between boundaries. Same name, same kind, same everything except parent boundary. Element-level change emits `moved` (boundary is the only modified field); boundary-level changes show updated elementNames lists on both ends.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "moved",
+      "severity": "structural",
+      "address": "element:billing",
+      "name": "billing",
+      "fields": [
+        { "field": "boundary", "before": "internal", "after": "platform" }
+      ]
+    },
+    {
+      "entity": "boundary",
+      "action": "modified",
+      "severity": "structural",
+      "address": "boundary:internal",
+      "name": "internal",
+      "fields": [{ "field": "elementNames" }]
+    },
+    {
+      "entity": "boundary",
+      "action": "modified",
+      "severity": "structural",
+      "address": "boundary:platform",
+      "name": "platform",
+      "fields": [{ "field": "elementNames" }]
+    }
+  ]
+}

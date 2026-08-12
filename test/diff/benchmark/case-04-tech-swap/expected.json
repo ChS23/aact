@@ -1,0 +1,30 @@
+{
+  "description": "Same (from, to) pair, technology swapped HTTP → gRPC. Pair-collapse pass rewrites the removed+added relation pair into a single `modified` change carrying `field: \"technology\"`. Address omits the tech qualifier because the collapsed entry represents a single edge that changed transport.",
+  "changes": [
+    {
+      "entity": "relation",
+      "action": "modified",
+      "severity": "semantic",
+      "address": "relation:web→api",
+      "from": "web",
+      "to": "api",
+      "fields": [{ "field": "technology", "before": "HTTP", "after": "gRPC" }]
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:technologySwapped:web:api:HTTP:gRPC",
+      "kind": "technologySwapped",
+      "title": "web → api technology changed from HTTP to gRPC",
+      "severity": "semantic",
+      "confidenceHint": "high",
+      "changeAddresses": ["relation:web→api"],
+      "evidence": {
+        "from": "web",
+        "to": "api",
+        "beforeTechnology": "HTTP",
+        "afterTechnology": "gRPC"
+      }
+    }
+  ]
+}

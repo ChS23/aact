@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-repo
+  namespace: shop
+  annotations:
+    aact.technology: "Go"
+    aact.description: "Owns invoice persistence"
+    aact.tags: "repo"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: billing-repo
+  template:
+    metadata:
+      labels:
+        app: billing-repo
+    spec:
+      containers:
+        - name: billing-repo
+          image: ghcr.io/shop/billing-repo:2.1
+          ports:
+            - containerPort: 8080
+          env:
+            - name: BILLING_DB_URL
+              value: postgresql://shop:secret@billing-db-svc:5432/billing
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-repo-svc
+  namespace: shop
+spec:
+  selector:
+    app: billing-repo
+  ports:
+    - port: 8080
+      targetPort: 8080

@@ -1,55 +1,46 @@
-import { analyzeArchitecture, BoundaryAnalysis } from "../../src/analyzer";
-import {
-  loadPlantumlElements,
-  mapContainersFromPlantumlElements,
-} from "../../src/loaders/plantuml";
+import { analyzeArchitecture } from "../../src/analyze";
+import { load } from "../../src/formats/plantuml/load";
+import { getBoundary } from "../../src/model";
 
 /**
  * Core diagrams https://github.com/plantuml-stdlib/C4-PlantUML/blob/master/samples/C4CoreDiagrams.md
  */
 describe("Cascade coupling reduction", () => {
-  it("test1", async () => {
-    const pumlElements = await loadPlantumlElements(
-      "resources/architecture/boundaries.puml",
-    );
-    const model = mapContainersFromPlantumlElements(pumlElements);
-    const BoundariesReport = analyzeArchitecture(model);
+  it("nested boundaries: cohesion ≥ coupling and parent-attributed coupling stays in scope", async () => {
+    const { model } = await load("fixtures/architecture/boundaries.puml");
+    const { report } = analyzeArchitecture(model);
 
-    for (const b of BoundariesReport.report.boundaries) {
+    for (const b of report.boundaries) {
+      const couplingCount = b.couplingRelations.length;
       console.log(
         b.label,
         `, cohesion: ${b.cohesion}`,
-        `, coupling: ${b.couplingRelations.length}`,
+        `, coupling: ${couplingCount}`,
       );
 
-      const parentBoundary = BoundariesReport.report.boundaries.find(
-        (pb: BoundaryAnalysis) =>
-          BoundariesReport.model.boundaries
-            .find((mb) => mb.name === pb.name)
-            ?.boundaries.some((child) => child.name === b.name) ?? false,
+      // Find parent boundary if any (this boundary's name appears in some
+      // other boundary's boundaryNames list).
+      const parent = Object.values(model.boundaries).find((p) =>
+        p.boundaryNames.includes(b.name),
       );
+      if (!parent) continue;
 
-      if (parentBoundary) {
-        const childBoundary = BoundariesReport.model.boundaries.find(
-          (mb) => mb.name === b.name,
-        )!;
-        const childContainerNames = new Set(
-          childBoundary.containers.map((c) => c.name),
-        );
-
-        const parentCoupling = parentBoundary.couplingRelations.filter((r) =>
+      const childBoundary = getBoundary(model, b.name)!;
+      const childContainerNames = new Set(childBoundary.elementNames);
+      const parentResult = report.boundaries.find(
+        (p) => p.name === parent.name,
+      );
+      const parentCouplingFromThisChild =
+        parentResult?.couplingRelations.filter((r) =>
           childContainerNames.has(r.from),
-        ).length;
+        ).length ?? 0;
 
-        expect(b.cohesion).toBeGreaterThanOrEqual(b.couplingRelations.length);
-        expect(b.couplingRelations.length).toBeGreaterThanOrEqual(
-          parentCoupling,
-        );
+      expect(b.cohesion).toBeGreaterThanOrEqual(couplingCount);
+      expect(couplingCount).toBeGreaterThanOrEqual(parentCouplingFromThisChild);
 
-        console.log(
-          `${b.cohesion} ≥ ${b.couplingRelations.length} ≥ ${parentCoupling}`,
-        );
-      }
+      console.log(
+        `${b.cohesion} ≥ ${couplingCount} ≥ ${parentCouplingFromThisChild}`,
+      );
     }
   });
 });

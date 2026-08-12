@@ -1,0 +1,36 @@
+{
+  "elements": {
+    "web": {
+      "name": "web",
+      "label": "Web",
+      "kind": "Container",
+      "external": false,
+      "description": "Web app",
+      "technology": "React",
+      "tags": [],
+      "relations": [{ "to": "api", "technology": "HTTP", "tags": [] }]
+    },
+    "api": {
+      "name": "api",
+      "label": "API",
+      "kind": "Container",
+      "external": false,
+      "description": "Application API",
+      "technology": "Node.js",
+      "tags": [],
+      "relations": []
+    },
+    "worker": {
+      "name": "worker",
+      "label": "Worker",
+      "kind": "Container",
+      "external": false,
+      "description": "Background worker",
+      "technology": "Go",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}

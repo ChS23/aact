@@ -1,0 +1,64 @@
+{
+  "description": "Mixed refactor — repository introduction plus unrelated metrics tag change. The group should explain only the repository-layer changes and leave the unrelated primitive change outside `changeAddresses`.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "added",
+      "severity": "structural",
+      "address": "element:billingRepo",
+      "name": "billingRepo"
+    },
+    {
+      "entity": "element",
+      "action": "modified",
+      "severity": "semantic",
+      "address": "element:metrics",
+      "name": "metrics",
+      "fields": [{ "field": "tags", "before": [], "after": ["telemetry"] }]
+    },
+    {
+      "entity": "relation",
+      "action": "removed",
+      "severity": "structural",
+      "address": "relation:billingService→billingDb",
+      "from": "billingService",
+      "to": "billingDb"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:billingService→billingRepo",
+      "from": "billingService",
+      "to": "billingRepo"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:billingRepo→billingDb",
+      "from": "billingRepo",
+      "to": "billingDb"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:introducedRepository:billingService:billingRepo:billingDb",
+      "kind": "introducedRepository",
+      "title": "Repository layer introduced between billingService and billingDb",
+      "severity": "structural",
+      "confidenceHint": "high",
+      "changeAddresses": [
+        "element:billingRepo",
+        "relation:billingService→billingDb",
+        "relation:billingService→billingRepo",
+        "relation:billingRepo→billingDb"
+      ],
+      "evidence": {
+        "service": "billingService",
+        "repository": "billingRepo",
+        "database": "billingDb"
+      }
+    }
+  ]
+}

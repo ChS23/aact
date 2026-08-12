@@ -1,0 +1,38 @@
+{
+  "description": "Mixed refactor for technologySwapped — relation transport changes while an unrelated worker tag changes. The group should explain only the relation technology change.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "modified",
+      "severity": "semantic",
+      "address": "element:worker",
+      "name": "worker",
+      "fields": [{ "field": "tags", "before": [], "after": ["batch"] }]
+    },
+    {
+      "entity": "relation",
+      "action": "modified",
+      "severity": "semantic",
+      "address": "relation:web→api",
+      "from": "web",
+      "to": "api",
+      "fields": [{ "field": "technology", "before": "HTTP", "after": "gRPC" }]
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:technologySwapped:web:api:HTTP:gRPC",
+      "kind": "technologySwapped",
+      "title": "web → api technology changed from HTTP to gRPC",
+      "severity": "semantic",
+      "confidenceHint": "high",
+      "changeAddresses": ["relation:web→api"],
+      "evidence": {
+        "from": "web",
+        "to": "api",
+        "beforeTechnology": "HTTP",
+        "afterTechnology": "gRPC"
+      }
+    }
+  ]
+}

@@ -1,191 +1,193 @@
-import { ArchitectureModel, Container } from "../../src/model";
-import { checkCohesion } from "../../src/rules";
+import { cohesionRule } from "../../src/rules";
+import { makeModel } from "../helpers/makeModel";
 
-describe("checkCohesion", () => {
-  it("returns no violations when cohesion > coupling", () => {
-    const ext: Container = {
-      name: "ext",
-      label: "External",
-      type: "System_Ext",
-      description: "",
-      relations: [],
-    };
-    const b: Container = {
-      name: "b",
-      label: "B",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [{ to: b }, { to: b }],
-    };
-
-    const model: ArchitectureModel = {
-      allContainers: [a, b, ext],
-      boundaries: [
-        {
-          name: "ctx",
-          label: "Context",
-          boundaries: [],
-          containers: [a, b],
-        },
+describe("cohesionRule.check", () => {
+  it("violation when coupling >= cohesion (no internal relations)", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "outside" }] },
+        { name: "outside" },
       ],
-    };
-
-    expect(checkCohesion(model)).toHaveLength(0);
+      boundaries: [{ name: "b1", elementNames: ["a"] }],
+    });
+    const v = cohesionRule.check(model);
+    expect(v.length).toBeGreaterThan(0);
+    expect(v[0].target).toBe("b1");
   });
 
-  it("returns violation when coupling >= cohesion", () => {
-    const ext: Container = {
-      name: "ext",
-      label: "External",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const a: Container = {
-      name: "a",
-      label: "A",
-      type: "Container",
-      description: "",
-      relations: [{ to: ext }],
-    };
-
-    const model: ArchitectureModel = {
-      allContainers: [a, ext],
-      boundaries: [
-        {
-          name: "ctx",
-          label: "Context",
-          boundaries: [],
-          containers: [a],
-        },
+  it("no violation when cohesion > coupling", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }, { to: "c" }] },
+        { name: "b", relations: [{ to: "c" }] },
+        { name: "c" },
       ],
-    };
-
-    const violations = checkCohesion(model);
-    expect(violations.length).toBeGreaterThan(0);
-    expect(violations[0].message).toContain("cohesion");
+      boundaries: [{ name: "ctx", elementNames: ["a", "b", "c"] }],
+    });
+    expect(cohesionRule.check(model)).toHaveLength(0);
   });
 
-  it("checks that parent cohesion < sum of inner cohesions", () => {
-    const c1: Container = {
-      name: "c1",
-      label: "C1",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const c2: Container = {
-      name: "c2",
-      label: "C2",
-      type: "Container",
-      description: "",
-      relations: [{ to: c1 }],
-    };
-    const c3: Container = {
-      name: "c3",
-      label: "C3",
-      type: "Container",
-      description: "",
-      relations: [],
-    };
-    const c4: Container = {
-      name: "c4",
-      label: "C4",
-      type: "Container",
-      description: "",
-      relations: [{ to: c3 }, { to: c3 }],
-    };
+  it("ignores relations to external containers in coupling count", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }, { to: "ext_api" }] },
+        { name: "b" },
+        { name: "ext_api", kind: "System", external: true },
+      ],
+      boundaries: [{ name: "ctx", elementNames: ["a", "b"] }],
+    });
+    expect(cohesionRule.check(model)).toHaveLength(0);
+  });
 
-    // inner1 cohesion=1 (c2→c1), coupling=0
-    // inner2 cohesion=2 (c4→c3 x2), coupling=0
-    // parent.containers=[] (loaders put containers only in leaf boundaries)
-    // parent cohesion = inner boundary coupling sum = 0+0 = 0
-    // parent coupling = 0 (no external system relations)
-    // cohesion(0) <= coupling(0) → violation on first check
+  it("parent boundary's coupling counts inner-to-external relations", () => {
+    const model = makeModel({
+      elements: [
+        { name: "inner_svc", relations: [{ to: "ext_api" }] },
+        { name: "ext_api", kind: "System", external: true },
+      ],
+      boundaries: [
+        { name: "parent", label: "parent", boundaryNames: ["inner"] },
+        { name: "inner", label: "inner", elementNames: ["inner_svc"] },
+      ],
+      rootBoundaryNames: ["parent"],
+    });
+    const violations = cohesionRule.check(model);
+    expect(violations.find((v) => v.target === "parent")).toBeDefined();
+  });
 
-    const inner1 = {
-      name: "inner1",
-      label: "Inner 1",
-      boundaries: [],
-      containers: [c1, c2],
-    };
-    const inner2 = {
-      name: "inner2",
-      label: "Inner 2",
-      boundaries: [],
-      containers: [c3, c4],
-    };
-
-    const model: ArchitectureModel = {
-      allContainers: [c1, c2, c3, c4],
+  it("flags parent cohesion ≥ inner cohesion sum", () => {
+    const model = makeModel({
+      elements: [
+        { name: "x", relations: [{ to: "y" }, { to: "z" }] },
+        { name: "y", relations: [{ to: "z" }] },
+        { name: "z" },
+      ],
       boundaries: [
         {
           name: "parent",
-          label: "Parent",
-          boundaries: [inner1, inner2],
-          containers: [],
+          elementNames: ["x", "y", "z"],
+          boundaryNames: ["empty_inner"],
         },
-        inner1,
-        inner2,
+        { name: "empty_inner", elementNames: [] },
       ],
-    };
-
-    const violations = checkCohesion(model);
-    expect(violations.some((v) => v.container === "parent")).toBe(true);
+      rootBoundaryNames: ["parent"],
+    });
+    const tooCohesive = cohesionRule
+      .check(model)
+      .find(
+        (v) =>
+          v.target === "parent" &&
+          v.message.includes("less cohesive than its sub-boundaries"),
+      );
+    expect(tooCohesive).toBeDefined();
   });
 
-  it("propagates internalType through nested boundary cohesion calculation", () => {
-    // Two microservices using a custom type. m1 in inner boundary calls m2,
-    // which lives in outer's own containers (cross-boundary same-parent).
-    // Outer cohesion should include m1→m2 via inner-boundary coupling. With
-    // the bug (recursive call ignored options), inner-boundary coupling is
-    // computed against default internalType "Container" and counts 0,
-    // collapsing outer cohesion to 0 and triggering an extra spurious
-    // `coupling ≥ cohesion` violation.
-    const m2: Container = {
-      name: "m2",
-      label: "M2",
-      type: "Microservice",
-      description: "",
-      relations: [],
-    };
-    const m1: Container = {
-      name: "m1",
-      label: "M1",
-      type: "Microservice",
-      description: "",
-      relations: [{ to: m2 }],
-    };
-    const model: ArchitectureModel = {
-      allContainers: [m1, m2],
+  it("inner boundary's coupling becomes parent's cohesion (covers nested cohesion accumulator)", () => {
+    const model = makeModel({
+      elements: [{ name: "a", relations: [{ to: "b" }] }, { name: "b" }],
       boundaries: [
-        {
-          name: "outer",
-          label: "Outer",
-          containers: [m2],
-          boundaries: [
-            {
-              name: "inner",
-              label: "Inner",
-              containers: [m1],
-              boundaries: [],
-            },
-          ],
-        },
+        { name: "parent", boundaryNames: ["bA", "bB"] },
+        { name: "bA", elementNames: ["a"] },
+        { name: "bB", elementNames: ["b"] },
       ],
-    };
+      rootBoundaryNames: ["parent"],
+    });
+    const violations = cohesionRule.check(model);
+    expect(violations.find((v) => v.target === "bA")).toBeDefined();
+  });
 
-    const violations = checkCohesion(model, { internalType: "Microservice" });
-    // With fix: only the parent-vs-inner-cohesion check fires (1 violation).
-    // Without fix: also fires `coupling ≥ cohesion` because outer cohesion = 0.
-    expect(violations).toHaveLength(1);
-    expect(violations[0].message).not.toContain("coupling (");
+  it("ignores dangling relation when computing cohesion/coupling", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "ghost" }, { to: "b" }] },
+        { name: "b" },
+      ],
+      boundaries: [{ name: "ctx", elementNames: ["a", "b"] }],
+    });
+    expect(cohesionRule.check(model)).toHaveLength(0);
+  });
+
+  it("boundary with dangling container name doesn't throw (covers !container guard)", () => {
+    // boundary.elementNames references missing container.
+    const model = makeModel({
+      elements: [{ name: "real" }],
+      boundaries: [{ name: "ctx", elementNames: ["real", "ghost_container"] }],
+    });
+    expect(() => cohesionRule.check(model)).not.toThrow();
+  });
+
+  it("equal cohesion/coupling triggers violation (covers <= boundary)", () => {
+    // a → b (internal, cohesion +1), a → outside (coupling +1).
+    // cohesion=1, coupling=1, cohesion <= coupling → violation.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }, { to: "outside" }] },
+        { name: "b" },
+        { name: "outside" },
+      ],
+      boundaries: [{ name: "ctx", elementNames: ["a", "b"] }],
+    });
+    const v = cohesionRule.check(model);
+    expect(v.find((it) => it.target === "ctx")).toBeDefined();
+  });
+
+  it("violation message contains both coupling and cohesion numbers", () => {
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "outside" }] },
+        { name: "outside" },
+      ],
+      boundaries: [{ name: "b1", elementNames: ["a"] }],
+    });
+    const v = cohesionRule.check(model);
+    expect(v[0].message).toMatch(/coupling \(\d+\)/);
+    expect(v[0].message).toMatch(/cohesion \(\d+\)/);
+    expect(v[0].message).toContain(
+      "more cross-boundary dependencies than internal connections",
+    );
+  });
+
+  it("rule description is non-empty", () => {
+    // Pin description literal (Stryker mutates to empty).
+    expect(cohesionRule.description).toContain("cohesive");
+    expect(cohesionRule.description.length).toBeGreaterThan(20);
+  });
+
+  it("parent without inner boundaries: only cohesion≤coupling check fires, not the inner-sum check", () => {
+    // Stryker mutated `boundary.boundaryNames.length > 0` predicate. A flat
+    // boundary with no children should not trigger the inner-sum violation.
+    const model = makeModel({
+      elements: [{ name: "a", relations: [{ to: "b" }] }, { name: "b" }],
+      boundaries: [{ name: "ctx", elementNames: ["a", "b"] }],
+    });
+    const v = cohesionRule.check(model);
+    // No "less cohesive than its sub-boundaries" message for a flat boundary.
+    expect(
+      v.find((it) => it.message.includes("less cohesive than")),
+    ).toBeUndefined();
+  });
+
+  it("parent's coupling counts ONLY inner→external (not inner→inner-sibling)", () => {
+    // Stryker can mutate `getElement(model, r.to)?.external === true` to
+    // `=== false`. Build a case where inner has both intra-parent siblings
+    // AND a true external: parent.coupling should reflect only the external.
+    const model = makeModel({
+      elements: [
+        { name: "a", relations: [{ to: "b" }, { to: "ext_x" }] },
+        { name: "b" },
+        { name: "ext_x", kind: "System", external: true },
+      ],
+      boundaries: [
+        { name: "parent", boundaryNames: ["bA", "bB"] },
+        { name: "bA", elementNames: ["a"] },
+        { name: "bB", elementNames: ["b"] },
+      ],
+      rootBoundaryNames: ["parent"],
+    });
+    // parent.coupling should = 1 (a→ext_x), not include a→b (sibling within parent).
+    // bA itself should violate (coupling=2: b sibling + ext_x external; cohesion=0).
+    const violations = cohesionRule.check(model);
+    const bAViolation = violations.find((v) => v.target === "bA");
+    expect(bAViolation).toBeDefined();
   });
 });

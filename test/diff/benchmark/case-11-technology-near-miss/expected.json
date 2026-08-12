@@ -1,0 +1,21 @@
+{
+  "description": "Near miss for technologySwapped — relation description changed, but technology stayed HTTP. The relation is still modified, but no technology group should be emitted.",
+  "changes": [
+    {
+      "entity": "relation",
+      "action": "modified",
+      "severity": "cosmetic",
+      "address": "relation:web→api(HTTP)",
+      "from": "web",
+      "to": "api",
+      "fields": [
+        {
+          "field": "description",
+          "before": "calls API",
+          "after": "queries API"
+        }
+      ]
+    }
+  ],
+  "groups": []
+}

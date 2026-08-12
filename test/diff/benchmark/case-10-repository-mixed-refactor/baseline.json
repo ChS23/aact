@@ -1,0 +1,36 @@
+{
+  "elements": {
+    "billingService": {
+      "name": "billingService",
+      "label": "Billing Service",
+      "kind": "Container",
+      "external": false,
+      "description": "Billing application service",
+      "technology": "Java",
+      "tags": [],
+      "relations": [{ "to": "billingDb", "tags": [] }]
+    },
+    "billingDb": {
+      "name": "billingDb",
+      "label": "Billing DB",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Billing database",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    },
+    "metrics": {
+      "name": "metrics",
+      "label": "Metrics",
+      "kind": "Container",
+      "external": false,
+      "description": "Metrics exporter",
+      "technology": "Go",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}

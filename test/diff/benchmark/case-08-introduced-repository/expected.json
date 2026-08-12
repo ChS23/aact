@@ -1,0 +1,56 @@
+{
+  "description": "Repository introduction — direct service→database relation becomes service→repo→database with a newly added repo-like element. This is the first deterministic ChangeGroup pattern: exact graph evidence plus repo/database role checks.",
+  "changes": [
+    {
+      "entity": "element",
+      "action": "added",
+      "severity": "structural",
+      "address": "element:ordersRepo",
+      "name": "ordersRepo"
+    },
+    {
+      "entity": "relation",
+      "action": "removed",
+      "severity": "structural",
+      "address": "relation:ordersService→ordersDb",
+      "from": "ordersService",
+      "to": "ordersDb"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:ordersService→ordersRepo",
+      "from": "ordersService",
+      "to": "ordersRepo"
+    },
+    {
+      "entity": "relation",
+      "action": "added",
+      "severity": "structural",
+      "address": "relation:ordersRepo→ordersDb",
+      "from": "ordersRepo",
+      "to": "ordersDb"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:introducedRepository:ordersService:ordersRepo:ordersDb",
+      "kind": "introducedRepository",
+      "title": "Repository layer introduced between ordersService and ordersDb",
+      "severity": "structural",
+      "confidenceHint": "high",
+      "changeAddresses": [
+        "element:ordersRepo",
+        "relation:ordersService→ordersDb",
+        "relation:ordersService→ordersRepo",
+        "relation:ordersRepo→ordersDb"
+      ],
+      "evidence": {
+        "service": "ordersService",
+        "repository": "ordersRepo",
+        "database": "ordersDb"
+      }
+    }
+  ]
+}

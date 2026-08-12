@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: orders-db
+  namespace: shop
+  annotations:
+    aact.technology: "PostgreSQL"
+    aact.description: "Order storage"
+spec:
+  serviceName: orders-db-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-db
+  template:
+    metadata:
+      labels:
+        app: orders-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+---
+# Service name (orders-db-svc) differs from the workload (orders-db):
+# aact maps the env reference `…@orders-db-svc` back to the orders-db
+# Container through this selector.
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-db-svc
+  namespace: shop
+spec:
+  selector:
+    app: orders-db
+  ports:
+    - port: 5432
+      targetPort: 5432

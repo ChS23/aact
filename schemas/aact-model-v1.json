@@ -1,0 +1,321 @@
+{
+  "$id": "https://raw.githubusercontent.com/Byndyusoft/aact/main/schemas/aact-model-v1.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Pointer to the JSON Schema describing this file. Optional on read (hand-authored files may omit it), always written on emit so editors can pick the schema up automatically."
+    },
+    "schemaVersion": {
+      "type": "number",
+      "const": 1,
+      "description": "Version of the canonical contract. Frozen at `1` until aact 3.0.0 GA, then additive within `1` (post-GA bumps only on remove/rename)."
+    },
+    "model": {
+      "$ref": "#/definitions/Model"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "model"
+  ],
+  "description": "Canonical on-disk shape that `aact generate --format model-json` emits and that the loader treats as the primary input form. Wrapped here so the JSON Schema generator has a single root type that pins the `schemaVersion` literal alongside the Model payload.\n\nThe `$schema` field is optional in the type but always present on emit — VSCode / Cursor / JetBrains use it to auto-attach the schema to any `*.aact.json` file the user opens without a SchemaStore lookup. Loaders pass it through untouched.",
+  "definitions": {
+    "Model": {
+      "type": "object",
+      "properties": {
+        "elements": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Element"
+          }
+        },
+        "boundaries": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Boundary"
+          }
+        },
+        "rootBoundaryNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Корневые boundaries — top-level в рендере. Все остальные boundary вложены через `boundaryNames`."
+        },
+        "workspace": {
+          "$ref": "#/definitions/WorkspaceMetadata",
+          "description": "Workspace-level metadata: name, description, extends target. Optional — formats that don't carry workspace headers (e.g. PUML) leave it undefined; Structurizr DSL / JSON populate it from `workspace \"name\" \"description\" extends \"...\"` headers. Reference parsers expose this via `Workspace.getName()` / `getExtends()` etc.\n\nWorkspace `properties { … }` blocks and `version` fields are intentionally NOT surfaced here — they're Structurizr-specific authoring concerns (style overrides, layout hints) that don't affect linting. If a future rule needs them, extend the type."
+        }
+      },
+      "required": [
+        "elements",
+        "boundaries",
+        "rootBoundaryNames"
+      ],
+      "description": "Корневая Model. Record-based для O(1) lookup'ов на масштабе aact и native JSON-сериализации. Все поля readonly — после loader-фазы модель immutable."
+    },
+    "Element": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Уникальное имя — ключ в `model.elements`. PlantUML alias / Structurizr `structurizr.dsl.identifier`."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label. PlantUML `Container(alias, label, ...)`."
+        },
+        "kind": {
+          "$ref": "#/definitions/ElementKind",
+          "description": "Типизированный C4 kind. Compile-error на typo."
+        },
+        "external": {
+          "type": "boolean",
+          "description": "Внешний element (System_Ext, Container_Ext etc.). Orthogonal к kind."
+        },
+        "description": {
+          "type": "string"
+        },
+        "technology": {
+          "type": "string",
+          "description": "C4 technology — Structurizr `cont.technology`, PlantUML `Container(alias, label, ?techn, ...)`."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags всегда массив, не optional — убирает `?.includes()` в правилах."
+        },
+        "sprite": {
+          "type": "string",
+          "description": "PlantUML/Mermaid `?sprite` — отдельно от tags (раньше попадал в tags)."
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Relation"
+          },
+          "description": "Исходящие relations. Целевые elements — name-refs (`relation.to`)."
+        },
+        "link": {
+          "type": "string",
+          "description": "$link для clickable diagrams."
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Structurizr arbitrary properties (включая archetype name + perspectives через `perspective.<name>` prefix)."
+        },
+        "sourceLocation": {
+          "$ref": "#/definitions/SourceLocation"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "kind",
+        "external",
+        "description",
+        "tags",
+        "relations"
+      ],
+      "description": "A C4 element: Person, Software System, Container, or Component. `kind` — typed union, не stringly. `external` — orthogonal flag (не отдельный `System_Ext` kind), покрывает все 8 `_Ext` вариантов PlantUML/Mermaid одним полем.\n\nThe interface name `Element` is aact's universal aggregator for any C4 abstraction. `kind: \"Container\"` still refers to the C4 level-2 concept (deployable runtime unit) — keeping these vocabularies separate at the interface and literal levels avoids the collision aact's earlier `Container` interface had with C4's `Container` level."
+    },
+    "ElementKind": {
+      "type": "string",
+      "enum": [
+        "Person",
+        "System",
+        "Container",
+        "ContainerDb",
+        "ContainerQueue",
+        "Component",
+        "ComponentDb",
+        "ComponentQueue"
+      ],
+      "description": "C4 element kinds. Полный stdlib набор."
+    },
+    "Relation": {
+      "type": "object",
+      "properties": {
+        "to": {
+          "type": "string",
+          "description": "Имя целевого element. Lookup через `model.elements[rel.to]` или helper `targetOf(model, rel)`."
+        },
+        "description": {
+          "type": "string",
+          "description": "Описание/label. PlantUML `Rel(from, to, label, ...)`, Structurizr `rel.description`."
+        },
+        "technology": {
+          "type": "string",
+          "description": "Технология. PlantUML `Rel(..., ?techn, ...)`, Structurizr `rel.technology`."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags всегда массив (пустой если нет тегов) — убирает `?.includes()` шум в правилах."
+        },
+        "sprite": {
+          "type": "string",
+          "description": "Sprite. PlantUML/Mermaid `Rel(..., ?sprite, ...)`."
+        },
+        "order": {
+          "type": "number",
+          "description": "Sequence number для Dynamic diagrams. PlantUML `$index=Index()`, Structurizr dynamic step."
+        },
+        "link": {
+          "type": "string",
+          "description": "$link для clickable diagrams."
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Structurizr relation properties + perspectives (через `perspective.<name>` prefix)."
+        },
+        "sourceLocation": {
+          "$ref": "#/definitions/SourceLocation",
+          "description": "Foundation для terminal-link OSC8. Заполняется loader'ом где возможно."
+        }
+      },
+      "required": [
+        "to",
+        "tags"
+      ],
+      "description": "Связь между двумя elements. `to` — имя целевого element (name-ref), не объектная ссылка — это рвёт Element↔Relation цикл, делает Model сериализуемой и упрощает test fixtures (`to: \"elementB\"` вместо ref'а)."
+    },
+    "SourceLocation": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/definitions/SourcePosition"
+        },
+        "end": {
+          "$ref": "#/definitions/SourcePosition"
+        }
+      },
+      "required": [
+        "file",
+        "start",
+        "end"
+      ],
+      "description": "A range within a source file: `start` and `end` `SourcePosition`s plus the `file` they belong to. `end` is the position **after** the last character of the parsed construct (half-open interval, matching chevrotain and LSP conventions).\n\nThe chevrotain parser populates this on every Element / Boundary / Relation node it emits. Regex-based loaders may omit it entirely — the field is optional on each Model node. When present, the range must be complete (no partial fills); the new shape exists precisely so that diagnostics, terminal-link OSC8, and AST-based fixes have full information."
+    },
+    "SourcePosition": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "number"
+        },
+        "col": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number",
+          "description": "0-based offset in UTF-16 code units (JS string index)."
+        }
+      },
+      "required": [
+        "line",
+        "col",
+        "offset"
+      ],
+      "description": "A position within a source file. 1-based for `line` and `col` (matches editor conventions and OSC8 terminal-link expectations).\n\n`offset` is a 0-based **UTF-16 code unit** index into the source string — the same unit `String.prototype.slice` / `charCodeAt` operate on, which is also what chevrotain emits (`token.startOffset` / `endOffset`) and what LSP uses by default (`positionEncoding: \"utf-16\"`). It is **not** a UTF-8 byte offset, despite the field name. Non-ASCII content (cyrillic, emoji, CJK) round-trips correctly through `applyEdits` because both producer and consumer use the same unit; consumers that need byte / codepoint offsets must convert themselves.\n\nAll three are mandatory. If a position is not known, the enclosing `SourceLocation` must be omitted entirely (it is optional on each Model node) — never fabricated with placeholder values."
+    },
+    "Boundary": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/BoundaryKind"
+        },
+        "description": {
+          "type": "string",
+          "description": "PlantUML Boundary `?descr`, Structurizr softwareSystem.description."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "elementNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Имена elements внутри этой границы. Lookup через `model.elements[name]`."
+        },
+        "boundaryNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Имена вложенных boundaries. Lookup через `model.boundaries[name]`."
+        },
+        "link": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Structurizr softwareSystem properties (archetypes etc.)."
+        },
+        "sourceLocation": {
+          "$ref": "#/definitions/SourceLocation"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "kind",
+        "tags",
+        "elementNames",
+        "boundaryNames"
+      ],
+      "description": "Структурная граница. `elementNames` и `boundaryNames` — name-refs, не object-refs (как в `Relation.to`) — делает Model сериализуемой и упрощает test fixtures."
+    },
+    "BoundaryKind": {
+      "type": "string",
+      "enum": [
+        "System",
+        "Container",
+        "Component",
+        "Enterprise"
+      ],
+      "description": "Boundary types сохраняются для round-trip без шумного diff'а в git. PlantUML stdlib дает `System_Boundary` / `Container_Boundary` / `Enterprise_Boundary` (плюс generic `Boundary(name, label, $type=…)`, где `$type` подставляется в один из них). `aact generate` обязан вернуть тот же ключ.\n\n`\"Component\"` — model-level kind для случая, когда Structurizr или generic `Boundary($type=\"Component\")` помечает scope как component-level. Stdlib не имеет `Component_Boundary` макроса, поэтому `aact generate` для PUML падает обратно в `Container_Boundary` — это документированная потеря fidelity на этой паре направлений."
+    },
+    "WorkspaceMetadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "extendsTarget": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

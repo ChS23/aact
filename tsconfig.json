@@ -5,6 +5,7 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2023"],
     "outDir": "./dist",
+    "rootDir": ".",
     "declaration": true,
     "sourceMap": true,
     "esModuleInterop": true,
@@ -16,5 +17,5 @@
     "types": ["vitest/globals"]
   },
   "include": ["./**/*.ts"],
-  "exclude": ["./dist", "./node_modules"]
+  "exclude": ["./dist", "./node_modules", "./packages"]
 }

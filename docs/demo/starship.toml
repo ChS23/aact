@@ -1,0 +1,13 @@
+# Starship prompt config used by docs/demo/demo.tape only.
+# Drives the prompt rendered inside the VHS recording — minimal,
+# directory + chevron, calm lavender to fit the brand frame.
+
+format = "$directory$character"
+
+[directory]
+style = "bold lavender"
+truncation_length = 2
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"

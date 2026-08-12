@@ -2,6 +2,9 @@
 
 **/.scannerwork
 
+### local-only marketing / pr drafts — never committed
+/docs/social-media/
+
 ### https://github.com/github/gitignore/blob/master/Global/JetBrains.gitignore
 
 .idea/*
@@ -204,3 +207,15 @@ package-lock.json
 **/obj/*
 **/nppBackup/*
 .claude/
+
+# Stryker mutation reports
+reports/
+.stryker-tmp/
+
+# Local research drafts / notes
+docs/research/
+
+### v3 parser reference repositories — fetched on demand by scripts/fetch-parser-refs.sh.
+### Studied for grammar and behaviour only, never copied verbatim into this repo (license firewall).
+.parser-refs/
+*.bak

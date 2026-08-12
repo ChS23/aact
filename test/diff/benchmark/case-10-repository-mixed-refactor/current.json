@@ -1,0 +1,46 @@
+{
+  "elements": {
+    "billingService": {
+      "name": "billingService",
+      "label": "Billing Service",
+      "kind": "Container",
+      "external": false,
+      "description": "Billing application service",
+      "technology": "Java",
+      "tags": [],
+      "relations": [{ "to": "billingRepo", "tags": [] }]
+    },
+    "billingRepo": {
+      "name": "billingRepo",
+      "label": "Billing Repository",
+      "kind": "Container",
+      "external": false,
+      "description": "Repository adapter for billing persistence",
+      "technology": "Java",
+      "tags": ["repository"],
+      "relations": [{ "to": "billingDb", "tags": [] }]
+    },
+    "billingDb": {
+      "name": "billingDb",
+      "label": "Billing DB",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Billing database",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    },
+    "metrics": {
+      "name": "metrics",
+      "label": "Metrics",
+      "kind": "Container",
+      "external": false,
+      "description": "Metrics exporter",
+      "technology": "Go",
+      "tags": ["telemetry"],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}

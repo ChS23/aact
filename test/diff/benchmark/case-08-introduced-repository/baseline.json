@@ -1,0 +1,26 @@
+{
+  "elements": {
+    "ordersService": {
+      "name": "ordersService",
+      "label": "Orders Service",
+      "kind": "Container",
+      "external": false,
+      "description": "Orders application service",
+      "technology": "Kotlin",
+      "tags": [],
+      "relations": [{ "to": "ordersDb", "tags": [] }]
+    },
+    "ordersDb": {
+      "name": "ordersDb",
+      "label": "Orders DB",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Orders database",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}

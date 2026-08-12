@@ -1,0 +1,26 @@
+{
+  "elements": {
+    "orderService": {
+      "name": "orderService",
+      "label": "Order Service",
+      "kind": "Container",
+      "external": false,
+      "description": "Handles HTTP requests AND background order processing",
+      "technology": "Node.js",
+      "tags": [],
+      "relations": [{ "to": "ordersDb", "tags": [] }]
+    },
+    "ordersDb": {
+      "name": "ordersDb",
+      "label": "Orders DB",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Orders store",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}

@@ -1,11 +1,7 @@
 import { defineConfig } from "../../src";
 
 export default defineConfig({
-  source: {
-    type: "structurizr",
-    path: "./workspace.json",
-    writePath: "./workspace.dsl",
-  },
+  source: "./workspace.dsl",
 
   rules: {
     acl: true,

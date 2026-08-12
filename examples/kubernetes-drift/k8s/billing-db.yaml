@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: billing-db
+  namespace: shop
+  annotations:
+    # DRIFT: the architecture specifies PostgreSQL; the cluster runs MySQL.
+    aact.technology: "MySQL"
+    aact.description: "Invoice storage"
+spec:
+  serviceName: billing-db-svc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: billing-db
+  template:
+    metadata:
+      labels:
+        app: billing-db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8
+          ports:
+            - containerPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-db-svc
+  namespace: shop
+spec:
+  selector:
+    app: billing-db
+  ports:
+    - port: 3306
+      targetPort: 3306

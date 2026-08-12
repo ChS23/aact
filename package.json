@@ -1,6 +1,6 @@
 {
   "name": "aact",
-  "version": "2.1.5",
+  "version": "3.0.0",
   "type": "module",
   "description": "Architecture analysis and compliance tool",
   "keywords": [
@@ -37,7 +37,7 @@
     "type": "git",
     "url": "git+https://github.com/Byndyusoft/aact.git"
   },
-  "packageManager": "pnpm@9.15.4",
+  "packageManager": "pnpm@11.8.0",
   "sideEffects": false,
   "files": [
     "dist"
@@ -45,12 +45,31 @@
   "license": "GPL-3.0",
   "author": "Ruslan Safin (Byndyusoft)",
   "scripts": {
-    "build": "unbuild",
+    "build": "pnpm run build:core && pnpm --filter @aact/view build",
+    "build:core": "unbuild",
+    "schema:gen": "node --experimental-strip-types scripts/generate-schema.ts",
+    "schema:check": "node --experimental-strip-types scripts/generate-schema.ts && git diff --exit-code schemas/",
+    "docs:gen": "node --experimental-strip-types scripts/generate-docs.ts",
+    "docs:check": "node --experimental-strip-types scripts/generate-docs.ts && git diff --exit-code docs/reference/",
     "test": "vitest run",
-    "lint": "npm run lint:eslint && npm run lint:prettier",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "vitest run --project e2e",
+    "test:coverage": "vitest run --coverage",
+    "test:mutation": "stryker run",
+    "typecheck": "pnpm run typecheck:core && pnpm --filter @aact/view typecheck",
+    "typecheck:core": "tsc --noEmit",
+    "changelog": "changelogen",
+    "release": "changelogen --release --push",
+    "knip": "knip",
+    "publint": "publint",
+    "lint": "pnpm run lint:eslint && pnpm run lint:prettier && pnpm --filter @aact/view lint",
     "lint:eslint": "eslint .",
-    "lint:prettier": "prettier --ignore-path ./.gitignore --check \"./**/*.{ts,js,json,yaml,yml,md}\"",
-    "prepare": "husky || true"
+    "lint:prettier": "prettier --ignore-path ./.gitignore --ignore-path ./.prettierignore --check \"./**/*.{ts,js,json,yaml,yml,md}\"",
+    "pack:smoke": "mkdir -p /tmp/aact-packs && pnpm pack --pack-destination /tmp/aact-packs && pnpm --filter @aact/view pack --pack-destination /tmp/aact-packs",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm lint && pnpm typecheck && pnpm build && pnpm test:coverage && pnpm publint",
+    "prepare": "test -d .git && test -w .git/config && husky || true"
   },
   "lint-staged": {
     "*.{ts,js}": [
@@ -61,36 +80,55 @@
     ]
   },
   "devDependencies": {
+    "@aact/view": "workspace:*",
     "@commitlint/cli": "20.4.1",
     "@commitlint/config-conventional": "20.4.1",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
     "@eslint/js": "^9",
-    "@types/node": "^20.19.32",
+    "@fast-check/vitest": "^0.4.1",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^22.10.0",
+    "@types/picomatch": "^4.0.3",
+    "@vitest/coverage-v8": "^4.1.6",
+    "@vitest/eslint-plugin": "^1.6.17",
+    "changelogen": "^0.6.2",
     "eslint": "^9",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-boundaries": "^6.0.2",
+    "eslint-plugin-citty": "^1.0.2",
+    "eslint-plugin-import-x": "^4.16.2",
     "eslint-plugin-n": "^17",
     "eslint-plugin-simple-import-sort": "^12",
     "eslint-plugin-sonarjs": "^3",
     "eslint-plugin-unicorn": "^62.0.0",
-    "globals": "^17.3.0",
+    "execa": "^9.6.1",
+    "globals": "^17.6.0",
     "husky": "9.1.7",
+    "knip": "^6.12.2",
     "lint-staged": "16.2.7",
-    "prettier": "3.8.1",
-    "prettier-plugin-packagejson": "3.0.0",
+    "prettier": "3.8.3",
+    "prettier-plugin-packagejson": "3.0.2",
+    "publint": "^0.3.20",
+    "ts-json-schema-generator": "^2.9.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "^8",
+    "typescript-eslint": "^8.59.3",
     "unbuild": "^3.0.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.6"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "c12": "4.0.0-beta.2",
-    "citty": "^0.2.0",
+    "chevrotain": "^12.0.0",
+    "citty": "^0.2.2",
     "consola": "^3.4.2",
-    "jiti": "^2.6.1",
-    "picocolors": "^1.1.1",
-    "plantuml-parser": "0.4.0",
-    "valibot": "^1.2.0",
-    "yaml": "2.8.2"
+    "jiti": "^2.7.0",
+    "pathe": "^2.0.3",
+    "picomatch": "^4.0.4",
+    "terminal-link": "^5.0.0",
+    "valibot": "^1.4.0",
+    "yaml": "2.9.0"
   }
 }

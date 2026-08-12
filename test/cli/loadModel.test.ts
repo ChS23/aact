@@ -1,32 +1,17 @@
-vi.mock("consola", () => ({
-  default: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  },
-}));
-
-vi.mock("../../src/loaders/plantuml/loadPlantumlElements", () => ({
-  loadPlantumlElements: vi.fn(),
-}));
-vi.mock("../../src/loaders/plantuml/mapContainersFromPlantumlElements", () => ({
-  mapContainersFromPlantumlElements: vi.fn(),
-}));
-vi.mock("../../src/loaders/structurizr/loadStructurizrElements", () => ({
-  loadStructurizrElements: vi.fn(),
-}));
-
-import consola from "consola";
-
-import { loadModel } from "../../src/cli/loadModel";
+import { issueToDiagnostic, loadModel } from "../../src/cli/loadModel";
+import { ToolError } from "../../src/cli/output";
 import type { AactConfig } from "../../src/config";
-import { loadPlantumlElements } from "../../src/loaders/plantuml/loadPlantumlElements";
-import { mapContainersFromPlantumlElements } from "../../src/loaders/plantuml/mapContainersFromPlantumlElements";
-import { loadStructurizrElements } from "../../src/loaders/structurizr/loadStructurizrElements";
+import { loadFormat } from "../../src/formats/registry";
+import type { Format } from "../../src/formats/types";
+import type { ModelIssue } from "../../src/model";
+import { makeModel } from "../helpers/makeModel";
 
-const mockLoadPuml = vi.mocked(loadPlantumlElements);
-const mockMapPuml = vi.mocked(mapContainersFromPlantumlElements);
-const mockLoadStruct = vi.mocked(loadStructurizrElements);
+vi.mock("../../src/formats/registry", () => ({
+  loadFormat: vi.fn(),
+  knownFormatNames: () => ["plantuml", "structurizr", "kubernetes"],
+}));
+
+const mockLoadFormat = vi.mocked(loadFormat);
 
 const plantumlConfig: AactConfig = {
   source: { type: "plantuml", path: "./architecture.puml" },
@@ -35,6 +20,11 @@ const plantumlConfig: AactConfig = {
 const structurizrConfig: AactConfig = {
   source: { type: "structurizr", path: "./workspace.json" },
 };
+
+const fakeFormat = (load: Format["load"]): Format => ({
+  name: "fake",
+  load,
+});
 
 const enoent = (): NodeJS.ErrnoException => {
   const err: NodeJS.ErrnoException = new Error("ENOENT: no such file");
@@ -47,85 +37,238 @@ describe("loadModel", () => {
     vi.clearAllMocks();
   });
 
-  it("delegates to plantuml loader for type=plantuml", async () => {
-    mockLoadPuml.mockResolvedValue([]);
-    mockMapPuml.mockReturnValue({ allContainers: [], boundaries: [] });
+  it("delegates to format.load when format supports load capability", async () => {
+    const empty = makeModel({});
+    const load = vi.fn().mockResolvedValue({ model: empty, issues: [] });
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
 
-    await loadModel(plantumlConfig);
+    const result = await loadModel(plantumlConfig);
 
-    expect(mockLoadPuml).toHaveBeenCalledOnce();
-    expect(mockMapPuml).toHaveBeenCalledOnce();
+    expect(mockLoadFormat).toHaveBeenCalledWith("plantuml");
+    expect(load).toHaveBeenCalledOnce();
+    expect(result.model).toBe(empty);
   });
 
-  it("delegates to structurizr loader for type=structurizr", async () => {
-    mockLoadStruct.mockResolvedValue({ allContainers: [], boundaries: [] });
+  it("throws ToolError model.unsupportedLoad when format doesn't expose `load`", async () => {
+    mockLoadFormat.mockResolvedValue({ name: "kubernetes" });
 
-    await loadModel(structurizrConfig);
-
-    expect(mockLoadStruct).toHaveBeenCalledOnce();
+    await expect(loadModel(plantumlConfig)).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "model.unsupportedLoad",
+    });
   });
 
-  it("emits friendly error and exits when plantuml source file is missing", async () => {
-    mockLoadPuml.mockRejectedValue(enoent());
+  it("throws ToolError model.sourceNotFound when source file is missing (plantuml)", async () => {
+    const load = vi.fn().mockRejectedValue(enoent());
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
 
-    await expect(loadModel(plantumlConfig)).rejects.toThrow();
+    await expect(loadModel(plantumlConfig)).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "model.sourceNotFound",
+      message: expect.stringContaining("./architecture.puml"),
+    });
+  });
 
-    expect(consola.error).toHaveBeenCalledWith(
-      expect.stringContaining("Architecture file not found"),
-    );
-    expect(consola.error).toHaveBeenCalledWith(
-      expect.stringContaining("./architecture.puml"),
-    );
-    expect(consola.info).toHaveBeenCalledWith(
-      expect.stringContaining("aact.config.ts"),
+  it("throws ToolError model.sourceNotFound when source file is missing (structurizr)", async () => {
+    const load = vi.fn().mockRejectedValue(enoent());
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
+
+    await expect(loadModel(structurizrConfig)).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "model.sourceNotFound",
+    });
+  });
+
+  it("throws ToolError model.parseError on invalid JSON for structurizr", async () => {
+    const load = vi
+      .fn()
+      .mockRejectedValue(new SyntaxError("Unexpected token } in JSON"));
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
+
+    await expect(loadModel(structurizrConfig)).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "model.parseError",
+      message: expect.stringContaining("Cannot parse Structurizr"),
+    });
+  });
+
+  it("throws ToolError model.parseError on missing model.softwareSystems for structurizr", async () => {
+    const load = vi
+      .fn()
+      .mockRejectedValue(
+        new TypeError(
+          "Cannot read properties of undefined (reading 'softwareSystems')",
+        ),
+      );
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
+
+    await expect(loadModel(structurizrConfig)).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "model.parseError",
+      message: expect.stringContaining("Invalid Structurizr workspace"),
+    });
+  });
+
+  // Per-variant issueToDiagnostic mapping table — locks the public CLI
+  // contract for every ModelIssue kind. New kinds added to ModelIssue must
+  // add a row here; missing rows surface as TS exhaustiveness errors at
+  // compile time.
+  it.each<{ readonly issue: ModelIssue; readonly kind: string }>([
+    {
+      issue: { kind: "dangling-relation", from: "a", to: "ghost" },
+      kind: "model.danglingRelation",
+    },
+    {
+      issue: {
+        kind: "element-in-boundary-not-in-model",
+        element: "ghost",
+        boundary: "b1",
+      },
+      kind: "model.elementInBoundaryNotInModel",
+    },
+    {
+      issue: { kind: "boundary-not-in-model", parent: "b1", child: "ghost" },
+      kind: "model.boundaryNotInModel",
+    },
+    {
+      issue: { kind: "boundary-cycle", path: ["a", "b", "a"] },
+      kind: "model.boundaryCycle",
+    },
+    {
+      issue: { kind: "duplicate-element-name", name: "svc" },
+      kind: "model.duplicateElementName",
+    },
+    {
+      issue: { kind: "duplicate-boundary-name", name: "boundary" },
+      kind: "model.duplicateBoundaryName",
+    },
+    {
+      issue: { kind: "duplicate-identifier", identifier: "api" },
+      kind: "model.duplicateIdentifier",
+    },
+    {
+      issue: { kind: "self-relation", element: "loop" },
+      kind: "model.selfRelation",
+    },
+    {
+      issue: { kind: "unknown-kind", element: "x", raw: "Mystery" },
+      kind: "model.unknownKind",
+    },
+    {
+      issue: {
+        kind: "loader-warning",
+        source: "compose",
+        code: "version-obsolete",
+        message: "version key is obsolete",
+      },
+      kind: "model.loaderWarning",
+    },
+  ])("maps $issue.kind to $kind diagnostic", ({ issue, kind }) => {
+    const diag = issueToDiagnostic(issue);
+    expect(diag.kind).toBe(kind);
+    expect(diag.severity).toBe("warning");
+    expect(diag.message.length).toBeGreaterThan(0);
+    expect(diag.context).toBeDefined();
+  });
+
+  // loader-warning has format-specific shape (source/code/message + optional
+  // element) — the diagnostic message and context must carry all of them so
+  // agents reading the envelope can attribute the warning to a format + code.
+  it("renders loader-warning message with [source:code] prefix and message body", () => {
+    const diag = issueToDiagnostic({
+      kind: "loader-warning",
+      source: "kubernetes",
+      code: "kustomize-skipped",
+      message: "kustomization patch ignored",
+    });
+    expect(diag.kind).toBe("model.loaderWarning");
+    expect(diag.message).toBe(
+      "[kubernetes:kustomize-skipped] kustomization patch ignored",
     );
   });
 
-  it("emits friendly error and exits when structurizr source file is missing", async () => {
-    mockLoadStruct.mockRejectedValue(enoent());
+  it("includes element in loader-warning context only when present", () => {
+    const withElement = issueToDiagnostic({
+      kind: "loader-warning",
+      source: "compose",
+      code: "extends-unsupported",
+      message: "extends is not supported",
+      element: "orders",
+    });
+    expect(withElement.context).toEqual({
+      source: "compose",
+      code: "extends-unsupported",
+      element: "orders",
+    });
 
-    await expect(loadModel(structurizrConfig)).rejects.toThrow();
-
-    expect(consola.error).toHaveBeenCalledWith(
-      expect.stringContaining("Architecture file not found"),
-    );
+    const withoutElement = issueToDiagnostic({
+      kind: "loader-warning",
+      source: "compose",
+      code: "version-obsolete",
+      message: "version key is obsolete",
+    });
+    expect(withoutElement.context).toEqual({
+      source: "compose",
+      code: "version-obsolete",
+    });
+    expect(withoutElement.context).not.toHaveProperty("element");
   });
 
-  it("emits friendly error on invalid JSON for structurizr", async () => {
-    mockLoadStruct.mockRejectedValue(
-      new SyntaxError("Unexpected token } in JSON"),
-    );
+  it("wraps any non-ToolError, non-ENOENT throw as model.parseError", async () => {
+    // Универсальный fallback: parse failures из ЛЮБОГО loader'а
+    // (plantuml chevrotain, compose YAML, k8s YAML, model-json JSON.parse,
+    // structurizr DSL) приходят сюда как plain Error и должны стать
+    // model.parseError, не internal.unexpected.
+    const load = vi
+      .fn()
+      .mockRejectedValue(new Error("boom — totally unexpected"));
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
 
-    await expect(loadModel(structurizrConfig)).rejects.toThrow();
-
-    expect(consola.error).toHaveBeenCalledWith(
-      expect.stringContaining("Cannot parse Structurizr workspace"),
+    const error = await loadModel(plantumlConfig).catch(
+      (error_: unknown) => error_,
     );
-    expect(consola.info).toHaveBeenCalledWith(
-      expect.stringContaining("valid JSON"),
-    );
+    expect(error).toBeInstanceOf(ToolError);
+    expect((error as ToolError).kind).toBe("model.parseError");
+    expect((error as ToolError).message).toContain("boom — totally unexpected");
+    expect((error as ToolError).context).toMatchObject({
+      format: "plantuml",
+      path: plantumlConfig.source.path,
+    });
   });
 
-  it("emits friendly error on missing model.softwareSystems for structurizr", async () => {
-    mockLoadStruct.mockRejectedValue(
-      new TypeError(
-        "Cannot read properties of undefined (reading 'softwareSystems')",
-      ),
-    );
+  it("preserves Structurizr-specific JSON hint for SyntaxError", async () => {
+    const structurizrConfig = {
+      source: { type: "structurizr", path: "./workspace.json" },
+    } as Parameters<typeof loadModel>[0];
+    const load = vi
+      .fn()
+      .mockRejectedValue(new SyntaxError("Unexpected token } at position 42"));
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
 
-    await expect(loadModel(structurizrConfig)).rejects.toThrow();
-
-    expect(consola.error).toHaveBeenCalledWith(
-      expect.stringContaining("Invalid Structurizr workspace"),
+    const error = await loadModel(structurizrConfig).catch(
+      (error_: unknown) => error_,
     );
+    expect(error).toBeInstanceOf(ToolError);
+    expect((error as ToolError).kind).toBe("model.parseError");
+    expect((error as ToolError).message).toMatch(/valid JSON/);
   });
 
-  it("re-throws unexpected errors instead of swallowing them", async () => {
-    mockLoadPuml.mockRejectedValue(new Error("boom — totally unexpected"));
+  it("propagates compose / k8s parse failures as model.parseError", async () => {
+    const composeConfig = {
+      source: { type: "compose", path: "./compose.yaml" },
+    } as Parameters<typeof loadModel>[0];
+    const load = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("YAMLParseError: bad indentation at line 5"),
+      );
+    mockLoadFormat.mockResolvedValue(fakeFormat(load));
 
-    await expect(loadModel(plantumlConfig)).rejects.toThrow(
-      "boom — totally unexpected",
+    const error = await loadModel(composeConfig).catch(
+      (error_: unknown) => error_,
     );
-    expect(consola.error).not.toHaveBeenCalled();
+    expect(error).toBeInstanceOf(ToolError);
+    expect((error as ToolError).kind).toBe("model.parseError");
+    expect((error as ToolError).context).toMatchObject({ format: "compose" });
   });
 });

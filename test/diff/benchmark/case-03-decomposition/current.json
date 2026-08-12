@@ -1,0 +1,36 @@
+{
+  "elements": {
+    "orderApi": {
+      "name": "orderApi",
+      "label": "Order API",
+      "kind": "Container",
+      "external": false,
+      "description": "Handles HTTP requests for orders",
+      "technology": "Node.js",
+      "tags": [],
+      "relations": [{ "to": "ordersDb", "tags": [] }]
+    },
+    "orderWorker": {
+      "name": "orderWorker",
+      "label": "Order Worker",
+      "kind": "Container",
+      "external": false,
+      "description": "Background order processing",
+      "technology": "Node.js",
+      "tags": ["worker"],
+      "relations": [{ "to": "ordersDb", "tags": [] }]
+    },
+    "ordersDb": {
+      "name": "ordersDb",
+      "label": "Orders DB",
+      "kind": "ContainerDb",
+      "external": false,
+      "description": "Orders store",
+      "technology": "PostgreSQL",
+      "tags": [],
+      "relations": []
+    }
+  },
+  "boundaries": {},
+  "rootBoundaryNames": []
+}
