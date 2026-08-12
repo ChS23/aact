@@ -15,7 +15,7 @@ import { jsonArg } from "../sharedArgs";
 
 const skillName = "aact-architect";
 const markerFileName = ".aact-skill.json";
-const defaultRepo = "https://github.com/ChS23/aact-architect-skill.git";
+const defaultRepo = "https://github.com/Byndyusoft/aact-architect-skill.git";
 const defaultRef = "main";
 
 const clientValues = [

@@ -1,4 +1,4 @@
-import type { Model, ModelIssue } from "../model";
+import type { Element, Model, ModelIssue } from "../model";
 
 /**
  * Capability-based Format API. Один Format interface, capabilities
@@ -19,7 +19,11 @@ import type { Model, ModelIssue } from "../model";
  * optional methods without breaking plugins.
  */
 export interface FormatSyntax {
-  containerDecl(name: string, label: string, tags?: string): string;
+  /** Serialize the complete Container being inserted or replaced by a fix.
+   * Taking the Model element rather than a few positional fields prevents a
+   * re-declaration from silently dropping description, technology, links, or
+   * user properties. */
+  containerDecl(element: Element): string;
   /**
    * Build a relation declaration. `opts` carries the relation's
    * payload (description / technology / tags) — kept as an object so
@@ -56,6 +60,18 @@ interface GeneratedFile {
 
 export interface FormatOutput {
   readonly files: readonly GeneratedFile[];
+}
+
+/** A deterministic generation failure that the CLI can expose as a
+ * user-actionable diagnostic instead of an internal error. */
+export class FormatGenerationError extends Error {
+  constructor(
+    message: string,
+    readonly context: Readonly<Record<string, string>>,
+  ) {
+    super(message);
+    this.name = "FormatGenerationError";
+  }
 }
 
 /**

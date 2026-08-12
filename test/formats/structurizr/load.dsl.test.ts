@@ -6,7 +6,8 @@
  */
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import path from "node:path";
+
+import path from "pathe";
 
 import { load } from "../../../src/formats/structurizr/load";
 

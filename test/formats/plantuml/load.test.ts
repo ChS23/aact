@@ -939,15 +939,50 @@ describe("PlantUML load — fixture-coverage edge", () => {
 
 describe("plantumlSyntax helpers", () => {
   it("containerDecl without tags omits the $tags attribute", () => {
-    expect(plantumlSyntax.containerDecl("orders", "Orders Service")).toBe(
-      'Container(orders, "Orders Service")',
-    );
+    expect(
+      plantumlSyntax.containerDecl({
+        name: "orders",
+        label: "Orders Service",
+        kind: "Container",
+        external: false,
+        description: "",
+        tags: [],
+        relations: [],
+      }),
+    ).toBe('Container(orders, "Orders Service")');
   });
 
   it("containerDecl with tags emits $tags attribute", () => {
     expect(
-      plantumlSyntax.containerDecl("orders_acl", "Orders ACL", "acl+repo"),
-    ).toBe('Container(orders_acl, "Orders ACL", "", "", $tags="acl+repo")');
+      plantumlSyntax.containerDecl({
+        name: "orders_acl",
+        label: "Orders ACL",
+        kind: "Container",
+        external: false,
+        description: "",
+        tags: ["acl", "repo"],
+        relations: [],
+      }),
+    ).toBe('Container(orders_acl, "Orders ACL", $tags="acl+repo")');
+  });
+
+  it("containerDecl retains all serializable element fields on replacement", () => {
+    expect(
+      plantumlSyntax.containerDecl({
+        name: "orders_repo",
+        label: "Orders repo",
+        kind: "Container",
+        external: false,
+        description: "Persistence adapter",
+        technology: "TypeScript",
+        tags: ["repo"],
+        sprite: "database",
+        link: "https://example.test/repo",
+        relations: [],
+      }),
+    ).toBe(
+      'Container(orders_repo, "Orders repo", "TypeScript", "Persistence adapter", $sprite="database", $tags="repo", $link="https://example.test/repo")',
+    );
   });
 
   it("relationDecl places description in PUML position 3 (label) and technology in position 4 (techn)", () => {

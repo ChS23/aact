@@ -141,11 +141,10 @@ const fixNonRepoAccessesDb = (
               {
                 kind: "replace",
                 range: existingRepo.sourceLocation,
-                content: syntax.containerDecl(
-                  existingRepo.name,
-                  existingRepo.label,
-                  canonicalRepoTag,
-                ),
+                content: syntax.containerDecl({
+                  ...existingRepo,
+                  tags: [...existingRepo.tags, canonicalRepoTag],
+                }),
               },
             ]
           : [];
@@ -189,11 +188,15 @@ const fixNonRepoAccessesDb = (
     // New repo + its hop edge insert as one block right after the DB
     // container; the offending direct edge is replaced in place.
     const newDecls = [
-      syntax.containerDecl(
-        repoName,
-        deriveRepoLabel(db.name),
-        ownerTags[0] ?? "repo",
-      ),
+      syntax.containerDecl({
+        name: repoName,
+        label: deriveRepoLabel(db.name),
+        kind: "Container",
+        external: false,
+        description: "",
+        tags: [ownerTags[0] ?? "repo"],
+        relations: [],
+      }),
       syntax.relationDecl(repoName, db.name, {
         technology: rel.technology,
       }),

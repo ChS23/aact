@@ -3,6 +3,7 @@ import YAML from "yaml";
 import type { Element, Model, Relation } from "../../model";
 import { isDatabaseKind } from "../../model";
 import type { FormatOutput } from "../types";
+import { FormatGenerationError } from "../types";
 
 export interface KubernetesGenerateOptions {
   /** Container port for non-database workloads (default 8080). */
@@ -26,10 +27,33 @@ export interface KubernetesGenerateOptions {
  * so `generate` → `load` reproduces the model.
  */
 
-const toKebab = (name: string): string => name.replaceAll("_", "-");
+const trimDashes = (value: string): string => {
+  let start = 0;
+  let end = value.length;
+  while (value[start] === "-") start++;
+  while (end > start && value[end - 1] === "-") end--;
+  return value.slice(start, end);
+};
+
+const toKebab = (name: string): string => {
+  const normalized = trimDashes(
+    [...name.toLowerCase()]
+      .map((char) => (/[a-z0-9]/u.test(char) ? char : "-"))
+      .join(""),
+  );
+  const truncated = trimDashes(normalized.slice(0, 63));
+  if (truncated.length === 0) {
+    throw new FormatGenerationError(
+      `Kubernetes cannot derive a DNS-1123 name from ${JSON.stringify(name)}. Rename the element or boundary using lowercase letters, digits, or hyphens.`,
+      { name },
+    );
+  }
+  return truncated;
+};
 const toEnvKey = (name: string): string =>
   name.replaceAll("-", "_").toUpperCase();
-const serviceName = (kebab: string): string => `${kebab}-svc`;
+const serviceName = (kebab: string): string =>
+  `${trimDashes(kebab.slice(0, 59))}-svc`;
 
 const isDeployable = (e: Element): boolean =>
   !e.external &&
@@ -70,6 +94,25 @@ const namespaceIndex = (model: Model): Map<string, string> => {
     }
   }
   return index;
+};
+
+const assertUniqueDnsNames = (
+  names: readonly string[],
+  kind: "element" | "boundary",
+  normalize: (name: string) => string = toKebab,
+): void => {
+  const originalsByNormalized = new Map<string, string>();
+  for (const name of names) {
+    const normalized = normalize(name);
+    const previous = originalsByNormalized.get(normalized);
+    if (previous && previous !== name) {
+      throw new FormatGenerationError(
+        `Kubernetes DNS-1123 name collision: ${JSON.stringify(previous)} and ${JSON.stringify(name)} both normalize to ${JSON.stringify(normalized)}. Rename one of them.`,
+        { kind, first: previous, second: name, normalized },
+      );
+    }
+    originalsByNormalized.set(normalized, name);
+  }
 };
 
 const aactAnnotations = (e: Element): Record<string, string> => {
@@ -193,8 +236,25 @@ export const generate = (
     options?.dbConnectionTemplate ??
     "postgresql://app:secret@{service}:5432/{db}";
 
-  const nsIndex = namespaceIndex(model);
   const workloads = Object.values(model.elements).filter(isDeployable);
+  assertUniqueDnsNames(
+    workloads.map((e) => e.name),
+    "element",
+  );
+  assertUniqueDnsNames(
+    workloads.map((e) => e.name),
+    "element",
+    (name) => serviceName(toKebab(name)),
+  );
+  const boundaryNames = Object.values(model.boundaries)
+    .filter((boundary) =>
+      boundary.elementNames.some((name) =>
+        workloads.some((workload) => workload.name === name),
+      ),
+    )
+    .map((boundary) => boundary.name);
+  assertUniqueDnsNames(boundaryNames, "boundary");
+  const nsIndex = namespaceIndex(model);
 
   const workloadFiles = workloads.map((e) => {
     const namespace = nsIndex.get(e.name);

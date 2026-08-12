@@ -140,7 +140,15 @@ Rel(payment_acl, payment_provider, "POST", "HTTPS")`,
       // we don't manufacture a second anchor for "after the new
       // container" — that one wouldn't exist in the source yet.
       const newDecls = [
-        syntax.containerDecl(aclName, `${element.label} ACL`, tag),
+        syntax.containerDecl({
+          name: aclName,
+          label: `${element.label} ACL`,
+          kind: "Container",
+          external: false,
+          description: "",
+          tags: [tag],
+          relations: [],
+        }),
         syntax.relationDecl(element.name, aclName),
       ].join("\n");
 

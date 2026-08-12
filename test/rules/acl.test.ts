@@ -345,11 +345,15 @@ describe("aclRule.fix (structurizr syntax)", () => {
     // we just pin the structurizrDslSyntax shape, since rules pass
     // through this helper to build the `content` string regardless of
     // which loader populated the SourceLocation ranges.
-    const decl = structurizrDslSyntax.containerDecl(
-      "my_service_acl",
-      "My Service ACL",
-      "acl",
-    );
+    const decl = structurizrDslSyntax.containerDecl({
+      name: "my_service_acl",
+      label: "My Service ACL",
+      kind: "Container",
+      external: false,
+      description: "",
+      tags: ["acl"],
+      relations: [],
+    });
     expect(decl).toContain('my_service_acl = container "My Service ACL"');
     expect(decl).toContain('tags "acl"');
 

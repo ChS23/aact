@@ -41,6 +41,9 @@ export type DiagnosticKind =
   | "format.missingWritePath"
   | "format.unknown"
   | "format.emptyOutput"
+  | "format.invalidGeneratedName"
+  | "format.unsafeOutputPath"
+  | "format.outputPathCollision"
   // Fix engine
   | "fix.editConflict"
   // Skill installer

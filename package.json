@@ -69,7 +69,7 @@
     "pack:smoke": "mkdir -p /tmp/aact-packs && pnpm pack --pack-destination /tmp/aact-packs && pnpm --filter @aact/view pack --pack-destination /tmp/aact-packs",
     "prepack": "pnpm build",
     "prepublishOnly": "pnpm lint && pnpm typecheck && pnpm build && pnpm test:coverage && pnpm publint",
-    "prepare": "test -d .git && test -w .git/config && husky || true"
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{ts,js}": [
@@ -120,7 +120,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "c12": "4.0.0-beta.2",
+    "c12": "4.0.0-beta.5",
     "chevrotain": "^12.0.0",
     "citty": "^0.2.2",
     "consola": "^3.4.2",

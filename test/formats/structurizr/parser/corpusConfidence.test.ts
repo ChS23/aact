@@ -122,8 +122,10 @@ describe("Structurizr DSL corpus confidence", () => {
     ...walkDsl(".parser-refs/java/structurizr-dsl/src/test/resources/dsl"),
     ...walkDsl(".parser-refs/java/structurizr-export/src/test/resources"),
   ];
+  const hasUpstreamCorpus = upstreamCorpus.length > 0;
+  const upstreamIt = hasUpstreamCorpus ? it : it.skip;
 
-  it.each(upstreamCorpus.map((file) => [relative(file), file]))(
+  upstreamIt.each(upstreamCorpus.map((file) => [relative(file), file]))(
     "upstream Structurizr DSL corpus never throws: %s",
     (_name, file) => {
       expect(() =>

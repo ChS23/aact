@@ -9,6 +9,8 @@ const repoRoot = path.join(__dirname, "../../../..");
 
 const walkPuml = (dir: string): readonly string[] => {
   const out: string[] = [];
+  const root = path.join(repoRoot, dir);
+  if (!fs.existsSync(root)) return out;
   const visit = (current: string): void => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const full = path.join(current, entry.name);
@@ -16,7 +18,7 @@ const walkPuml = (dir: string): readonly string[] => {
       else if (entry.isFile() && full.endsWith(".puml")) out.push(full);
     }
   };
-  visit(path.join(repoRoot, dir));
+  visit(root);
   return out.toSorted((a, b) => a.localeCompare(b));
 };
 

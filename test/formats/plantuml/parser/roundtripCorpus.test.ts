@@ -45,6 +45,8 @@ const fixturesDir = path.join(
 const readFixture = (filename: string): string =>
   fs.readFileSync(path.join(fixturesDir, filename), "utf8");
 
+const fixtureDescribe = fs.existsSync(fixturesDir) ? describe : describe.skip;
+
 const containerKey = (c: Element) => ({
   name: c.name,
   label: c.label,
@@ -99,24 +101,27 @@ const ROUNDTRIPPABLE_FIXTURES: readonly string[] = [
   "C4_Dynamic Diagram Sample - message bus.puml",
 ];
 
-describe("PUML roundtrip — parser ↔ generator against reference fixtures", () => {
-  it.each(ROUNDTRIPPABLE_FIXTURES)(
-    "Model survives parse→generate→re-parse for %s",
-    (filename) => {
-      const src = readFixture(filename);
-      const first = parseSource(src, FILE);
-      expect(first.parseErrors).toEqual([]);
+fixtureDescribe(
+  "PUML roundtrip — parser ↔ generator against reference fixtures",
+  () => {
+    it.each(ROUNDTRIPPABLE_FIXTURES)(
+      "Model survives parse→generate→re-parse for %s",
+      (filename) => {
+        const src = readFixture(filename);
+        const first = parseSource(src, FILE);
+        expect(first.parseErrors).toEqual([]);
 
-      const output = generate(first.model);
-      const regen = output.files[0]?.content;
-      expect(regen).toBeTruthy();
+        const output = generate(first.model);
+        const regen = output.files[0]?.content;
+        expect(regen).toBeTruthy();
 
-      const second = parseSource(regen, FILE);
-      expect(second.parseErrors).toEqual([]);
+        const second = parseSource(regen, FILE);
+        expect(second.parseErrors).toEqual([]);
 
-      // Compare the architecturally-meaningful shape. If this drifts,
-      // `aact sync` would surface false diffs.
-      expect(modelKey(second.model)).toEqual(modelKey(first.model));
-    },
-  );
-});
+        // Compare the architecturally-meaningful shape. If this drifts,
+        // `aact sync` would surface false diffs.
+        expect(modelKey(second.model)).toEqual(modelKey(first.model));
+      },
+    );
+  },
+);

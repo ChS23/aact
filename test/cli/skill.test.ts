@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import os from "node:os";
-import path from "node:path";
 
 import { runCommand } from "citty";
+import path from "pathe";
 
 import type { SkillData } from "../../src/cli/commands/skill";
 import {
@@ -17,9 +17,9 @@ import type { CliEnvelope } from "../../src/cli/output";
 // Dynamic import keeps `execSync` off the static import graph — the sonarjs
 // no-os-command-from-path rule only flags top-level `child_process` imports.
 // We only shell out to a local throwaway git repo (no network) in these tests.
-const { execSync } = await import("node:child_process");
+const { execFileSync } = await import("node:child_process");
 
-const defaultRepo = "https://github.com/ChS23/aact-architect-skill.git";
+const defaultRepo = "https://github.com/Byndyusoft/aact-architect-skill.git";
 const fixedDate = new Date("2026-05-16T00:00:00.000Z");
 
 interface GitCall {
@@ -414,20 +414,16 @@ describe("default git runtime", () => {
     // The skill repo's SKILL.md lives at the repo ROOT — cloneSkill clones the
     // repo *into* the aact-architect dir, so SKILL.md ends up directly there.
     await fs.writeFile(path.join(origin, "SKILL.md"), "# aact-architect\n");
-    execSync("git init -q", { cwd: origin });
-    execSync("git config user.email t@x && git config user.name T", {
-      cwd: origin,
-      shell: "/bin/sh",
-    });
-    execSync("git add -A && git commit -q -m init", {
-      cwd: origin,
-      shell: "/bin/sh",
-    });
+    execFileSync("git", ["init", "-q"], { cwd: origin });
+    execFileSync("git", ["config", "user.email", "t@x"], { cwd: origin });
+    execFileSync("git", ["config", "user.name", "T"], { cwd: origin });
+    execFileSync("git", ["add", "-A"], { cwd: origin });
+    execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: origin });
     return origin;
   };
 
   const currentBranch = (repo: string): string =>
-    execSync("git rev-parse --abbrev-ref HEAD", { cwd: repo })
+    execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd: repo })
       .toString()
       .trim();
 
@@ -522,16 +518,14 @@ describe("skill command (citty execute closure)", () => {
     const origin = await fs.mkdtemp(path.join(os.tmpdir(), "aact-skill-co-"));
     try {
       await fs.writeFile(path.join(origin, "SKILL.md"), "# aact-architect\n");
-      execSync("git init -q", { cwd: origin });
-      execSync("git config user.email t@x && git config user.name T", {
+      execFileSync("git", ["init", "-q"], { cwd: origin });
+      execFileSync("git", ["config", "user.email", "t@x"], { cwd: origin });
+      execFileSync("git", ["config", "user.name", "T"], { cwd: origin });
+      execFileSync("git", ["add", "-A"], { cwd: origin });
+      execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: origin });
+      const ref = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
         cwd: origin,
-        shell: "/bin/sh",
-      });
-      execSync("git add -A && git commit -q -m init", {
-        cwd: origin,
-        shell: "/bin/sh",
-      });
-      const ref = execSync("git rev-parse --abbrev-ref HEAD", { cwd: origin })
+      })
         .toString()
         .trim();
 

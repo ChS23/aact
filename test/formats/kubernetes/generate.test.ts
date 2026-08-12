@@ -118,6 +118,29 @@ describe("kubernetes generate — real manifests", () => {
     expect(dep.metadata.annotations["aact.element"]).toBe("orders_api");
   });
 
+  it("normalizes Kubernetes resource names to DNS-1123", () => {
+    const out = gen([{ name: "Orders API_V2!", kind: "Container" }]);
+    const [dep, svc] = docsOf(fileFor(out, "orders-api-v2").content);
+    expect(dep.metadata.name).toBe("orders-api-v2");
+    expect(svc.metadata.name).toBe("orders-api-v2-svc");
+    expect(dep.metadata.annotations["aact.element"]).toBe("Orders API_V2!");
+  });
+
+  it("fails explicitly when two model names normalize to one DNS-1123 name", () => {
+    expect(() =>
+      gen([
+        { name: "orders_api", kind: "Container" },
+        { name: "orders-api", kind: "Container" },
+      ]),
+    ).toThrow(/DNS-1123 name collision/);
+  });
+
+  it("fails explicitly when a name cannot become a DNS-1123 name", () => {
+    expect(() => gen([{ name: "___", kind: "Container" }])).toThrow(
+      /cannot derive a DNS-1123 name/,
+    );
+  });
+
   it("honours a custom defaultPort", () => {
     const out = generate(
       makeModel({ elements: [{ name: "api", kind: "Container" }] }),

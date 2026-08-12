@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 
+import path from "pathe";
 import type { MockedFunction } from "vitest";
 
 import type { GenerateData } from "../../src/cli/commands/generate";
@@ -124,7 +125,7 @@ describe("executeGenerate — plantuml (single-file)", () => {
     expect(result.data.outputPath).toBe("./k8s/");
     expect(mockWriteFile).toHaveBeenCalledOnce();
     const [filePath] = mockWriteFile.mock.calls[0];
-    expect(filePath).toBe("k8s/architecture.puml");
+    expect(filePath).toBe(path.resolve("k8s/architecture.puml"));
   });
 
   it("writes into the directory when --output is an existing directory", async () => {
@@ -137,7 +138,7 @@ describe("executeGenerate — plantuml (single-file)", () => {
 
     expect(result.data.outputSink).toBe("directory");
     const [filePath] = mockWriteFile.mock.calls[0];
-    expect(filePath).toBe("out/architecture.puml");
+    expect(filePath).toBe(path.resolve("out/architecture.puml"));
   });
 
   it("keeps file sink when --output is a non-existing plain path", async () => {
@@ -232,6 +233,71 @@ describe("executeGenerate — kubernetes (multi-file)", () => {
 
     expect(result.data.outputPath).toBe("custom/k8s");
     expect(mockMkdir).toHaveBeenCalledWith("custom/k8s", { recursive: true });
+  });
+
+  it("rejects traversal output from a generator before writing anything", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    await expect(
+      executeGenerate(
+        {
+          ...baseConfig,
+          generate: { structurizr: { fileName: "../outside.dsl" } },
+        },
+        { format: "structurizr", output: "out/" },
+      ),
+    ).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "format.unsafeOutputPath",
+    });
+    expect(mockMkdir).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it("rejects an absolute output path from a generator", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    await expect(
+      executeGenerate(
+        {
+          ...baseConfig,
+          generate: { structurizr: { fileName: String.raw`C:\outside.dsl` } },
+        },
+        { format: "structurizr", output: "out/" },
+      ),
+    ).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "format.unsafeOutputPath",
+    });
+    expect(mockMkdir).not.toHaveBeenCalled();
+    expect(mockWriteFile).not.toHaveBeenCalled();
+  });
+
+  it("surfaces Kubernetes DNS-name collisions as explicit diagnostics", async () => {
+    setupModel(
+      makeModel({
+        elements: [{ name: "orders_api" }, { name: "orders-api" }],
+      }),
+    );
+    await expect(
+      executeGenerate(baseConfig, { format: "kubernetes", output: "out/" }),
+    ).rejects.toMatchObject({
+      name: "ToolError",
+      kind: "format.invalidGeneratedName",
+    });
+  });
+
+  it("reports the canonical relative paths that were written", async () => {
+    setupModel(makeModel({ elements: [{ name: "svc" }] }));
+    mockMkdir.mockResolvedValue();
+    mockWriteFile.mockResolvedValue();
+
+    const result = await executeGenerate(baseConfig, {
+      format: "structurizr",
+      output: "out/",
+    });
+
+    expect(result.data.files).toEqual([
+      expect.objectContaining({ path: "workspace.dsl" }),
+    ]);
   });
 
   it("--output - errors for multi-file", async () => {

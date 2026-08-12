@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
+import nodePath from "node:path";
 
 import path from "pathe";
 
 import type { AactConfig } from "../../config";
 import { loadFormat } from "../../formats/registry";
-import { canGenerate } from "../../formats/types";
+import { canGenerate, FormatGenerationError } from "../../formats/types";
 import { loadModel } from "../loadModel";
 import type { Diagnostic, Renderer } from "../output";
 import { resolveOutputMode, ToolError } from "../output";
@@ -117,6 +118,64 @@ const loadFormatOrThrow = async (formatName: string) => {
   }
 };
 
+interface ResolvedGeneratedFile {
+  readonly relativePath: string;
+  readonly outputPath: string;
+  readonly content: string;
+}
+
+const resolveDirectoryFiles = (
+  directory: string,
+  files: readonly { readonly path: string; readonly content: string }[],
+): readonly ResolvedGeneratedFile[] => {
+  const root = path.resolve(directory);
+  const seen = new Set<string>();
+  return files.map((file) => {
+    // Check both path syntaxes: a generated artefact must be safe even when
+    // it was produced on a different OS than the one writing it.
+    if (
+      file.path.length === 0 ||
+      nodePath.posix.isAbsolute(file.path) ||
+      nodePath.win32.isAbsolute(file.path)
+    ) {
+      throw new ToolError(
+        "format.unsafeOutputPath",
+        `Generator produced an absolute output path: ${JSON.stringify(file.path)}.`,
+        { path: file.path },
+      );
+    }
+    const outputPath = path.resolve(root, file.path);
+    const relativePath = path.relative(root, outputPath);
+    if (
+      relativePath.length === 0 ||
+      relativePath === ".." ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    ) {
+      throw new ToolError(
+        "format.unsafeOutputPath",
+        `Generator output path escapes the destination directory: ${JSON.stringify(file.path)}.`,
+        { path: file.path, directory },
+      );
+    }
+    const identity =
+      process.platform === "win32" ? outputPath.toLowerCase() : outputPath;
+    if (seen.has(identity)) {
+      throw new ToolError(
+        "format.outputPathCollision",
+        `Generator produced colliding output paths for ${JSON.stringify(file.path)}.`,
+        { path: file.path },
+      );
+    }
+    seen.add(identity);
+    return {
+      relativePath: relativePath.replaceAll("\\", "/"),
+      outputPath,
+      content: file.content,
+    };
+  });
+};
+
 export const executeGenerate = async (
   config: AactConfig,
   args: GenerateArgs,
@@ -138,7 +197,19 @@ export const executeGenerate = async (
   // formats (e.g. compose) simply resolve to `undefined`.
   const generateOptions =
     config.generate?.[formatName as keyof NonNullable<AactConfig["generate"]>];
-  const output = format.generate(model, generateOptions);
+  let output;
+  try {
+    output = format.generate(model, generateOptions);
+  } catch (error) {
+    if (error instanceof FormatGenerationError) {
+      throw new ToolError(
+        "format.invalidGeneratedName",
+        error.message,
+        error.context,
+      );
+    }
+    throw error;
+  }
 
   if (output.files.length === 0) {
     const diagnostic: Diagnostic = {
@@ -209,12 +280,15 @@ export const executeGenerate = async (
   }
 
   // directory sink
+  // Validate every generated path before creating the destination, so a bad
+  // generator cannot leave a partial tree behind and files[] remains an
+  // exact report of the paths actually written.
+  const files = resolveDirectoryFiles(sink.path, output.files);
   await fs.mkdir(sink.path, { recursive: true });
   await Promise.all(
-    output.files.map(async (f) => {
-      const outputPath = path.join(sink.path, f.path);
-      await fs.mkdir(path.dirname(outputPath), { recursive: true });
-      await fs.writeFile(outputPath, f.content);
+    files.map(async (file) => {
+      await fs.mkdir(path.dirname(file.outputPath), { recursive: true });
+      await fs.writeFile(file.outputPath, file.content);
     }),
   );
   return {
@@ -222,9 +296,9 @@ export const executeGenerate = async (
       formatName,
       outputSink: "directory",
       outputPath: sink.path,
-      files: output.files.map((f) => ({
-        path: f.path,
-        bytes: Buffer.byteLength(f.content, "utf8"),
+      files: files.map((file) => ({
+        path: file.relativePath,
+        bytes: Buffer.byteLength(file.content, "utf8"),
       })),
     },
     exitCode: 0,

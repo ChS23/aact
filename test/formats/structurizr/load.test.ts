@@ -1160,15 +1160,48 @@ describe("structurizr load — F2 fidelity (url, group, perspectives)", () => {
 
 describe("structurizrDslSyntax helpers", () => {
   it("containerDecl without tags emits a single-line declaration", () => {
-    expect(structurizrDslSyntax.containerDecl("orders", "Orders Service")).toBe(
-      'orders = container "Orders Service"',
-    );
+    expect(
+      structurizrDslSyntax.containerDecl({
+        name: "orders",
+        label: "Orders Service",
+        kind: "Container",
+        external: false,
+        description: "",
+        tags: [],
+        relations: [],
+      }),
+    ).toBe('orders = container "Orders Service"');
   });
 
   it("containerDecl with tags emits a block with tags clause", () => {
     expect(
-      structurizrDslSyntax.containerDecl("orders_acl", "Orders ACL", "acl"),
+      structurizrDslSyntax.containerDecl({
+        name: "orders_acl",
+        label: "Orders ACL",
+        kind: "Container",
+        external: false,
+        description: "",
+        tags: ["acl"],
+        relations: [],
+      }),
     ).toBe('orders_acl = container "Orders ACL" {\n    tags "acl"\n}');
+  });
+
+  it("containerDecl retains description, technology, link, and properties", () => {
+    expect(
+      structurizrDslSyntax.containerDecl({
+        name: "orders_repo",
+        label: "Orders repo",
+        kind: "Container",
+        external: false,
+        description: "Persistence adapter",
+        technology: "TypeScript",
+        tags: ["repo"],
+        link: "https://example.test/repo",
+        properties: { owner: "orders" },
+        relations: [],
+      }),
+    ).toContain('description "Persistence adapter"');
   });
 
   it("relationDecl emits description and technology in DSL slots", () => {

@@ -75,7 +75,13 @@ Container(api, "API")
   });
 });
 
-describe("parseSource — canonical fixtures from .parser-refs/C4-PlantUML/samples", () => {
+const hasReferenceFixtures = fs.existsSync(
+  path.join(__dirname, "../../../../.parser-refs/C4-PlantUML/samples"),
+);
+
+const referenceDescribe = hasReferenceFixtures ? describe : describe.skip;
+
+referenceDescribe("parseSource canonical fixtures", () => {
   const fixturesDir = path.join(
     __dirname,
     "../../../../.parser-refs/C4-PlantUML/samples",

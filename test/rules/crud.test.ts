@@ -514,11 +514,15 @@ describe("crudRule.fix (structurizr syntax)", () => {
     // syntax helper itself is what we pin here — actual fix path is
     // covered end-to-end by PUML tests above; structurizr in-place
     // editing uses the same applier.
-    const decl = structurizrDslSyntax.containerDecl(
-      "orders_repo",
-      "Orders Repo",
-      "repo",
-    );
+    const decl = structurizrDslSyntax.containerDecl({
+      name: "orders_repo",
+      label: "Orders Repo",
+      kind: "Container",
+      external: false,
+      description: "",
+      tags: ["repo"],
+      relations: [],
+    });
     expect(decl).toContain('orders_repo = container "Orders Repo"');
     expect(decl).toContain('tags "repo"');
     const rel = structurizrDslSyntax.relationDecl("orders", "orders_repo", {

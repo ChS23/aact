@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import path from "node:path";
+
+import path from "pathe";
 
 import { loadBaseline } from "../../../../src/diff/baseline";
 
@@ -281,19 +282,15 @@ describe("loadBaseline — git ref input", () => {
     // Init a temp git repo, commit a PUML, then resolve the ref. This
     // exercises the scratch-tmp file path that the unit tests can't
     // hit without a real git working tree.
-    const { execSync } = await import("node:child_process");
+    const { execFileSync } = await import("node:child_process");
     const repo = mkdtempSync(path.join(tmpdir(), "aact-baseline-git-"));
     try {
-      execSync("git init -q", { cwd: repo });
-      execSync("git config user.email 'test@x' && git config user.name 'T'", {
-        cwd: repo,
-        shell: "/bin/sh",
-      });
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+      execFileSync("git", ["config", "user.email", "test@x"], { cwd: repo });
+      execFileSync("git", ["config", "user.name", "T"], { cwd: repo });
       writeFileSync(path.join(repo, "arch.puml"), SIMPLE_PUML, "utf8");
-      execSync("git add arch.puml && git commit -q -m init", {
-        cwd: repo,
-        shell: "/bin/sh",
-      });
+      execFileSync("git", ["add", "arch.puml"], { cwd: repo });
+      execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: repo });
       const result = await loadBaseline({
         arg: "HEAD:arch.puml",
         sideLabel: "baseline",
@@ -307,14 +304,12 @@ describe("loadBaseline — git ref input", () => {
   });
 
   it("auto-detects structurizr from a .dsl git ref path", async () => {
-    const { execSync } = await import("node:child_process");
+    const { execFileSync } = await import("node:child_process");
     const repo = mkdtempSync(path.join(tmpdir(), "aact-baseline-git-dsl-"));
     try {
-      execSync("git init -q", { cwd: repo });
-      execSync("git config user.email 'test@x' && git config user.name 'T'", {
-        cwd: repo,
-        shell: "/bin/sh",
-      });
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+      execFileSync("git", ["config", "user.email", "test@x"], { cwd: repo });
+      execFileSync("git", ["config", "user.name", "T"], { cwd: repo });
       writeFileSync(
         path.join(repo, "workspace.dsl"),
         `workspace {
@@ -326,10 +321,8 @@ describe("loadBaseline — git ref input", () => {
         }`,
         "utf8",
       );
-      execSync("git add workspace.dsl && git commit -q -m init", {
-        cwd: repo,
-        shell: "/bin/sh",
-      });
+      execFileSync("git", ["add", "workspace.dsl"], { cwd: repo });
+      execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: repo });
       const result = await loadBaseline({
         arg: "HEAD:workspace.dsl",
         sideLabel: "baseline",
@@ -345,22 +338,18 @@ describe("loadBaseline — git ref input", () => {
   });
 
   it("falls back to formatHint suffix for an extensionless git-ref path", async () => {
-    const { execSync } = await import("node:child_process");
+    const { execFileSync } = await import("node:child_process");
     const repo = mkdtempSync(path.join(tmpdir(), "aact-baseline-git-noext-"));
     try {
-      execSync("git init -q", { cwd: repo });
-      execSync("git config user.email 'test@x' && git config user.name 'T'", {
-        cwd: repo,
-        shell: "/bin/sh",
-      });
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+      execFileSync("git", ["config", "user.email", "test@x"], { cwd: repo });
+      execFileSync("git", ["config", "user.name", "T"], { cwd: repo });
       // No extension on the committed file → detectFormatFromPath returns
       // undefined, formatOverride supplies the hint, and scratchExt falls
       // back to `.${formatHint}` because path.extname is empty.
       writeFileSync(path.join(repo, "Archfile"), SIMPLE_PUML, "utf8");
-      execSync("git add Archfile && git commit -q -m init", {
-        cwd: repo,
-        shell: "/bin/sh",
-      });
+      execFileSync("git", ["add", "Archfile"], { cwd: repo });
+      execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: repo });
       const result = await loadBaseline({
         arg: "HEAD:Archfile",
         formatOverride: "plantuml",
