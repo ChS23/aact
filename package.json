@@ -81,8 +81,6 @@
   },
   "devDependencies": {
     "@aact/view": "workspace:*",
-    "@commitlint/cli": "20.4.1",
-    "@commitlint/config-conventional": "20.4.1",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.7.1",
     "@eslint/js": "^9",
     "@fast-check/vitest": "^0.4.1",

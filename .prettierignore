@@ -8,3 +8,8 @@ schemas/
 # generator owns the canonical formatting; prettier would reflow it
 # into a diff on every `docs:check` run (same as schemas/ above).
 docs/reference/
+
+# Git symlink stubs become plain text files when checked out on Windows with
+# core.symlinks=false. Formatting them would change the symlink target.
+CLAUDE.md
+.github/copilot-instructions.md

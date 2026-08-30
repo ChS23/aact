@@ -1,9 +1,9 @@
 import type { ChangelogConfig } from "changelogen";
 
-// changelogen — UnJS-aligned CHANGELOG.md generator from conventional commits.
-// Workflow: write commits in conventional format (we have commitlint enforcing
-// it), then run `pnpm release` to bump version, generate CHANGELOG section,
-// commit, and tag.
+// changelogen — UnJS-aligned CHANGELOG.md generator. Conventional commits are
+// recommended for useful automatic grouping, but their format is not enforced
+// by a Git hook. Run `pnpm release` to bump the version, generate a CHANGELOG
+// section, commit, and tag.
 //
 // Reference: https://github.com/unjs/changelogen
 export default <Partial<ChangelogConfig>>{

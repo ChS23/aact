@@ -154,9 +154,10 @@ plugin layering (`model → format → rule → analyze → cli`, no upward
 imports). Do not silence rules with disable comments — fix the code, or
 justify the disable in a comment if the rule is genuinely wrong here.
 
-Husky runs `lint-staged` pre-commit and `commitlint` on the message —
-commits that fail either are rejected locally. Use **Conventional
-Commits**, short subject and body, no LLM-style multi-section templates.
+Husky runs `lint-staged` pre-commit so staged source files are linted and
+formatted before commit. Commit messages are not rejected based on their
+format. Conventional Commits are still recommended because `changelogen`
+uses their types to group generated CHANGELOG entries.
 
 ## Public API contract
 
