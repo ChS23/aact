@@ -172,8 +172,10 @@ export const startServer = async (
   const parseRequestUrl = (input: string): URL =>
     new URL(input, "http://localhost");
 
-  const authUrl = (url: string): string =>
-    `${url.replace(/\/$/, "")}/?token=${encodeURIComponent(options.authToken)}`;
+  // `listhen` opens its `baseURL` itself when `open: true`. Put the
+  // per-session token there rather than appending it after `listen()`
+  // returns; otherwise the browser opens an unauthorised bare URL.
+  const authBaseUrl = `/?token=${encodeURIComponent(options.authToken)}`;
 
   const unauthorized = (): Response =>
     new Response("Unauthorized", {
@@ -321,6 +323,7 @@ export const startServer = async (
 
   const listener = await listen(toNodeHandler(app), {
     port: options.port,
+    baseURL: authBaseUrl,
     open: options.noOpen ? false : true,
     showURL: false,
     qr: false,
@@ -328,7 +331,7 @@ export const startServer = async (
     ws: { resolve: resolveWebSocketHooks },
   });
 
-  const url = authUrl(listener.url);
+  const url = listener.url;
 
   return {
     listener,

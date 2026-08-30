@@ -1,4 +1,4 @@
-import { viewAuthState } from "../../packages/view/src/server";
+import { startServer, viewAuthState } from "../../packages/view/src/server";
 
 const TOKEN = "test-token";
 
@@ -34,5 +34,21 @@ describe("aact view server auth", () => {
       ok: false,
       shouldSetCookie: false,
     });
+  });
+});
+
+describe("aact view server startup", () => {
+  it("exposes the authenticated URL to listhen before it opens a browser", async () => {
+    const server = await startServer({
+      authToken: TOKEN,
+      initialEnvelope: {} as never,
+      noOpen: true,
+      port: 0,
+    });
+
+    const [url] = await server.listener.getURLs();
+    expect(url?.url).toContain(`/?token=${TOKEN}`);
+
+    await server.close();
   });
 });
