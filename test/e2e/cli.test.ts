@@ -357,6 +357,29 @@ describe("aact model", () => {
     expect(Object.keys(data.model.elements)).toHaveLength(300);
   });
 
+  it("--json names the missing !include, not the entry point", async () => {
+    await fs.writeFile(
+      path.join(workDir, "main.puml"),
+      `@startuml\n!include partials/missing.puml\nContainer(api, "API")\n@enduml\n`,
+    );
+
+    const result = await runCli(["model", "main.puml", "--json"]);
+
+    expect(result.exitCode).toBe(2);
+    const envelope = JSON.parse(result.stdout) as {
+      diagnostics: {
+        kind: string;
+        message: string;
+        context: Record<string, string>;
+      }[];
+    };
+    const diagnostic = envelope.diagnostics[0];
+    expect(diagnostic.kind).toBe("model.includeNotFound");
+    expect(diagnostic.message).toContain("partials/missing.puml");
+    expect(diagnostic.context.includedFrom).toContain("main.puml");
+    expect(diagnostic.context.line).toBe("2");
+  });
+
   it("--json exits 2 on missing source file (model command never crashes)", async () => {
     await runCli(["init"]);
     await fs.rm(path.join(workDir, "architecture.puml"));
